@@ -1,5 +1,5 @@
 import { webcrypto } from "node:crypto";
-import { Cheerio, load } from "cheerio";
+import { Cheerio, CheerioAPI, load } from "cheerio";
 import { Element } from "domhandler";
 
 export class AccessDeniedError extends Error {
@@ -152,18 +152,12 @@ export function transformContent(content: string): string {
     return content.replace(/./g, (char) => contentTransDict[char] || char);
 }
 
-export function extractVolumesArray(topCheerio: Cheerio<Element>): Element[] {
+export function extractVolumesArray(catalogCheerio: CheerioAPI): Element[] {
     const results: Element[] = [];
-    let currentElement = topCheerio;
-    while (currentElement.length > 0) {
-        const nextElement = currentElement.children("div.volume").first();
-        currentElement.remove("div.volume");
-        const currentElem = currentElement.get(0);
-        if (currentElem) {
-            results.push(currentElem);
-        }
-        currentElement = nextElement;
-    }
+    catalogCheerio("#volume-list div.volume").each((_, elem) => {
+        catalogCheerio(elem).remove("div.volume");
+        results.push(elem);
+    });
     return results;
 }
 
