@@ -3,6 +3,7 @@ import morgan from "morgan";
 import { getCoefficientsFromPage } from "./coefficient";
 import { decrypt } from "./decrypt";
 import {
+    extractVolumesArray,
     fetchBinary,
     fetchText,
     transformChapterName,
@@ -261,8 +262,8 @@ async function main() {
                 path: string;
                 releaseTime: string | null;
             }[] = [];
-            const volumes = catalogCheerio("#volume-list div.volume").toArray();
-            const novelId = path.match(/\/novel\/(\d+).html/)?.[1] || "";
+            const firstVolume = catalogCheerio("#volume-list div.volume").first();
+            const volumes = extractVolumesArray(firstVolume);
             let lastChapNotIdentified = false;
             let lastChapterName = "";
             let chapterId = 0;

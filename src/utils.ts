@@ -1,5 +1,6 @@
 import { webcrypto } from "node:crypto";
-import { load } from "cheerio";
+import { Cheerio, load } from "cheerio";
+import { Element } from "domhandler";
 
 export class AccessDeniedError extends Error {
     constructor(message: string) {
@@ -149,6 +150,21 @@ export function transformContent(content: string): string {
         "\ue825": "\u5507",
     };
     return content.replace(/./g, (char) => contentTransDict[char] || char);
+}
+
+export function extractVolumesArray(topCheerio: Cheerio<Element>): Element[] {
+    const results: Element[] = [];
+    let currentElement = topCheerio;
+    while (currentElement.length > 0) {
+        const nextElement = currentElement.children("div.volume").first();
+        currentElement.remove("div.volume");
+        const currentElem = currentElement.get(0);
+        if (currentElem) {
+            results.push(currentElem);
+        }
+        currentElement = nextElement;
+    }
+    return results;
 }
 
 export enum FetchType {
