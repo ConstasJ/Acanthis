@@ -39,7 +39,7 @@ export async function decrypt(html: string): Promise<string> {
     const $ = load(html);
     const coefficients = await getCoefficientsFromPage(html);
     const chapterId = extractChapterId($);
-    const container = $("#TextContent");
+    const container = $("#TextContent, #acontent");
     if (!container.length) {
         return "";
     }

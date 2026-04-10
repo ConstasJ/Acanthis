@@ -25,6 +25,7 @@ import { initDB, closeDB, migrateFromCacheJson } from "./db";
 import { novelChapterQueue, searchQueue } from "./queue";
 import { NovelItem } from "./types";
 import { existsSync } from "node:fs";
+import { writeFile } from "node:fs/promises";
 import { readFile } from "node:fs/promises";
 
 const COVER_URL_PREFIX = "https://www.linovelib.com/files/article/image";
@@ -230,6 +231,7 @@ async function main() {
         try {
             const url = `https://www.linovelib.com${path}`;
             const html = await fetchText(url);
+            await writeFile(`./data/novel.html`, html, "utf-8");
             const $ = load(html);
             const name = $("h1.book-name").text().trim();
             const cover = $(".book-img img").attr("src") || "";

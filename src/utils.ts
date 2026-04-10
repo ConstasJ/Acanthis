@@ -12,12 +12,14 @@ export class AccessDeniedError extends Error {
 export function fetchText(
     url: string,
     cookies?: Record<string, string>,
+    isMobile: boolean = false,
 ): Promise<string> {
-    return fetchWithAppliance(
+    return fetchTextWithAppliance(
         url,
         FetchType.GET,
         undefined,
         cookies,
+        isMobile,
     ).then((res) => {
         const snippet = res.slice(0, 1024).toLowerCase();
 
@@ -175,18 +177,20 @@ export async function fetchChapterLogJs(url: string): Promise<string> {
     return script;
 }
 
-export async function fetchWithAppliance(
+export async function fetchTextWithAppliance(
     url: string,
     mode: FetchType = FetchType.GET,
     body?: string,
     cookies?: Record<string, string>,
+    isMobile: boolean = false,
 ): Promise<string> {
     const applianceUrl = process.env.APPLIANCE_URL || "http://localhost:5302";
     try {
         let res: Response | null = null;
+        const backfix = isMobile ? "/mobile" : "";
         switch (mode) {
             case FetchType.GET:
-                res = await fetch(`${applianceUrl}/request`, {
+                res = await fetch(`${applianceUrl}/request${backfix}`, {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json",
@@ -199,7 +203,7 @@ export async function fetchWithAppliance(
                 });
                 break;
             case FetchType.POST:
-                res = await fetch(`${applianceUrl}/request`, {
+                res = await fetch(`${applianceUrl}/request${backfix}`, {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json",

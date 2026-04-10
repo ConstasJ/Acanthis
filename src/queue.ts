@@ -3,7 +3,7 @@ import { getCache, setCache } from "./cache";
 import {
     fetchText,
     FetchType,
-    fetchWithAppliance,
+    fetchTextWithAppliance,
     solveSearchChallenge,
     AccessDeniedError,
 } from "./utils";
@@ -80,7 +80,7 @@ class SearchQueue {
             try {
                 console.log(`[Queue] 冷却完毕或无需冷却，开始请求下游...`);
                 let haha: string = getCache("haha") || "";
-                let resp = await fetchWithAppliance(
+                let resp = await fetchTextWithAppliance(
                     "https://www.linovelib.com/S6/",
                     FetchType.POST,
                     `searchkey=${encodeURIComponent(keyword)}`,
@@ -110,7 +110,7 @@ class SearchQueue {
                     });
                     haha = await solveSearchChallenge(a, b, c);
                     await new Promise((r) => setTimeout(r, 3000));
-                    resp = await fetchWithAppliance(
+                    resp = await fetchTextWithAppliance(
                         "https://www.linovelib.com/S6/",
                         FetchType.POST,
                         `searchkey=${encodeURIComponent(keyword)}`,
@@ -199,8 +199,10 @@ class NovelChapterQueue {
 
             for (let attempt = 1; attempt <= maxRetries; attempt++) {
                 try {
-                    const content = await fetchText(url);
-
+                    let content = await fetchText(url);
+                    if (content.match(/沒有可閱讀的章節|没有可阅读的章节/i)) {
+                        content = await fetchText(url, {}, true);
+                    } 
                     // Success: apply normal delay (50-100ms random)
                     const delay = this.backoff.getDelayForSuccess();
                     console.log(
