@@ -186,11 +186,11 @@ async function main() {
                     "";
             }
             content = `<h2>${chapterName}</h2>\n` + transformContent(content);
-            // setNovelContentToStorage(
-            //     parseInt(novelId),
-            //     parseInt(chapterId) || 0,
-            //     content,
-            // );
+            setNovelContentToStorage(
+                parseInt(novelId),
+                parseInt(chapterId) || 0,
+                content,
+            );
             res.json({
                 content,
             });
