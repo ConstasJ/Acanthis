@@ -5,8 +5,9 @@ import {
     sqliteTable,
     text,
 } from "drizzle-orm/sqlite-core";
+import type { SQLiteTableWithColumns } from "drizzle-orm/sqlite-core/table";
 
-export const novels = sqliteTable("novels", {
+export const novels: SQLiteTableWithColumns<any> = sqliteTable("novels", {
     id: integer("id").primaryKey({ autoIncrement: true }),
     path: text("path").notNull().unique(),
     name: text("name").notNull(),
@@ -16,13 +17,13 @@ export const novels = sqliteTable("novels", {
         .default(sql`unixepoch('now','subsec') * 1000`),
 });
 
-export const keywordSearches = sqliteTable("keyword_searches", {
+export const keywordSearches: SQLiteTableWithColumns<any> = sqliteTable("keyword_searches", {
     keyword: text("keyword").primaryKey(),
     queryTime: integer("query_time").notNull(),
     total: integer("total").notNull(),
 });
 
-export const keywordNovels = sqliteTable(
+export const keywordNovels: SQLiteTableWithColumns<any> = sqliteTable(
     "keyword_novels",
     {
         keyword: text("keyword")
@@ -35,19 +36,19 @@ export const keywordNovels = sqliteTable(
     (table) => [primaryKey({ columns: [table.keyword, table.novelId] })],
 );
 
-export const chapterPaths = sqliteTable("chapter_paths", {
+export const chapterPaths: SQLiteTableWithColumns<any> = sqliteTable("chapter_paths", {
     name: text("name").primaryKey(),
     path: text("path").notNull(),
 });
 
-export const coverMetadata = sqliteTable("cover_metadata", {
+export const coverMetadata: SQLiteTableWithColumns<any> = sqliteTable("cover_metadata", {
     hash: text("hash").primaryKey(),
     contentType: text("content_type").notNull(),
     originalUrl: text("original_url").notNull(),
     ext: text("ext").notNull(),
 });
 
-export const generalCache = sqliteTable("general_cache", {
+export const generalCache: SQLiteTableWithColumns<any> = sqliteTable("general_cache", {
     key: text("key").primaryKey(),
     value: text("value").notNull(),
 });
