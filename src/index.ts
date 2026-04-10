@@ -167,7 +167,9 @@ async function main() {
             let nextPageId =
                 $("div.mlfy_page a:last")
                     .attr("href")
-                    ?.match(/\/novel\/(\d+)\/([\d_]+)\.html/)?.[2] || "";
+                    ?.match(/\/novel\/(\d+)\/([\d_]+)\.html/)?.[2] ||
+                firstPageHtml.match(/url_next:'\/novel\/(\d+)\/([\d_]+)\.html'/)?.[2] ||
+                "";
             let content = await decrypt(firstPageHtml);
             while (nextPageId?.includes(chapterId)) {
                 const nextPageHtml =
@@ -179,14 +181,16 @@ async function main() {
                 nextPageId =
                     $("div.mlfy_page a:last")
                         .attr("href")
-                        ?.match(/\/novel\/(\d+)\/([\d_]+)\.html/)?.[2] || "";
+                        ?.match(/\/novel\/(\d+)\/([\d_]+)\.html/)?.[2] ||
+                    nextPageHtml.match(/url_next:'\/novel\/(\d+)\/([\d_]+)\.html'/)?.[2] ||
+                    "";
             }
             content = `<h2>${chapterName}</h2>\n` + transformContent(content);
-            setNovelContentToStorage(
-                parseInt(novelId),
-                parseInt(chapterId) || 0,
-                content,
-            );
+            // setNovelContentToStorage(
+            //     parseInt(novelId),
+            //     parseInt(chapterId) || 0,
+            //     content,
+            // );
             res.json({
                 content,
             });
