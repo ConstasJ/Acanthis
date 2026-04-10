@@ -16,7 +16,7 @@ import { load } from "cheerio";
  */
 class SimpleBackoff {
     private readonly NORMAL_DELAY_MIN = 500;
-    private readonly NORMAL_DELAY_MAX = 600;
+    private readonly NORMAL_DELAY_MAX = 800;
     private readonly FAILURE_DELAY = 15000;
 
     /**
