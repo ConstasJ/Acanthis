@@ -2,10 +2,17 @@ import { webcrypto } from "node:crypto";
 import { Cheerio, CheerioAPI, load } from "cheerio";
 import { Element } from "domhandler";
 
+export interface AccessDeniedInit {
+    message: string;
+    response: string;
+}
+
 export class AccessDeniedError extends Error {
-    constructor(message: string) {
-        super(message);
+    response: string;
+    constructor(init: AccessDeniedInit) {
+        super(init.message);
         this.name = "AccessDeniedError";
+        this.response = init.response;
     }
 }
 
@@ -28,9 +35,10 @@ export function fetchText(
                 snippet,
             );
         if (isBlocked) {
-            throw new AccessDeniedError(
-                `Access limited detected for ${url}`,
-            );
+            throw new AccessDeniedError({
+                message: `Access limited detected for ${url}`,
+                response: res,
+            });
         }
 
         return res;
@@ -267,9 +275,10 @@ export async function fetchBinary(
                 snippet,
             )
         ) {
-            throw new AccessDeniedError(
-                `Access limited detected for binary ${url}`,
-            );
+            throw new AccessDeniedError({
+                message: `Access limited detected for ${url}`,
+                response: data.toString("utf-8"),
+            });
         }
     }
     return { data, contentType };

@@ -16,14 +16,23 @@ import { load } from "cheerio";
  */
 class SimpleBackoff {
     private readonly NORMAL_DELAY_MIN = 500;
-    private readonly NORMAL_DELAY_MAX = 800;
+    private readonly NORMAL_DELAY_MAX = 600;
+    private readonly NORMAL_MOBILE_DELAY_MIN = 2000;
+    private readonly NORMAL_MOBILE_DELAY_MAX = 5000;
     private readonly FAILURE_DELAY = 15000;
 
     /**
      * Get delay for normal (successful) operation
      * @returns Random delay in range [500, 600]ms
      */
-    getDelayForSuccess(): number {
+    getDelayForSuccess(isMobile: boolean = false): number {
+        if (isMobile) {
+            return (
+                this.NORMAL_MOBILE_DELAY_MIN +
+                Math.random() *
+                    (this.NORMAL_MOBILE_DELAY_MAX - this.NORMAL_MOBILE_DELAY_MIN)
+            );
+        }
         return (
             this.NORMAL_DELAY_MIN +
             Math.random() * (this.NORMAL_DELAY_MAX - this.NORMAL_DELAY_MIN)
@@ -200,11 +209,13 @@ class NovelChapterQueue {
             for (let attempt = 1; attempt <= maxRetries; attempt++) {
                 try {
                     let content = await fetchText(url);
+                    let delay = 0;
                     if (content.match(/沒有可閱讀的章節|没有可阅读的章节/i)) {
                         content = await fetchText(url, {}, true);
-                    } 
-                    // Success: apply normal delay (50-100ms random)
-                    const delay = this.backoff.getDelayForSuccess();
+                        delay = this.backoff.getDelayForSuccess(true);
+                    } else {
+                        delay = this.backoff.getDelayForSuccess();
+                    }
                     console.log(
                         `[ChapterQueue] 小说${novelId}-章节${chapterId}-Part${partId}请求成功，将等待 ${Math.round(delay)}ms`,
                     );
