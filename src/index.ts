@@ -313,7 +313,7 @@ async function main() {
                             const $temp = load(html);
                             lastChapterPath =
                                 $temp("div.mlfy_page a:first").attr("href") ||
-                                html.match(/url_next:'(\/novel\/\d+\/[\d_]+\.html)'/)?.[1] ||
+                                html.match(/url_previous:'(\/novel\/\d+\/[\d_]+\.html)'/)?.[1] ||
                                 "";
                         }
                         setChapterPathToCache(lastChapterName, lastChapterPath);
