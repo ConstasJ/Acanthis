@@ -30,7 +30,8 @@ class SimpleBackoff {
             return (
                 this.NORMAL_MOBILE_DELAY_MIN +
                 Math.random() *
-                    (this.NORMAL_MOBILE_DELAY_MAX - this.NORMAL_MOBILE_DELAY_MIN)
+                    (this.NORMAL_MOBILE_DELAY_MAX -
+                        this.NORMAL_MOBILE_DELAY_MIN)
             );
         }
         return (
@@ -46,6 +47,43 @@ class SimpleBackoff {
     getDelayForFailure(): number {
         return this.FAILURE_DELAY;
     }
+}
+
+/**
+ * Detects if an error is caused by Cloudflare WAF blocking.
+ * Checks for:
+ * 1. HTTP status codes 401 or 403 (access denied by Cloudflare)
+ * 2. Cloudflare-specific text patterns in error messages
+ *
+ * @param error - The error object to check
+ * @returns true if Cloudflare blocking is detected, false otherwise
+ */
+function isCloudflareBlock(error: any): boolean {
+    const errorMessage = String(error?.message || "").toLowerCase();
+    const errorContent = String(error?.response || "").toLowerCase();
+
+    // Check for HTTP status codes 401 or 403
+    const isCFStatusCode =
+        error?.status === 401 ||
+        error?.status === 403 ||
+        error?.statusCode === 401 ||
+        error?.statusCode === 403 ||
+        /(401|403)/.test(errorMessage);
+
+    // Check for Cloudflare-specific text patterns
+    const cfPatterns = [
+        /cloudflare/,
+        /cf-ray/,
+        /access denied/,
+        /challenge/,
+        /captcha/,
+        /attention required/,
+    ];
+    const isCFPattern = cfPatterns.some(
+        (pattern) => pattern.test(errorMessage) || pattern.test(errorContent),
+    );
+
+    return isCFStatusCode || isCFPattern;
 }
 
 class SearchQueue {
@@ -155,44 +193,6 @@ class NovelChapterQueue {
         return new Promise((resolve) => setTimeout(resolve, ms));
     }
 
-    /**
-     * Detects if an error is caused by Cloudflare WAF blocking.
-     * Checks for:
-     * 1. HTTP status codes 401 or 403 (access denied by Cloudflare)
-     * 2. Cloudflare-specific text patterns in error messages
-     *
-     * @param error - The error object to check
-     * @returns true if Cloudflare blocking is detected, false otherwise
-     */
-    private isCloudflareBlock(error: any): boolean {
-        const errorMessage = String(error?.message || "").toLowerCase();
-        const errorContent = String(error?.response || "").toLowerCase();
-
-        // Check for HTTP status codes 401 or 403
-        const isCFStatusCode =
-            error?.status === 401 ||
-            error?.status === 403 ||
-            error?.statusCode === 401 ||
-            error?.statusCode === 403 ||
-            /(401|403)/.test(errorMessage);
-
-        // Check for Cloudflare-specific text patterns
-        const cfPatterns = [
-            /cloudflare/,
-            /cf-ray/,
-            /access denied/,
-            /challenge/,
-            /captcha/,
-            /attention required/,
-        ];
-        const isCFPattern = cfPatterns.some(
-            (pattern) =>
-                pattern.test(errorMessage) || pattern.test(errorContent),
-        );
-
-        return isCFStatusCode || isCFPattern;
-    }
-
     async fetchChapterPartContent(url: string): Promise<string> {
         return await this.queue.add(async () => {
             const match = url.match(/\/novel\/(\d+)\/(\d+)(?:_(\d+))?\.html/);
@@ -224,7 +224,7 @@ class NovelChapterQueue {
                     return content;
                 } catch (e) {
                     lastError = e as Error;
-                    const isCFBlock = this.isCloudflareBlock(e);
+                    const isCFBlock = isCloudflareBlock(e);
 
                     // Check if we should retry
                     const shouldRetry =
@@ -257,7 +257,103 @@ class NovelChapterQueue {
                         const delay = this.backoff.getDelayForSuccess();
                         await this.sleep(delay);
 
-                        throw new Error(`获取章节Part内容失败: ${lastError.message}`);
+                        throw new Error(
+                            `获取章节Part内容失败: ${lastError.message}`,
+                        );
+                    }
+                }
+            }
+
+            // Should never reach here, but TypeScript needs it
+            throw lastError!;
+        });
+    }
+}
+
+class NovelInfoQueue {
+    private queue: PQueue;
+    private backoff: SimpleBackoff;
+    private MAX_RETRIES = 5;
+
+    constructor() {
+        this.queue = new PQueue({
+            concurrency: 1,
+        });
+        this.backoff = new SimpleBackoff();
+        this.queue.on("add", () => {
+            console.log(
+                `[NovelInfoQueue] 任务已添加，当前排队数: ${this.queue.size}`,
+            );
+        });
+        this.queue.on("next", () => {
+            console.log(
+                `[NovelInfoQueue] 任务完成或超时，开始下一个任务。剩余: ${this.queue.size}`,
+            );
+        });
+    }
+
+    private sleep(ms: number): Promise<void> {
+        return new Promise((resolve) => setTimeout(resolve, ms));
+    }
+
+    async fetchNovelInfo(url: string): Promise<string> {
+        return this.queue.add(async () => {
+            const match = url.match(/\/novel\/(\d+)\.html/);
+            if (!match) {
+                throw new Error(`无效的小说信息URL: ${url}`);
+            }
+            const novelId = match[1];
+
+            const maxRetries = this.MAX_RETRIES;
+            let lastError: Error | null = null;
+
+            for (let attempt = 1; attempt <= maxRetries; attempt++) {
+                try {
+                    const content = await fetchText(url);
+                    const delay = this.backoff.getDelayForSuccess();
+                    console.log(
+                        `[NovelInfoQueue] 小说${novelId}信息请求成功，将等待 ${Math.round(delay)}ms`,
+                    );
+                    await this.sleep(delay);
+                    return content;
+                } catch (e) {
+                    lastError = e as Error;
+                    const isCFBlock = isCloudflareBlock(e);
+
+                    // Check if we should retry
+                    const shouldRetry =
+                        (isCFBlock || e instanceof AccessDeniedError) &&
+                        attempt < maxRetries;
+
+                    if (shouldRetry) {
+                        // Failure: apply large delay (8 seconds)
+                        const retryDelay = this.backoff.getDelayForFailure();
+
+                        console.warn(
+                            `[NovelInfoQueue] 检测到访问限制 (尝试 ${attempt}/${maxRetries})，将延迟 ${retryDelay / 1000}s 后重试`,
+                        );
+
+                        await this.sleep(retryDelay);
+                        continue; // Retry
+                    } else {
+                        // Non-retryable error or max retries reached
+                        if (isCFBlock || e instanceof AccessDeniedError) {
+                            console.error(
+                                `[NovelInfoQueue] Cloudflare防护触发，已达最大重试次数 (${maxRetries})`,
+                            );
+                        } else {
+                            console.error(
+                                `[NovelInfoQueue] 获取小说信息失败: ${lastError.message}`,
+                            );
+                        }
+
+                        // Still apply normal delay before throwing
+                        const delay = this.backoff.getDelayForSuccess();
+                        await this.sleep(delay);
+
+                        throw new Error(
+                            `获取小说信息失败: ${lastError.message}`,
+                        );
                     }
                 }
             }
@@ -271,3 +367,4 @@ class NovelChapterQueue {
 // 导出单例，确保全站共用同一个限流器
 export const searchQueue = new SearchQueue();
 export const novelChapterQueue = new NovelChapterQueue();
+export const novelInfoQueue = new NovelInfoQueue();

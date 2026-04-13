@@ -22,7 +22,7 @@ import {
     setNovelContentToStorage,
 } from "./cache";
 import { initDB, closeDB, migrateFromCacheJson } from "./db";
-import { novelChapterQueue, searchQueue } from "./queue";
+import { novelChapterQueue, novelInfoQueue, searchQueue } from "./queue";
 import { NovelItem } from "./types";
 import { existsSync } from "node:fs";
 import { writeFile } from "node:fs/promises";
@@ -234,7 +234,7 @@ async function main() {
         }
         try {
             const url = `https://www.linovelib.com${path}`;
-            const html = await fetchText(url);
+            const html = await novelInfoQueue.fetchNovelInfo(url);
             await writeFile(`./data/novel.html`, html, "utf-8");
             const $ = load(html);
             const name = $("h1.book-name").text().trim();
