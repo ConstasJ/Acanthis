@@ -387,6 +387,9 @@ async function main() {
                 addToNovelsCache(keyword, results);
                 return res.json({ results });
             }
+            if(!fp.includes("有关")) {
+                throw new Error("Unexpected search result format, keyword not found");
+            }
             const pages =
                 $("em#pagestats")
                     .text()
@@ -420,9 +423,6 @@ async function main() {
                     );
                     if ($3("a.next").length === 0) break;
                 }
-            }
-            if (results.length === 0) {
-                throw new Error("Parser Error!");
             }
             const baseUrl = `${req.protocol}://${req.get("host")}`;
             rewriteCoverUrls(results, baseUrl);
