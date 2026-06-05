@@ -1,0 +1,8 @@
+{
+  "name": "lds-root",
+  "version": "1.0.0",
+  "description": "The workspace root of linovelib-descramble-server project",
+  "author": "ConstasJ <constasj@qq.com>",
+  "license": "MIT",
+  "type": "module"
+}
