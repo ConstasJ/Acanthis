@@ -7,6 +7,13 @@
   "license": "MIT",
   "type": "module",
   "packageManager": "pnpm@11.5.2",
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "format": "turbo run format",
+    "test": "turbo run test"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/ConstasJ/linovelib-descramble-server.git"
