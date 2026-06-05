@@ -1,8 +1,17 @@
 {
   "name": "lds-root",
   "version": "1.0.0",
+  "private": true,
   "description": "The workspace root of linovelib-descramble-server project",
   "author": "ConstasJ <constasj@qq.com>",
   "license": "MIT",
-  "type": "module"
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ConstasJ/linovelib-descramble-server.git"
+  },
+  "homepage": "https://github.com/ConstasJ/linovelib-descramble-server#readme",
+  "bugs": {
+    "url": "https://github.com/ConstasJ/linovelib-descramble-server/issues"
+  }
 }
