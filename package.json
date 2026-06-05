@@ -23,6 +23,7 @@
     "url": "https://github.com/ConstasJ/linovelib-descramble-server/issues"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.4.16",
     "turbo": "^2.9.16"
   }
 }
