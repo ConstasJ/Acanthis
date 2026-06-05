@@ -6,6 +6,7 @@
   "author": "ConstasJ <constasj@qq.com>",
   "license": "MIT",
   "type": "module",
+  "packageManager": "pnpm@11.5.2",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/ConstasJ/linovelib-descramble-server.git"
@@ -13,5 +14,8 @@
   "homepage": "https://github.com/ConstasJ/linovelib-descramble-server#readme",
   "bugs": {
     "url": "https://github.com/ConstasJ/linovelib-descramble-server/issues"
+  },
+  "devDependencies": {
+    "turbo": "^2.9.16"
   }
 }
