@@ -1,9 +1,9 @@
 {
 	"name": "@acanthis/config-tsdown",
 	"private": true,
-    "version": "0.0.1",
+	"version": "0.0.1",
 	"description": "A shared config package of tsdown, using by libraries",
-    "type": "module",
+	"type": "module",
 	"exports": {
 		".": {
 			"import": "./index.ts",

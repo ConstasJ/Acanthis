@@ -1,4 +1,4 @@
 {
-  "$schema": "http://json.schemastore.org/tsconfig",
-  "extends": "./base.json"
+	"$schema": "http://json.schemastore.org/tsconfig",
+	"extends": "./base.json"
 }

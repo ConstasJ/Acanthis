@@ -9,5 +9,5 @@ export const baseConfig: UserConfig = defineConfig({
 	dts: true,
 	clean: true,
 	sourcemap: true,
-	report: 'ci-only',
+	report: "ci-only",
 });
