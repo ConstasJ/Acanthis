@@ -1,29 +1,31 @@
 {
-  "name": "acanthis-root",
-  "version": "1.0.0",
-  "private": true,
-  "description": "The workspace root of Acanthis project",
-  "author": "ConstasJ <constasj@qq.com>",
-  "license": "MIT",
-  "type": "module",
-  "packageManager": "pnpm@11.5.2",
-  "scripts": {
-    "build": "turbo run build",
-    "dev": "turbo run dev",
-    "lint": "turbo run lint",
-    "format": "turbo run format",
-    "test": "turbo run test"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/ConstasJ/Acanthis.git"
-  },
-  "homepage": "https://github.com/ConstasJ/Acanthis#readme",
-  "bugs": {
-    "url": "https://github.com/ConstasJ/Acanthis/issues"
-  },
-  "devDependencies": {
-    "@biomejs/biome": "^2.4.16",
-    "turbo": "^2.9.16"
-  }
+	"name": "@acanthis-dec/workspace",
+	"version": "0.0.1",
+	"private": true,
+	"description": "The workspace root of Acanthis project",
+	"author": "ConstasJ <constasj@qq.com>",
+	"license": "MIT",
+	"type": "module",
+	"packageManager": "pnpm@11.5.2",
+	"scripts": {
+		"build": "turbo run build",
+		"dev": "turbo run dev",
+		"format-and-lint": "biome check .",
+		"format-and-lint:fix": "biome check . --write",
+		"lint": "turbo run //#format-and-lint",
+		"lint:fix": "turbo run //#format-and-lint:fix",
+		"test": "turbo run test"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/ConstasJ/Acanthis.git"
+	},
+	"homepage": "https://github.com/ConstasJ/Acanthis#readme",
+	"bugs": {
+		"url": "https://github.com/ConstasJ/Acanthis/issues"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^2.4.16",
+		"turbo": "^2.9.16"
+	}
 }

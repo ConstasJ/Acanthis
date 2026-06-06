@@ -1,0 +1,33 @@
+{
+	"name": "@acanthis-dec/core",
+	"version": "0.0.1",
+	"description": "The core package of Acanthis project, including some platform-independent utils and type definitions.",
+	"author": "ConstasJ <constasj@qq.com>",
+	"license": "MIT",
+	"type": "module",
+	"packageManager": "pnpm@11.5.2",
+	"exports": {
+		"types": "./dist/index.d.ts",
+		"import": "./dist/index.mjs"
+	},
+	"scripts": {
+		"build": "tsdown",
+		"check-types": "tsc -f tsconfig.json --noEmit"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/ConstasJ/Acanthis.git"
+	},
+	"homepage": "https://github.com/ConstasJ/Acanthis#readme",
+	"bugs": {
+		"url": "https://github.com/ConstasJ/Acanthis/issues"
+	},
+	"devDependencies": {
+		"@acanthis/config-tsdown": "workspace:*",
+		"@acanthis/config-typescript": "workspace:*",
+		"@types/node": "catalog:",
+		"tsdown": "catalog:",
+		"tsx": "catalog:",
+		"typescript": "catalog:"
+	}
+}

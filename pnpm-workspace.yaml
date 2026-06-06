@@ -1,3 +1,13 @@
 packages:
-    - 'apps/*'
-    - 'packages/*'
+  - 'apps/*'
+  - 'packages/*'
+  - 'tools/*'
+
+allowBuilds:
+  esbuild: true
+
+catalog:
+  tsdown: '0.22.2'
+  typescript: '6.0.3'
+  '@types/node': '25.9.2'
+  tsx: '4.22.4'
