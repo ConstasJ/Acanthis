@@ -19,11 +19,20 @@ export type ProxyOptions = {
 	https?: string;
 };
 
+export type AutoSolvePolicy = "auto" | "force-refresh" | "never";
+
+export type ChallengeOptions = {
+	autoSolve?: AutoSolvePolicy;
+	solveOnStatusCodes?: number[];
+	solveOnBodyPatterns?: RegExp[];
+}
+
 export type BrowserFetchClientOptions = {
 	profile?: BrowserProfileName | BrowserProfile;
 	cookieStore?: CookieStoreOptions;
 	flareSolverr?: FlareSolverrOptions;
 	proxy?: ProxyOptions;
+	challengeSolver?: ChallengeOptions;
 };
 
 export class BrowserFetchClient {
@@ -31,6 +40,7 @@ export class BrowserFetchClient {
 	private cookieStore: CookieStore;
 	private flareSolverrClient: FlareSolverrClient | null = null;
 	private proxy: ProxyOptions | null = null;
+	private challengeSolver: ChallengeOptions | null = null;
 
 	constructor(options: BrowserFetchClientOptions) {
 		if (options.profile) {
@@ -62,6 +72,9 @@ export class BrowserFetchClient {
 		}
 		if (options.proxy) {
 			this.proxy = options.proxy;
+		}
+		if (options.challengeSolver) {
+			this.challengeSolver = options.challengeSolver;
 		}
 	}
 }
