@@ -1,4 +1,4 @@
-import type { ChallengeOptions } from "./challenge.js";
+import type { AutoSolvePolicy, ChallengeOptions } from "./challenge.js";
 import {
 	type CookieStore,
 	type CookieStoreOptions,
@@ -34,6 +34,19 @@ export type BrowserFetchClientOptions = {
 	challengeSolver?: ChallengeOptions;
 	requestDefaults?: RequestDefaults;
 };
+
+export type BrowserFetchRequest = {
+	url: string;
+	method?: "GET" | "POST" | "PUT" | "DELETE" | "PATCH";
+	headers?: Record<string, string>;
+	body?: string | Buffer | URLSearchParams;
+	cookies?: Record<string, string>;
+	profile?: BrowserProfileName | BrowserProfile;
+	responseType?: "text" | "json" | "buffer";
+	followRedirects?: boolean;
+	timeout?: number;
+	challengePolicy?: AutoSolvePolicy;
+}
 
 export class BrowserFetchClient {
 	private profile: BrowserProfile;
