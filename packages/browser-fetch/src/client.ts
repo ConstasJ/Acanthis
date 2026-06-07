@@ -1,3 +1,4 @@
+import type { ChallengeOptions } from "./challenge.js";
 import {
 	type CookieStore,
 	type CookieStoreOptions,
@@ -19,12 +20,10 @@ export type ProxyOptions = {
 	https?: string;
 };
 
-export type AutoSolvePolicy = "auto" | "force-refresh" | "never";
-
-export type ChallengeOptions = {
-	autoSolve?: AutoSolvePolicy;
-	solveOnStatusCodes?: number[];
-	solveOnBodyPatterns?: RegExp[];
+export type RequestDefaults = {
+	headers?: Record<string, string>;
+	timeout?: number;
+	retries?: number;
 }
 
 export type BrowserFetchClientOptions = {
@@ -33,6 +32,7 @@ export type BrowserFetchClientOptions = {
 	flareSolverr?: FlareSolverrOptions;
 	proxy?: ProxyOptions;
 	challengeSolver?: ChallengeOptions;
+	requestDefaults?: RequestDefaults;
 };
 
 export class BrowserFetchClient {
@@ -41,6 +41,7 @@ export class BrowserFetchClient {
 	private flareSolverrClient: FlareSolverrClient | null = null;
 	private proxy: ProxyOptions | null = null;
 	private challengeSolver: ChallengeOptions | null = null;
+	private requestDefaults: RequestDefaults;
 
 	constructor(options: BrowserFetchClientOptions) {
 		if (options.profile) {
@@ -76,5 +77,6 @@ export class BrowserFetchClient {
 		if (options.challengeSolver) {
 			this.challengeSolver = options.challengeSolver;
 		}
+		this.requestDefaults = options.requestDefaults || {};
 	}
 }
