@@ -21,4 +21,4 @@ export type {
 	Volume,
 };
 
-export { buildDescrambleMapping, restoreByMapping, joinChapterHtml };
+export { buildDescrambleMapping, joinChapterHtml, restoreByMapping };
