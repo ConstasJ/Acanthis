@@ -1,5 +1,6 @@
 import type { BrowserProfile } from "@/profile.js";
 import type { HttpMethod, ProxyOptions } from "@/types.js";
+import type { ContentTypeInfo } from "@/utils.js";
 
 export type TransportSessionKey = {
 	origin: string;
@@ -42,8 +43,8 @@ export type TransportHttpOptions = {
 export type TransportRequest = {
 	url: string;
 	method: HttpMethod;
-	headers?: Record<string, string>;
-	cookies?: Record<string, string>;
+	headers?: Record<string, string> | undefined;
+	cookies?: Record<string, string> | undefined;
 	body?:
 		| string
 		| Buffer
@@ -51,16 +52,16 @@ export type TransportRequest = {
 		| FormData
 		| Record<string, string>
 		| unknown;
-	signal?: AbortSignal;
-	profile?: BrowserProfile;
-	proxy?: ProxyOptions;
+	signal?: AbortSignal | undefined;
+	profile?: BrowserProfile | undefined;
+	proxy?: ProxyOptions | undefined;
 	timeout?: number;
-	connectionTimeout?: number;
-	followRedirects?: boolean;
-	maxRedirects?: number;
-	session?: TransportSessionPolicy;
-	tls?: TransportTLSOptions;
-	http?: TransportHttpOptions;
+	connectionTimeout?: number | undefined;
+	followRedirects?: boolean | undefined;
+	maxRedirects?: number | undefined;
+	session?: TransportSessionPolicy | undefined;
+	tls?: TransportTLSOptions | undefined;
+	http?: TransportHttpOptions | undefined;
 };
 
 export type TransportResponse = {
@@ -73,6 +74,7 @@ export type TransportResponse = {
 	headers: Record<string, string>;
 	cookies: Record<string, string>;
 
+	contentType?: ContentTypeInfo;
 	body: Buffer;
 
 	elapsedTime: number;

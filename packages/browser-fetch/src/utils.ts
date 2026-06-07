@@ -68,3 +68,22 @@ export function isRecordStringString(
 
 	return true;
 }
+
+export type ContentTypeInfo = {
+	mimeType: string;
+	isText: boolean;
+	charset?: string | undefined;
+}
+
+export function extractContentType(contetType: string): ContentTypeInfo {
+	const [mimeType, ...params] = contetType.split(";").map(part => part.trim());
+	const isText = /^(text\/(html|plain|css|javascript)|application\/(json|xml))(;\s*charset=[a-zA-Z0-9_-]+)?$/.test(contetType);
+	const charsetParam = params.find(param => param.toLowerCase().startsWith("charset="));
+	const charset = charsetParam ? charsetParam.split("=")[1]?.trim() : undefined;
+
+	return {
+		mimeType: mimeType ?? "application/octet-stream",
+		isText,
+		charset: charset ?? (isText ? "utf-8" : undefined),
+	};
+}

@@ -1,5 +1,5 @@
 import * as impers from "impers";
-import { isFormUrlEncoded, isJSON, isRecordStringString } from "@/utils.js";
+import { extractContentType, isFormUrlEncoded, isJSON, isRecordStringString } from "@/utils.js";
 import type {
 	Transport,
 	TransportRequest,
@@ -204,6 +204,7 @@ export class ImpersTransport implements Transport {
 				}
 				return cookies;
 			})(),
+			contentType: extractContentType(impersResponse.contentType ?? "application/octet-stream"),
 			body: impersResponse.content,
 			elapsedTime: impersResponse.elapsed,
 			reusedSession: request.session?.mode === "reuse",

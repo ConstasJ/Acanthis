@@ -14,11 +14,15 @@ import {
 	type BrowserProfileName,
 	parseBrowserProfile,
 } from "./profile.js";
+import { ImpersTransport } from "./transport/impers.js";
+import type { Transport, TransportRequest } from "./transport/types.js";
 import type { HttpMethod, ProxyOptions } from "./types.js";
+import type { ContentTypeInfo } from "./utils.js";
 
 export type RequestDefaults = {
 	headers?: Record<string, string>;
 	timeout?: number;
+	connectionTimeout?: number;
 	retries?: number;
 };
 
@@ -29,20 +33,40 @@ export type BrowserFetchClientOptions = {
 	proxy?: ProxyOptions;
 	challengeSolver?: ChallengeOptions;
 	requestDefaults?: RequestDefaults;
+	transport?: Transport;
 };
 
 export type BrowserFetchRequest = {
 	url: string;
 	method?: HttpMethod;
 	headers?: Record<string, string>;
-	body?: string | Buffer | URLSearchParams;
+	body?:
+		| string
+		| Buffer
+		| URLSearchParams
+		| FormData
+		| Record<string, string>
+		| unknown;
 	cookies?: Record<string, string>;
 	profile?: BrowserProfileName | BrowserProfile;
 	responseType?: "text" | "json" | "buffer";
-	followRedirects?: boolean;
 	timeout?: number;
+	connectionTimeout?: number;
+	followRedirects?: boolean;
+	maxRedirects?: number;
 	challengePolicy?: AutoSolvePolicy;
 };
+
+export interface BrowserFetchResponse {
+  url: string;
+  status: number;
+  statusText?: string;
+  headers: Record<string, string>;
+  cookies: Record<string, string>;
+  body: string | Buffer;
+  contentType?: ContentTypeInfo | undefined;
+  elapsedTime?: number | undefined;
+}
 
 export class BrowserFetchClient {
 	private profile: BrowserProfile;
@@ -51,6 +75,7 @@ export class BrowserFetchClient {
 	private proxy: ProxyOptions | null = null;
 	private challengeSolver: ChallengeOptions | null = null;
 	private requestDefaults: RequestDefaults;
+	private transport: Transport;
 
 	constructor(options: BrowserFetchClientOptions) {
 		if (options.profile) {
@@ -87,5 +112,56 @@ export class BrowserFetchClient {
 			this.challengeSolver = options.challengeSolver;
 		}
 		this.requestDefaults = options.requestDefaults || {};
+		this.transport = options.transport ?? new ImpersTransport({
+			http2Multiplexing: true,
+			maxConnections: 100,
+			maxHostConnections: 10,
+		})
+	}
+
+	async request(init: BrowserFetchRequest): Promise<BrowserFetchResponse> {
+		const storedCookies = await this.cookieStore.getCookies(new URL(init.url).origin);
+		const cookies = { ...storedCookies, ...init.cookies };
+		const headers = { ...this.profile.headers, ...this.requestDefaults.headers, ...init.headers };
+
+		const transportRequest: TransportRequest = {
+			url: init.url,
+			method: init.method ?? "GET",
+			headers,
+			cookies,
+			body: init.body,
+			profile: this.profile,
+			proxy: this.proxy ?? undefined,
+			timeout: init.timeout ?? this.requestDefaults.timeout ?? 0,
+			connectionTimeout: init.connectionTimeout ?? this.requestDefaults.connectionTimeout ?? undefined,
+			followRedirects: init.followRedirects ?? true,
+			maxRedirects: init.maxRedirects ?? 10,
+			session: {
+				isolation: "per-origin",
+				mode: "reuse",
+			},
+			http: {
+				version: "auto",
+				defaultHeaders: false,
+			},
+		};
+
+		const response = await this.transport.request(transportRequest);
+
+		// Update cookie store with any new cookies from the response
+		if (response.cookies) {
+			await this.cookieStore.setCookies(new URL(init.url).origin, response.cookies);
+		}
+
+		return {
+			url: response.url,
+			status: response.status,
+			statusText: response.statusText,
+			headers: response.headers,
+			cookies: response.cookies,
+			body: response.body,
+			contentType: response.contentType,
+			elapsedTime: response.elapsedTime,
+		}
 	}
 }
