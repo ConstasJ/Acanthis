@@ -31,6 +31,10 @@ importers:
         version: 2.9.16
 
   packages/browser-fetch:
+    dependencies:
+      impers:
+        specifier: ^0.0.7
+        version: 0.0.7
     devDependencies:
       '@acanthis/config-tsdown':
         specifier: workspace:*
@@ -595,6 +599,9 @@ packages:
   hookable@6.1.1:
     resolution: {integrity: sha512-U9LYDy1CwhMCnprUfeAZWZGByVbhd54hwepegYTK7Pi5NvqEj63ifz5z+xukznehT7i6NIZRu89Ay1AZmRsLEQ==}
 
+  impers@0.0.7:
+    resolution: {integrity: sha512-O4KUPPsejljKSiOqbnkDhLE+5/apR0EHzs7K/V5rdibMeKhs0vZ+HAbVM//wQhjnT6M6r1qFFsa4LUl7csoeDw==}
+
   import-without-cache@0.4.0:
     resolution: {integrity: sha512-NkJQA7oZ4YHQhd2+H3BoRFKF3d/XNsiKpHZCQEMH9pDX27hQQLsTyOocyRgaIVtf8gHX3Nt3LPkR4e5EdtPAGQ==}
     engines: {node: ^22.18.0 || >=24.0.0}
@@ -603,6 +610,9 @@ packages:
     resolution: {integrity: sha512-/sM3dO2FOzXjKQhJuo0Q173wf2KOo8t4I8vHy6lF9poUp7bKT0/NHE8fPX23PwfhnykfqnC2xRxOnVw5XuGIaA==}
     engines: {node: '>=6'}
     hasBin: true
+
+  koffi@2.16.2:
+    resolution: {integrity: sha512-owU0MRwv6xkrVqCd+33uw6BaYppkTRXbO/rVdJNI2dvZG0gzyRhYwW25eWtc5pauwK8TGh3AbkFONSezdykfSA==}
 
   obug@2.1.2:
     resolution: {integrity: sha512-AWGB9WFcRXOQs48Z/udjI5ZcZMHXwX8XPByNpOydgcGsDLIzjGizhoMWJyKAWze7AVW/2W1i+/gPX4YtKe5cyg==}
@@ -1047,9 +1057,15 @@ snapshots:
 
   hookable@6.1.1: {}
 
+  impers@0.0.7:
+    dependencies:
+      koffi: 2.16.2
+
   import-without-cache@0.4.0: {}
 
   jsesc@3.1.0: {}
+
+  koffi@2.16.2: {}
 
   obug@2.1.2: {}
 
