@@ -5,6 +5,10 @@ import {
 	InMemoryCookieStore,
 } from "./cookies.js";
 import {
+	FlareSolverrClient,
+	type FlareSolverrOptions,
+} from "./flaresolverr.js";
+import {
 	type BrowserProfile,
 	type BrowserProfileName,
 	parseBrowserProfile,
@@ -13,11 +17,13 @@ import {
 export type BrowserFetchClientOptions = {
 	profile: BrowserProfileName | BrowserProfile;
 	cookieStore: CookieStoreOptions;
+	flareSolverr?: FlareSolverrOptions;
 };
 
 export class BrowserFetchClient {
 	private profile: BrowserProfile;
 	private cookieStore: CookieStore;
+	private flareSolverrClient: FlareSolverrClient | null = null;
 
 	constructor(options: BrowserFetchClientOptions) {
 		this.profile =
@@ -39,6 +45,9 @@ export class BrowserFetchClient {
 				throw new Error(
 					`Unsupported cookie store type: ${options.cookieStore.type}`,
 				);
+		}
+		if (options.flareSolverr?.enabled) {
+			this.flareSolverrClient = new FlareSolverrClient(options.flareSolverr);
 		}
 	}
 }
