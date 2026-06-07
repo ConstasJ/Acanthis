@@ -20,7 +20,7 @@ export type RequestDefaults = {
 	headers?: Record<string, string>;
 	timeout?: number;
 	retries?: number;
-}
+};
 
 export type BrowserFetchClientOptions = {
 	profile?: BrowserProfileName | BrowserProfile;
@@ -42,7 +42,7 @@ export type BrowserFetchRequest = {
 	followRedirects?: boolean;
 	timeout?: number;
 	challengePolicy?: AutoSolvePolicy;
-}
+};
 
 export class BrowserFetchClient {
 	private profile: BrowserProfile;
