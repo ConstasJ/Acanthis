@@ -1,3 +1,5 @@
+import type { ContentNode } from "./content.js";
+import { joinChapterHtml } from "./content.js";
 import type { DescrambleCoefficients, LcgConfig } from "./descramble.js";
 import { buildDescrambleMapping, restoreByMapping } from "./descramble.js";
 import type {
@@ -11,6 +13,7 @@ import type {
 export type {
 	Chapter,
 	ChapterContent,
+	ContentNode,
 	DescrambleCoefficients,
 	LcgConfig,
 	Novel,
@@ -18,4 +21,4 @@ export type {
 	Volume,
 };
 
-export { buildDescrambleMapping, restoreByMapping };
+export { buildDescrambleMapping, restoreByMapping, joinChapterHtml };
