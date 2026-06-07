@@ -14,7 +14,7 @@ import {
 	type BrowserProfileName,
 	parseBrowserProfile,
 } from "./profile.js";
-import type { ProxyOptions } from "./types.js";
+import type { HttpMethod, ProxyOptions } from "./types.js";
 
 export type RequestDefaults = {
 	headers?: Record<string, string>;
@@ -33,7 +33,7 @@ export type BrowserFetchClientOptions = {
 
 export type BrowserFetchRequest = {
 	url: string;
-	method?: "GET" | "POST" | "PUT" | "DELETE" | "PATCH";
+	method?: HttpMethod;
 	headers?: Record<string, string>;
 	body?: string | Buffer | URLSearchParams;
 	cookies?: Record<string, string>;
