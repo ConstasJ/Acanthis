@@ -14,40 +14,54 @@ import {
 	parseBrowserProfile,
 } from "./profile.js";
 
+export type ProxyOptions = {
+	http?: string;
+	https?: string;
+};
+
 export type BrowserFetchClientOptions = {
-	profile: BrowserProfileName | BrowserProfile;
-	cookieStore: CookieStoreOptions;
+	profile?: BrowserProfileName | BrowserProfile;
+	cookieStore?: CookieStoreOptions;
 	flareSolverr?: FlareSolverrOptions;
+	proxy?: ProxyOptions;
 };
 
 export class BrowserFetchClient {
 	private profile: BrowserProfile;
 	private cookieStore: CookieStore;
 	private flareSolverrClient: FlareSolverrClient | null = null;
+	private proxy: ProxyOptions | null = null;
 
 	constructor(options: BrowserFetchClientOptions) {
-		this.profile =
-			typeof options.profile === "string"
-				? parseBrowserProfile(options.profile)
-				: options.profile;
+		if (options.profile) {
+			this.profile =
+				typeof options.profile === "string"
+					? parseBrowserProfile(options.profile)
+					: options.profile;
+		} else {
+			this.profile = parseBrowserProfile("chrome146-linux");
+		}
 		// Initialize cookie store based on options
-		switch (options.cookieStore.type) {
+		switch (options.cookieStore?.type) {
 			case "memory":
 				this.cookieStore = new InMemoryCookieStore();
 				break;
 			case "file":
-				if (!options.cookieStore.path) {
+				if (!options.cookieStore?.path) {
 					throw new Error("File cookie store requires a path");
 				}
 				this.cookieStore = new FileCookieStore(options.cookieStore.path);
 				break;
 			default:
 				throw new Error(
-					`Unsupported cookie store type: ${options.cookieStore.type}`,
+					`Unsupported cookie store type: ${options.cookieStore?.type}`,
 				);
 		}
 		if (options.flareSolverr?.enabled) {
 			this.flareSolverrClient = new FlareSolverrClient(options.flareSolverr);
+		}
+		if (options.proxy) {
+			this.proxy = options.proxy;
 		}
 	}
 }
