@@ -14,11 +14,7 @@ import {
 	type BrowserProfileName,
 	parseBrowserProfile,
 } from "./profile.js";
-
-export type ProxyOptions = {
-	http?: string;
-	https?: string;
-};
+import type { ProxyOptions } from "./types.js";
 
 export type RequestDefaults = {
 	headers?: Record<string, string>;
