@@ -69,17 +69,100 @@ export function isRecordStringString(
 	return true;
 }
 
+export type WWWFormUrlEncodedBody =
+	| Record<string, string>
+	| URLSearchParams
+	| string
+	| FormData;
+
+export function iswwwFormUrlEncoded(
+	body: unknown,
+): body is WWWFormUrlEncodedBody {
+	if (typeof body === "string") {
+		return isFormUrlEncoded(body);
+	} else if (body instanceof URLSearchParams || body instanceof FormData) {
+		return true;
+	} else if (typeof body === "object" && body !== null) {
+		return isRecordStringString(body);
+	}
+	return false;
+}
+
+export function wwwFormUrlEncodedToRecordStringString(
+	body: WWWFormUrlEncodedBody,
+): Record<string, string> {
+	if (typeof body === "string") {
+		const params = new URLSearchParams(body);
+		const result: Record<string, string> = {};
+		for (const [key, value] of params.entries()) {
+			result[key] = value;
+		}
+		return result;
+	} else if (body instanceof URLSearchParams) {
+		const result: Record<string, string> = {};
+		for (const [key, value] of body.entries()) {
+			result[key] = value;
+		}
+		return result;
+	} else if (body instanceof FormData) {
+		const result: Record<string, string> = {};
+		for (const [key, value] of body.entries()) {
+			if (typeof value === "string") {
+				result[key] = value;
+			} else {
+				throw new Error(
+					"FormData values must be strings to convert to Record<string, string>",
+				);
+			}
+		}
+		return result;
+	} else if (typeof body === "object" && body !== null) {
+		return body as Record<string, string>;
+	} else {
+		throw new Error("Unsupported body type for www-form-urlencoded conversion");
+	}
+}
+
 export type ContentTypeInfo = {
 	mimeType: string;
 	isText: boolean;
-	charset?: string | undefined;
+	charset?: BufferEncoding | undefined;
+};
+
+export function isBufferEncoding(encoding: string): encoding is BufferEncoding {
+	const validEncodings: BufferEncoding[] = [
+		"ascii",
+		"utf8",
+		"utf-8",
+		"utf16le",
+		"ucs2",
+		"base64",
+		"latin1",
+		"binary",
+		"hex",
+	];
+	return validEncodings.includes(encoding as BufferEncoding);
 }
 
 export function extractContentType(contetType: string): ContentTypeInfo {
-	const [mimeType, ...params] = contetType.split(";").map(part => part.trim());
-	const isText = /^(text\/(html|plain|css|javascript)|application\/(json|xml))(;\s*charset=[a-zA-Z0-9_-]+)?$/.test(contetType);
-	const charsetParam = params.find(param => param.toLowerCase().startsWith("charset="));
-	const charset = charsetParam ? charsetParam.split("=")[1]?.trim() : undefined;
+	const [mimeType, ...params] = contetType
+		.split(";")
+		.map((part) => part.trim());
+	const isText =
+		/^(text\/(html|plain|css|javascript)|application\/(json|xml))(;\s*charset=[a-zA-Z0-9_-]+)?$/.test(
+			contetType,
+		);
+	const charsetParam = params.find((param) =>
+		param.toLowerCase().startsWith("charset="),
+	);
+	const charsetString = charsetParam
+		? charsetParam.split("=")[1]?.trim()
+		: undefined;
+	const charset = charsetString
+		? isBufferEncoding(charsetString)
+			? charsetString
+			: undefined
+		: undefined;
 
 	return {
 		mimeType: mimeType ?? "application/octet-stream",
