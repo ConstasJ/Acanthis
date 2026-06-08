@@ -25,7 +25,6 @@ import type { HttpMethod, ProxyOptions } from "./types.js";
 import {
 	type ContentTypeInfo,
 	iswwwFormUrlEncoded,
-	type WWWFormUrlEncodedBody,
 	wwwFormUrlEncodedToRecordStringString,
 } from "./utils.js";
 
@@ -86,7 +85,7 @@ export interface BrowserFetchResponse {
 export type BinaryResponse = {
 	mimeType: string;
 	data: Buffer;
-}
+};
 
 export class BrowserFetchClient {
 	private profile: BrowserProfile;
@@ -141,7 +140,11 @@ export class BrowserFetchClient {
 			});
 	}
 
-	private async _getClearanceToken(url: string, method: "GET" | "POST", body?: unknown): Promise<string> {
+	private async _getClearanceToken(
+		url: string,
+		method: "GET" | "POST",
+		body?: unknown,
+	): Promise<string> {
 		if (!this.flareSolverrClient) {
 			throw new Error(
 				"Challenge solver is enabled, but FlareSolverr client is not configured.",
@@ -155,10 +158,17 @@ export class BrowserFetchClient {
 		const bodyRecord = iswwwFormUrlEncoded(body)
 			? wwwFormUrlEncodedToRecordStringString(body)
 			: undefined;
-		return await solveCloudflareChallenge(url, method, this.flareSolverrClient, bodyRecord);
+		return await solveCloudflareChallenge(
+			url,
+			method,
+			this.flareSolverrClient,
+			bodyRecord,
+		);
 	}
 
-	private async _request(init: BrowserFetchRequest): Promise<BrowserFetchResponse> {
+	private async _request(
+		init: BrowserFetchRequest,
+	): Promise<BrowserFetchResponse> {
 		const storedCookies = await this.cookieStore.getCookies(
 			new URL(init.url).origin,
 		);
@@ -174,7 +184,11 @@ export class BrowserFetchClient {
 			this.challengeSolver.autoSolve === "force-refresh"
 		) {
 			const method = init.method === "POST" ? "POST" : "GET";
-			const clearance = await this._getClearanceToken(init.url, method, init.body);
+			const clearance = await this._getClearanceToken(
+				init.url,
+				method,
+				init.body,
+			);
 			if (!clearance) {
 				throw new Error(
 					"Failed to obtain clearance token with 'force-refresh' policy.",
@@ -235,7 +249,11 @@ export class BrowserFetchClient {
 			) {
 				const method = init.method === "POST" ? "POST" : "GET";
 				// Retry the original request after solving the challenge
-				const clearance = await this._getClearanceToken(init.url, method, init.body);
+				const clearance = await this._getClearanceToken(
+					init.url,
+					method,
+					init.body,
+				);
 				if (clearance) {
 					const newInit = init;
 					newInit.cookies = {
@@ -268,7 +286,7 @@ export class BrowserFetchClient {
 		const maxRetries = init.retries ?? this.requestDefaults.retries ?? 0;
 		const retryDelayMs =
 			init.retryDelayMs ?? this.requestDefaults.retryDelayMs ?? 1000;
-			
+
 		while (true) {
 			try {
 				return await this._request(init);
@@ -283,8 +301,15 @@ export class BrowserFetchClient {
 		}
 	}
 
-	async text(url: string, options?: Omit<BrowserFetchRequest, "url" | "responseType">): Promise<string> {
-		const response = await this.request({ url, ...options, responseType: "text" });
+	async text(
+		url: string,
+		options?: Omit<BrowserFetchRequest, "url" | "responseType">,
+	): Promise<string> {
+		const response = await this.request({
+			url,
+			...options,
+			responseType: "text",
+		});
 		if (typeof response.body === "string") {
 			return response.body;
 		} else {
@@ -292,8 +317,15 @@ export class BrowserFetchClient {
 		}
 	}
 
-	async json(url: string, options?: Omit<BrowserFetchRequest, "url" | "responseType">): Promise<unknown> {
-		const response = await this.request({ url, ...options, responseType: "text" });
+	async json(
+		url: string,
+		options?: Omit<BrowserFetchRequest, "url" | "responseType">,
+	): Promise<unknown> {
+		const response = await this.request({
+			url,
+			...options,
+			responseType: "text",
+		});
 		if (typeof response.body === "string") {
 			try {
 				return JSON.parse(response.body);
@@ -305,15 +337,73 @@ export class BrowserFetchClient {
 		}
 	}
 
-	async binary(url: string, options?: Omit<BrowserFetchRequest, "url" | "responseType">): Promise<BinaryResponse> {
-		const response = await this.request({ url, ...options, responseType: "buffer" });
+	async binary(
+		url: string,
+		options?: Omit<BrowserFetchRequest, "url" | "responseType">,
+	): Promise<BinaryResponse> {
+		const response = await this.request({
+			url,
+			...options,
+			responseType: "buffer",
+		});
 		if (Buffer.isBuffer(response.body)) {
 			return {
 				mimeType: response.contentType?.mimeType || "application/octet-stream",
-				data: response.body
+				data: response.body,
 			};
 		} else {
 			throw new Error("Response body is not a buffer");
 		}
+	}
+
+	async ensureClearance(
+		origin: string,
+		method: "GET" | "POST",
+		body?: unknown,
+	): Promise<void> {
+		const cookies = await this.cookieStore.getCookies(origin);
+		if (cookies.cf_clearance) {
+			return;
+		}
+		const url = origin.startsWith("http") ? origin : `https://${origin}`;
+		const clearance = await this._getClearanceToken(url, method, body);
+		if (clearance) {
+			await this.cookieStore.setCookie(origin, "cf_clearance", clearance);
+		} else {
+			throw new Error("Failed to obtain clearance token.");
+		}
+	}
+
+	async refreshClearance(
+		origin: string,
+		method: "GET" | "POST",
+		body?: unknown,
+	): Promise<void> {
+		const url = origin.startsWith("http") ? origin : `https://${origin}`;
+		const clearance = await this._getClearanceToken(url, method, body);
+		if (clearance) {
+			await this.cookieStore.setCookie(origin, "cf_clearance", clearance);
+		} else {
+			throw new Error("Failed to obtain clearance token.");
+		}
+	}
+
+	async getCookies(origin: string): Promise<Record<string, string>> {
+		return await this.cookieStore.getCookies(origin);
+	}
+
+	async setCookies(
+		origin: string,
+		cookies: Record<string, string>,
+	): Promise<void> {
+		await this.cookieStore.setCookies(origin, cookies);
+	}
+
+	async clearCookies(origin: string): Promise<void> {
+		await this.cookieStore.clearCookies(origin);
+	}
+
+	async close(): Promise<void> {
+		await this.transport.close();
 	}
 }
