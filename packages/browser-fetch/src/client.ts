@@ -83,6 +83,11 @@ export interface BrowserFetchResponse {
 	elapsedTime?: number | undefined;
 }
 
+export type BinaryResponse = {
+	mimeType: string;
+	data: Buffer;
+}
+
 export class BrowserFetchClient {
 	private profile: BrowserProfile;
 	private cookieStore: CookieStore;
@@ -275,6 +280,40 @@ export class BrowserFetchClient {
 					throw error;
 				}
 			}
+		}
+	}
+
+	async text(url: string, options?: Omit<BrowserFetchRequest, "url" | "responseType">): Promise<string> {
+		const response = await this.request({ url, ...options, responseType: "text" });
+		if (typeof response.body === "string") {
+			return response.body;
+		} else {
+			throw new Error("Response body is not a string");
+		}
+	}
+
+	async json(url: string, options?: Omit<BrowserFetchRequest, "url" | "responseType">): Promise<unknown> {
+		const response = await this.request({ url, ...options, responseType: "text" });
+		if (typeof response.body === "string") {
+			try {
+				return JSON.parse(response.body);
+			} catch (error) {
+				throw new Error(`Failed to parse JSON response: ${error}`);
+			}
+		} else {
+			throw new Error("Response body is not a string");
+		}
+	}
+
+	async binary(url: string, options?: Omit<BrowserFetchRequest, "url" | "responseType">): Promise<BinaryResponse> {
+		const response = await this.request({ url, ...options, responseType: "buffer" });
+		if (Buffer.isBuffer(response.body)) {
+			return {
+				mimeType: response.contentType?.mimeType || "application/octet-stream",
+				data: response.body
+			};
+		} else {
+			throw new Error("Response body is not a buffer");
 		}
 	}
 }
