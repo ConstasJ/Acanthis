@@ -170,7 +170,8 @@ export class BrowserFetchClient {
 		init: BrowserFetchRequest,
 	): Promise<BrowserFetchResponse> {
 		const storedCookies = await this.cookieStore.getCookies(
-			new URL(init.url).origin,
+			new URL(init.url).hostname,
+			new URL(init.url).pathname,
 		);
 		const cookies = { ...storedCookies, ...init.cookies };
 		const headers = {
@@ -227,7 +228,8 @@ export class BrowserFetchClient {
 		// Update cookie store with any new cookies from the response
 		if (response.cookies) {
 			await this.cookieStore.setCookies(
-				new URL(init.url).origin,
+				new URL(init.url).hostname,
+				new URL(init.url).pathname,
 				response.cookies,
 			);
 		}
@@ -357,50 +359,53 @@ export class BrowserFetchClient {
 	}
 
 	async ensureClearance(
-		origin: string,
+		domain: string,
+		path: string,
 		method: "GET" | "POST",
 		body?: unknown,
 	): Promise<void> {
-		const cookies = await this.cookieStore.getCookies(origin);
+		const cookies = await this.cookieStore.getCookies(domain, path);
 		if (cookies.cf_clearance) {
 			return;
 		}
-		const url = origin.startsWith("http") ? origin : `https://${origin}`;
+		const url = `https://${domain}${path}`;
 		const clearance = await this._getClearanceToken(url, method, body);
 		if (clearance) {
-			await this.cookieStore.setCookie(origin, "cf_clearance", clearance);
+			await this.cookieStore.setCookie(domain, path, "cf_clearance", clearance);
 		} else {
 			throw new Error("Failed to obtain clearance token.");
 		}
 	}
 
 	async refreshClearance(
-		origin: string,
+		domain: string,
+		path: string,
 		method: "GET" | "POST",
 		body?: unknown,
 	): Promise<void> {
-		const url = origin.startsWith("http") ? origin : `https://${origin}`;
+		const url = `https://${domain}${path}`;
 		const clearance = await this._getClearanceToken(url, method, body);
 		if (clearance) {
-			await this.cookieStore.setCookie(origin, "cf_clearance", clearance);
+			await this.cookieStore.setCookie(domain, path, "cf_clearance", clearance);
 		} else {
 			throw new Error("Failed to obtain clearance token.");
 		}
 	}
 
-	async getCookies(origin: string): Promise<Record<string, string>> {
-		return await this.cookieStore.getCookies(origin);
+	async getCookies(domain: string, path?: string): Promise<Record<string, string>> {
+		return await this.cookieStore.getCookies(domain, path);
 	}
 
 	async setCookies(
-		origin: string,
+		domain: string,
+		path: string,
 		cookies: Record<string, string>,
 	): Promise<void> {
-		await this.cookieStore.setCookies(origin, cookies);
+		await this.cookieStore.setCookies(domain, path, cookies);
 	}
 
-	async clearCookies(origin: string): Promise<void> {
-		await this.cookieStore.clearCookies(origin);
+	async clearCookies(domain: string, path?: string): Promise<void> {
+		await this.cookieStore.clearCookies(domain, path);
 	}
 
 	async close(): Promise<void> {
