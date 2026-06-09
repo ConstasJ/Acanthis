@@ -24,7 +24,7 @@
 	"dependencies": {
 		"@acanthis-dec/core": "workspace:*",
 		"better-sqlite3": "^12.10.0",
-		"drizzle-orm": "^1.0.0-rc.3",
+		"drizzle-orm": "rc",
 		"zod": "^4.4.3"
 	},
 	"devDependencies": {
@@ -34,7 +34,7 @@
 		"tsdown": "catalog:",
 		"tsx": "catalog:",
 		"typescript": "catalog:",
-		"drizzle-kit": "^1.0.0-rc.3"
+		"drizzle-kit": "rc"
 	},
 	"publishConfig": {
 		"exports": {

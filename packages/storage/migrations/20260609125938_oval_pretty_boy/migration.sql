@@ -1,0 +1,1 @@
+ALTER TABLE `novels` ADD `update_at` integer NOT NULL;

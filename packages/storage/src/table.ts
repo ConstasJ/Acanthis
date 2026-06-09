@@ -17,6 +17,7 @@ export const novels = sqliteTable("novels", {
 	status: text("status", {
 		enum: ["ongoing", "completed", "unknown"],
 	}).notNull(),
+    updateAt: integer("update_at").notNull(),
 });
 
 export const genres = sqliteTable("genres", {
@@ -58,7 +59,7 @@ export const chapters = sqliteTable("chapters", {
     name: text("name").notNull(),
 });
 
-export const keywordSearchves = sqliteTable("keyword_searches", {
+export const keywordSearches = sqliteTable("keyword_searches", {
     keyword: text("keyword").primaryKey(),
     queryTime: integer("query_time").notNull(),
     total: integer("total").notNull(),
@@ -69,7 +70,7 @@ export const keywordNovels = sqliteTable(
     {
         keyword: text("keyword")
             .notNull()
-            .references(() => keywordSearchves.keyword, { onDelete: "cascade" }),
+            .references(() => keywordSearches.keyword, { onDelete: "cascade" }),
         novelId: integer("novel_id")
             .notNull()
             .references(() => novels.id, { onDelete: "cascade" }),
@@ -97,7 +98,7 @@ export const generalCache = sqliteTable("general_cache", {
     value: text("value").notNull(),
 });
 
-export const relations = defineRelations({ novels, genres, novelGenres, volumes, chapters, keywordSearchves, keywordNovels }, 
+export const relations = defineRelations({ novels, genres, novelGenres, volumes, chapters, keywordSearchves: keywordSearches, keywordNovels }, 
     (r) => ({
         novels: {
             genres: r.many.genres({
