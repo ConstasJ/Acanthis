@@ -26,3 +26,11 @@ export type GeneralCache = {
     key: string;
     value: string;
 }
+
+export type CookieCache = {
+    id: number;
+    domain: string;
+    path: string;
+    name: string;
+    value: string;
+}
