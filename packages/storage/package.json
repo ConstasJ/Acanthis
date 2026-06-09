@@ -21,6 +21,11 @@
 	"bugs": {
 		"url": "https://github.com/ConstasJ/Acanthis/issues"
 	},
+	"dependencies": {
+		"better-sqlite3": "^12.10.0",
+		"drizzle-orm": "^0.45.2",
+		"zod": "^4.4.3"
+	},
 	"devDependencies": {
 		"@acanthis/config-tsdown": "workspace:*",
 		"@acanthis/config-typescript": "workspace:*",
