@@ -1,8 +1,16 @@
-import type { NovelSearchResult } from "@acanthis-dec/core";
-import { and, eq, gte } from "drizzle-orm";
+import type { Novel, NovelSearchResult } from "@acanthis-dec/core";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
-import { keywordNovels, keywordSearches, novels } from "./table.js";
+import {
+	chapters,
+	genres,
+	keywordNovels,
+	keywordSearches,
+	novelGenres,
+	novels,
+	relations,
+	volumes,
+} from "./table.js";
 import type { DataWithUpdatedAt } from "./type.js";
 
 export type MigrationOptions = {
@@ -15,13 +23,20 @@ export type DatabaseOptions = {
 	migrations?: MigrationOptions;
 };
 
+function getDrizzle(path: string) {
+	return drizzle({
+		connection: path,
+		relations,
+	});
+}
+
 export class DatabaseService {
-	private db: ReturnType<typeof drizzle>;
+	private db: ReturnType<typeof getDrizzle>;
 	private isMigrated: boolean = false;
 	private migrationOptions: MigrationOptions;
 
 	constructor(options: DatabaseOptions) {
-		this.db = drizzle(options.path);
+		this.db = getDrizzle(options.path);
 		this.migrationOptions = options.migrations || {
 			enabled: true,
 			directory: "migrations",
@@ -96,51 +111,186 @@ export class DatabaseService {
 		});
 	}
 
-	searchNovels(keyword: string): DataWithUpdatedAt<NovelSearchResult[]> {
+	async searchNovels(
+		keyword: string,
+	): Promise<DataWithUpdatedAt<NovelSearchResult[]>> {
 		if (this.migrationOptions.enabled) {
 			this._migrate();
 		}
 
 		const minQueryTime = Date.now() - 48 * 60 * 60 * 1000; // 48 hours
 
-		const searchRecord = this.db
-			.select()
-			.from(keywordSearches)
-			.where(
-				and(
-					eq(keywordSearches.keyword, keyword),
-					gte(keywordSearches.queryTime, minQueryTime),
-				),
-			)
-			.get();
+		const searchRecord = await this.db.query.keywordSearches
+			.findFirst({
+				where: {
+					keyword: keyword,
+					queryTime: {
+						gte: minQueryTime,
+					},
+				},
+				with: {
+					novels: {
+						columns: {
+							platform: true,
+							platformId: true,
+							name: true,
+							cover: true,
+						},
+					},
+				},
+			})
+			.execute();
 
-		if (!searchRecord) {
+		return {
+			data:
+				searchRecord?.novels.map((novel) => ({
+					platform: novel.platform,
+					id: novel.platformId,
+					title: novel.name,
+					cover: novel.cover,
+				})) || [],
+			updatedAt: searchRecord?.queryTime || 0,
+		};
+	}
+
+	addNovelCache(novel: Novel) {
+		if (this.migrationOptions.enabled) {
+			this._migrate();
+		}
+
+		this.db.transaction((tx) => {
+			const { id: novelId } = tx
+				.insert(novels)
+				.values({
+					platform: novel.platform,
+					platformId: novel.id,
+					name: novel.title,
+					cover: novel.cover ?? "",
+					author: novel.author ?? "",
+					summary: novel.summary ?? "",
+					status: novel.status ?? "unknown",
+					updateAt: Date.now(),
+				})
+				.onConflictDoUpdate({
+					target: [novels.platform, novels.platformId],
+					set: {
+						name: novel.title,
+						cover: novel.cover ?? "",
+						author: novel.author ?? "",
+						summary: novel.summary ?? "",
+						status: novel.status ?? "unknown",
+						updateAt: Date.now(),
+					},
+				})
+				.returning({ id: novels.id })
+				.get();
+
+			for (const genre of novel.genres) {
+				const { id: genreId } = tx
+					.insert(genres)
+					.values({
+						name: genre,
+					})
+					.onConflictDoNothing()
+					.returning({ id: genres.id })
+					.get();
+				tx.insert(novelGenres)
+					.values({
+						novelId,
+						genreId,
+					})
+					.onConflictDoNothing()
+					.run();
+			}
+
+			for (const volume of novel.volumes) {
+				const { id: volumeId } = tx
+					.insert(volumes)
+					.values({
+						novelId,
+						name: volume.title,
+						platformId: volume.id,
+					})
+					.onConflictDoUpdate({
+						target: [volumes.novelId, volumes.platformId],
+						set: {
+							name: volume.title,
+						},
+					})
+					.returning({ id: volumes.id })
+					.get();
+				for (const chapter of volume.chapters) {
+					tx.insert(chapters)
+						.values({
+							novelId,
+							volumeId,
+							name: chapter.title,
+							platformId: chapter.id,
+						})
+						.onConflictDoUpdate({
+							target: [chapters.novelId, chapters.platformId],
+							set: {
+								name: chapter.title,
+							},
+						})
+						.run();
+				}
+			}
+		});
+	}
+
+	async getNovelCache(
+		platform: string,
+		platformId: string,
+	): Promise<DataWithUpdatedAt<Novel | null>> {
+		if (this.migrationOptions.enabled) {
+			this._migrate();
+		}
+
+		const novelRecord = await this.db.query.novels
+			.findFirst({
+				where: {
+					platform,
+					platformId,
+				},
+				with: {
+					genres: true,
+					volumes: {
+						with: {
+							chapters: true,
+						}
+					}
+				}
+			})
+			.execute();
+
+		if (!novelRecord) {
 			return {
-				data: [],
+				data: null,
 				updatedAt: 0,
 			};
 		}
 
-		const rows = this.db
-			.select({
-				platform: novels.platform,
-				platformId: novels.platformId,
-				title: novels.name,
-				cover: novels.cover,
-			})
-			.from(novels)
-			.innerJoin(keywordNovels, eq(novels.id, keywordNovels.novelId))
-			.where(eq(keywordNovels.keyword, keyword))
-			.all();
-
 		return {
-			data: rows.map((row) => ({
-				platform: row.platform,
-				id: row.platformId,
-				title: row.title,
-				cover: row.cover,
-			})),
-			updatedAt: searchRecord.queryTime,
+			data: {
+				platform: novelRecord.platform,
+				id: novelRecord.platformId,
+				title: novelRecord.name,
+				cover: novelRecord.cover,
+				author: novelRecord.author,
+				summary: novelRecord.summary,
+				status: novelRecord.status,
+				genres: novelRecord.genres.map((g) => g.name),
+				volumes: novelRecord.volumes.map((v) => ({
+					id: v.platformId,
+					title: v.name,
+					chapters: v.chapters.map((c) => ({
+						id: c.platformId,
+						title: c.name,
+					})),
+				})),
+			},
+			updatedAt: novelRecord.updateAt,
 		};
 	}
 }

@@ -105,8 +105,11 @@ export const relations = defineRelations(
 		novelGenres,
 		volumes,
 		chapters,
-		keywordSearchves: keywordSearches,
+		keywordSearches,
 		keywordNovels,
+		coverMetadata,
+		cookies,
+		generalCache,
 	},
 	(r) => ({
 		novels: {
@@ -136,9 +139,9 @@ export const relations = defineRelations(
 			}),
 			volume: r.one.volumes(),
 		},
-		keywordSearchves: {
+		keywordSearches: {
 			novels: r.many.novels({
-				from: r.keywordSearchves.keyword.through(r.keywordNovels.keyword),
+				from: r.keywordSearches.keyword.through(r.keywordNovels.keyword),
 				to: r.novels.id.through(r.keywordNovels.novelId),
 			}),
 		},
