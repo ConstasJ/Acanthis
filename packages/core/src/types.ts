@@ -1,15 +1,22 @@
-export type Novel = {
+export interface NovelSearchResult {
 	id: string;
+	platform: string;
 	title: string;
-	author?: string;
-	summary?: string;
 	cover?: string;
-	status?: NovelStatus;
+}
+
+export interface NovelInfo extends NovelSearchResult {
+	author: string;
+	summary: string;
+	status: NovelStatus;
 	genres: string[];
+}
+export interface Novel extends NovelInfo {
 	volumes: Volume[];
-};
+}
 
 export type Volume = {
+	id: string;
 	title: string;
 	chapters: Chapter[];
 };
@@ -17,7 +24,6 @@ export type Volume = {
 export type Chapter = {
 	id: string;
 	title: string;
-	path?: string;
 };
 
 export type ChapterContent = {

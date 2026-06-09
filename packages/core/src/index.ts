@@ -9,6 +9,8 @@ export type {
 	Chapter,
 	ChapterContent,
 	Novel,
+	NovelInfo,
+	NovelSearchResult,
 	NovelStatus,
 	Volume,
 } from "./types.js";
