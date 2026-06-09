@@ -104,21 +104,33 @@ export const relations = defineRelations({ novels, genres, novelGenres, volumes,
                 from: r.novels.id.through(r.novelGenres.novelId),
                 to: r.genres.id.through(r.novelGenres.genreId),
             }),
-            volumes: r.many.volumes(),
+            volumes: r.many.volumes({
+                from: r.novels.id,
+                to: r.volumes.novelId,
+            }),
         },
         genres: {
             novels: r.many.novels(),
         },
         volumes: {
             novel: r.one.novels(),
-            chapters: r.many.chapters(),
+            chapters: r.many.chapters({
+                from: r.volumes.id,
+                to: r.chapters.volumeId,
+            }),
         },
         chapters: {
-            novel: r.one.novels(),
+            novel: r.one.novels({
+                from: r.chapters.novelId,
+                to: r.novels.id,
+            }),
             volume: r.one.volumes(),
         },
         keywordSearchves: {
-            novels: r.many.novels(),
+            novels: r.many.novels({
+                from: r.keywordSearchves.keyword.through(r.keywordNovels.keyword),
+                to: r.novels.id.through(r.keywordNovels.novelId),
+            }),
         }
     })
 )
