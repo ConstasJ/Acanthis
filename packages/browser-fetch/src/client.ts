@@ -392,7 +392,10 @@ export class BrowserFetchClient {
 		}
 	}
 
-	async getCookies(domain: string, path?: string): Promise<Record<string, string>> {
+	async getCookies(
+		domain: string,
+		path?: string,
+	): Promise<Record<string, string>> {
 		return await this.cookieStore.getCookies(domain, path);
 	}
 

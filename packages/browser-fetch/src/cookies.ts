@@ -11,17 +11,37 @@ export type CookieStoreOptions = {
 
 export interface CookieStore {
 	getCookies(domain: string, path?: string): Promise<Record<string, string>>;
-	setCookies(domain: string, path: string, cookies: Record<string, string>): Promise<void>;
-	getCookie(domain: string, path: string, name: string): Promise<string | undefined>;
-	setCookie(domain: string, path: string, name: string, value: string): Promise<void>;
-	appendCookie(domain: string, path: string, cookies: Record<string, string>): Promise<void>;
+	setCookies(
+		domain: string,
+		path: string,
+		cookies: Record<string, string>,
+	): Promise<void>;
+	getCookie(
+		domain: string,
+		path: string,
+		name: string,
+	): Promise<string | undefined>;
+	setCookie(
+		domain: string,
+		path: string,
+		name: string,
+		value: string,
+	): Promise<void>;
+	appendCookie(
+		domain: string,
+		path: string,
+		cookies: Record<string, string>,
+	): Promise<void>;
 	clearCookies(domain: string, path?: string): Promise<void>;
 }
 
 export class InMemoryCookieStore implements CookieStore {
 	private cache: Record<string, Record<string, Record<string, string>>> = {};
 
-	async getCookies(domain: string, path?: string): Promise<Record<string, string>> {
+	async getCookies(
+		domain: string,
+		path?: string,
+	): Promise<Record<string, string>> {
 		return this.cache[domain]?.[path || "/"] || {};
 	}
 
@@ -36,12 +56,21 @@ export class InMemoryCookieStore implements CookieStore {
 		this.cache[domain][path] = cookies;
 	}
 
-	async getCookie(domain: string, path: string, name: string): Promise<string | undefined> {
+	async getCookie(
+		domain: string,
+		path: string,
+		name: string,
+	): Promise<string | undefined> {
 		const cookies = await this.getCookies(domain, path);
 		return cookies[name];
 	}
 
-	async setCookie(domain: string, path: string, name: string, value: string): Promise<void> {
+	async setCookie(
+		domain: string,
+		path: string,
+		name: string,
+		value: string,
+	): Promise<void> {
 		const cookies = await this.getCookies(domain, path);
 		cookies[name] = value;
 		await this.setCookies(domain, path, cookies);
@@ -74,7 +103,10 @@ export class FileCookieStore implements CookieStore {
 		this.path = path;
 	}
 
-	async getCookies(domain: string, path?: string): Promise<Record<string, string>> {
+	async getCookies(
+		domain: string,
+		path?: string,
+	): Promise<Record<string, string>> {
 		const fullPath = resolve(this.path, domain, path || "/");
 		if (!existsSync(fullPath)) {
 			return {};
@@ -92,12 +124,21 @@ export class FileCookieStore implements CookieStore {
 		await writeFile(fullPath, JSON.stringify(cookies), "utf-8");
 	}
 
-	async getCookie(domain: string, path: string, name: string): Promise<string | undefined> {
+	async getCookie(
+		domain: string,
+		path: string,
+		name: string,
+	): Promise<string | undefined> {
 		const cookies = await this.getCookies(domain, path);
 		return cookies[name];
 	}
 
-	async setCookie(domain: string, path: string, name: string, value: string): Promise<void> {
+	async setCookie(
+		domain: string,
+		path: string,
+		name: string,
+		value: string,
+	): Promise<void> {
 		const cookies = await this.getCookies(domain, path);
 		cookies[name] = value;
 		await this.setCookies(domain, path, cookies);
