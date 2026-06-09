@@ -36,10 +36,10 @@ importers:
         specifier: ^0.0.7
         version: 0.0.7
     devDependencies:
-      '@acanthis/config-tsdown':
+      '@acanthis-dec/config-tsdown':
         specifier: workspace:*
         version: link:../../tools/config-tsdown
-      '@acanthis/config-typescript':
+      '@acanthis-dec/config-typescript':
         specifier: workspace:*
         version: link:../../tools/config-typescript
       '@types/node':
@@ -57,10 +57,10 @@ importers:
 
   packages/core:
     devDependencies:
-      '@acanthis/config-tsdown':
+      '@acanthis-dec/config-tsdown':
         specifier: workspace:*
         version: link:../../tools/config-tsdown
-      '@acanthis/config-typescript':
+      '@acanthis-dec/config-typescript':
         specifier: workspace:*
         version: link:../../tools/config-typescript
       '@types/node':
@@ -82,10 +82,10 @@ importers:
         specifier: 2.16.0
         version: 2.16.0
     devDependencies:
-      '@acanthis/config-tsdown':
+      '@acanthis-dec/config-tsdown':
         specifier: workspace:*
         version: link:../../tools/config-tsdown
-      '@acanthis/config-typescript':
+      '@acanthis-dec/config-typescript':
         specifier: workspace:*
         version: link:../../tools/config-typescript
       '@types/node':
@@ -103,10 +103,10 @@ importers:
 
   packages/linovelib:
     devDependencies:
-      '@acanthis/config-tsdown':
+      '@acanthis-dec/config-tsdown':
         specifier: workspace:*
         version: link:../../tools/config-tsdown
-      '@acanthis/config-typescript':
+      '@acanthis-dec/config-typescript':
         specifier: workspace:*
         version: link:../../tools/config-typescript
       '@types/node':
@@ -124,6 +124,9 @@ importers:
 
   packages/storage:
     dependencies:
+      '@acanthis-dec/core':
+        specifier: workspace:*
+        version: link:../core
       better-sqlite3:
         specifier: ^12.10.0
         version: 12.10.0
@@ -134,10 +137,10 @@ importers:
         specifier: ^4.4.3
         version: 4.4.3
     devDependencies:
-      '@acanthis/config-tsdown':
+      '@acanthis-dec/config-tsdown':
         specifier: workspace:*
         version: link:../../tools/config-tsdown
-      '@acanthis/config-typescript':
+      '@acanthis-dec/config-typescript':
         specifier: workspace:*
         version: link:../../tools/config-typescript
       '@types/node':

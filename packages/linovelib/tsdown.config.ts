@@ -1,4 +1,4 @@
-import { baseConfig } from "@acanthis/config-tsdown";
+import { baseConfig } from "@acanthis-dec/config-tsdown";
 import { defineConfig } from "tsdown";
 
 export default defineConfig({

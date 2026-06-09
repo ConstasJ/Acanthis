@@ -25,8 +25,8 @@
 		"impers": "^0.0.7"
 	},
 	"devDependencies": {
-		"@acanthis/config-tsdown": "workspace:*",
-		"@acanthis/config-typescript": "workspace:*",
+		"@acanthis-dec/config-tsdown": "workspace:*",
+		"@acanthis-dec/config-typescript": "workspace:*",
 		"@types/node": "catalog:",
 		"tsdown": "catalog:",
 		"tsx": "catalog:",

@@ -22,8 +22,8 @@
 		"url": "https://github.com/ConstasJ/Acanthis/issues"
 	},
 	"devDependencies": {
-		"@acanthis/config-tsdown": "workspace:*",
-		"@acanthis/config-typescript": "workspace:*",
+		"@acanthis-dec/config-tsdown": "workspace:*",
+		"@acanthis-dec/config-typescript": "workspace:*",
 		"@types/node": "catalog:",
 		"tsdown": "catalog:",
 		"tsx": "catalog:",
