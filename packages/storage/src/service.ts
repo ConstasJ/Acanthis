@@ -2,6 +2,7 @@ import type { Novel, NovelSearchResult } from "@acanthis-dec/core";
 import { DatabaseCookieStore } from "./cookies.js";
 import { type DatabaseOptions, DatabaseService } from "./db.js";
 import { FSStorageService } from "./files.js";
+import type z from "zod";
 
 export interface StorageServiceOptions {
 	dataDir?: string;
@@ -71,11 +72,11 @@ export class StorageService {
 		return this.cookieStore;
 	}
 
-	async getCache(key: string): Promise<string | null> {
-		return await this.db.getCache(key);
+	async getCache<T>(key: string, schema: z.ZodType<T>): Promise<T | null> {
+		return await this.db.getCache(key, schema);
 	}
 
-	async setCache(key: string, value: string): Promise<void> {
+	async setCache<T>(key: string, value: T): Promise<void> {
 		await this.db.setCache(key, value);
 	}
 }

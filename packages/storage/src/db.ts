@@ -18,6 +18,7 @@ import {
 	volumes,
 } from "./table.js";
 import type { DataWithUpdatedAt } from "./type.js";
+import { z } from "zod";
 
 export type MigrationOptions = {
 	enabled?: boolean;
@@ -410,7 +411,7 @@ export class DatabaseService {
 			.run();
 	}
 
-	async getCache(key: string): Promise<string | null> {
+	async getCache<T>(key: string, schema: z.ZodType<T>): Promise<T | null> {
 		if (this.migrationOptions.enabled) {
 			this._migrate();
 		}
@@ -423,10 +424,15 @@ export class DatabaseService {
 			})
 			.execute();
 
-		return record ? record.value : null;
+		if (!record) {
+			return null;
+		}
+
+		const parsed = schema.safeParse(record.value);
+		return parsed.success ? parsed.data : null;
 	}
 
-	async setCache(key: string, value: string) {
+	async setCache<T>(key: string, value: T): Promise<void> {
 		if (this.migrationOptions.enabled) {
 			this._migrate();
 		}

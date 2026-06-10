@@ -103,12 +103,18 @@ importers:
 
   packages/linovelib:
     dependencies:
+      '@acanthis-dec/browser-fetch':
+        specifier: workspace:*
+        version: link:../browser-fetch
       '@acanthis-dec/core':
         specifier: workspace:*
         version: link:../core
       '@acanthis-dec/deobfuscator':
         specifier: workspace:*
         version: link:../deobfuscator
+      '@acanthis-dec/storage':
+        specifier: workspace:*
+        version: link:../storage
       '@babel/parser':
         specifier: ^7.29.7
         version: 7.29.7
@@ -121,6 +127,9 @@ importers:
       cheerio:
         specifier: ^1.2.0
         version: 1.2.0
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
     devDependencies:
       '@acanthis-dec/config-tsdown':
         specifier: workspace:*

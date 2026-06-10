@@ -99,7 +99,7 @@ export type Cookie = typeof cookies.$inferSelect;
 
 export const generalCache = sqliteTable("general_cache", {
 	key: text("key").primaryKey(),
-	value: text("value").notNull(),
+	value: text("value", { mode: "json" }).notNull(),
 });
 
 export const relations = defineRelations(
