@@ -22,21 +22,24 @@
 		"url": "https://github.com/ConstasJ/Acanthis/issues"
 	},
 	"dependencies": {
+		"@acanthis-dec/browser-fetch": "workspace:*",
 		"@acanthis-dec/core": "workspace:*",
 		"@acanthis-dec/deobfuscator": "workspace:*",
+		"@acanthis-dec/storage": "workspace:*",
 		"@babel/parser": "^7.29.7",
 		"@babel/traverse": "^7.29.7",
 		"@babel/types": "^7.29.7",
-		"cheerio": "^1.2.0"
+		"cheerio": "^1.2.0",
+		"zod": "^4.4.3"
 	},
 	"devDependencies": {
 		"@acanthis-dec/config-tsdown": "workspace:*",
 		"@acanthis-dec/config-typescript": "workspace:*",
+		"@types/babel__traverse": "^7.28.0",
 		"@types/node": "catalog:",
 		"tsdown": "catalog:",
 		"tsx": "catalog:",
-		"typescript": "catalog:",
-		"@types/babel__traverse": "^7.28.0"
+		"typescript": "catalog:"
 	},
 	"publishConfig": {
 		"exports": {
