@@ -23,6 +23,7 @@
 	},
 	"dependencies": {
 		"@acanthis-dec/core": "workspace:*",
+		"@acanthis-dec/browser-fetch": "workspace:*",
 		"better-sqlite3": "^12.10.0",
 		"drizzle-orm": "rc",
 		"zod": "^4.4.3"
@@ -31,10 +32,10 @@
 		"@acanthis-dec/config-tsdown": "workspace:*",
 		"@acanthis-dec/config-typescript": "workspace:*",
 		"@types/node": "catalog:",
+		"drizzle-kit": "rc",
 		"tsdown": "catalog:",
 		"tsx": "catalog:",
-		"typescript": "catalog:",
-		"drizzle-kit": "rc"
+		"typescript": "catalog:"
 	},
 	"publishConfig": {
 		"exports": {

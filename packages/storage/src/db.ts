@@ -17,6 +17,7 @@ import {
 	volumes,
 } from "./table.js";
 import type { DataWithUpdatedAt } from "./type.js";
+import { and, eq } from "drizzle-orm";
 
 export type MigrationOptions = {
 	enabled?: boolean;
@@ -345,6 +346,32 @@ export class DatabaseService {
 				},
 			})
 			.execute();
+	}
+
+	async setCookies(domain: string, path: string, cookieList: Omit<Cookie, "id">[]): Promise<void> {
+		if (this.migrationOptions.enabled) {
+			this._migrate();
+		}
+
+		await this.db
+			.delete(cookies)
+			.where(
+				and(
+					eq(cookies.domain, domain),
+					eq(cookies.path, path)
+				)
+			)
+			.run();
+
+		if (cookieList.length > 0) {
+			const insertData = cookieList.map((cookie) => ({
+				domain,
+				path,
+				name: cookie.name,
+				value: cookie.value,
+			}));
+			await this.db.insert(cookies).values(insertData).run();
+		}
 	}
 
 	async getCookie(

@@ -124,6 +124,9 @@ importers:
 
   packages/storage:
     dependencies:
+      '@acanthis-dec/browser-fetch':
+        specifier: workspace:*
+        version: link:../browser-fetch
       '@acanthis-dec/core':
         specifier: workspace:*
         version: link:../core
