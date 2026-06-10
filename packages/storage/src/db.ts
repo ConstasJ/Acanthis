@@ -2,7 +2,12 @@ import type { Novel, NovelSearchResult } from "@acanthis-dec/core";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 import {
+	type Cookie,
+	type CoverMetadata,
 	chapters,
+	cookies,
+	coverMetadata,
+	generalCache,
 	genres,
 	keywordNovels,
 	keywordSearches,
@@ -258,9 +263,9 @@ export class DatabaseService {
 					volumes: {
 						with: {
 							chapters: true,
-						}
-					}
-				}
+						},
+					},
+				},
 			})
 			.execute();
 
@@ -292,5 +297,121 @@ export class DatabaseService {
 			},
 			updatedAt: novelRecord.updateAt,
 		};
+	}
+
+	async getCoverMetadata(hash: string): Promise<CoverMetadata | undefined> {
+		if (this.migrationOptions.enabled) {
+			this._migrate();
+		}
+
+		return await this.db.query.coverMetadata
+			.findFirst({
+				where: {
+					hash,
+				},
+			})
+			.execute();
+	}
+
+	async addCoverMetadata(metadata: CoverMetadata) {
+		if (this.migrationOptions.enabled) {
+			this._migrate();
+		}
+
+		this.db
+			.insert(coverMetadata)
+			.values(metadata)
+			.onConflictDoUpdate({
+				target: coverMetadata.hash,
+				set: {
+					contentType: metadata.contentType,
+					originalUrl: metadata.originalUrl,
+					ext: metadata.ext,
+				},
+			})
+			.run();
+	}
+
+	async getCookies(domain: string, path: string): Promise<Cookie[]> {
+		if (this.migrationOptions.enabled) {
+			this._migrate();
+		}
+
+		return await this.db.query.cookies
+			.findMany({
+				where: {
+					domain,
+					path,
+				},
+			})
+			.execute();
+	}
+
+	async getCookie(
+		domain: string,
+		path: string,
+		name: string,
+	): Promise<Cookie | undefined> {
+		if (this.migrationOptions.enabled) {
+			this._migrate();
+		}
+
+		return await this.db.query.cookies
+			.findFirst({
+				where: {
+					domain,
+					path,
+					name,
+				},
+			})
+			.execute();
+	}
+
+	async addCookie(cookie: Omit<Cookie, "id">) {
+		if (this.migrationOptions.enabled) {
+			this._migrate();
+		}
+
+		this.db
+			.insert(cookies)
+			.values(cookie)
+			.onConflictDoUpdate({
+				target: [cookies.domain, cookies.path, cookies.name],
+				set: {
+					value: cookie.value,
+				},
+			})
+			.run();
+	}
+
+	async getCache(key: string): Promise<string | null> {
+		if (this.migrationOptions.enabled) {
+			this._migrate();
+		}
+
+		const record = await this.db.query.generalCache
+			.findFirst({
+				where: {
+					key,
+				},
+			})
+			.execute();
+
+		return record ? record.value : null;
+	}
+
+	async setCache(key: string, value: string) {
+		if (this.migrationOptions.enabled) {
+			this._migrate();
+		}
+
+		this.db
+			.insert(generalCache)
+			.values({ key, value })
+			.onConflictDoUpdate({
+				target: generalCache.key,
+				set: { value },
+			})
+			.run();
 	}
 }

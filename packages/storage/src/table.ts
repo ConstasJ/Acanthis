@@ -85,6 +85,8 @@ export const coverMetadata = sqliteTable("cover_metadata", {
 	ext: text("ext").notNull(),
 });
 
+export type CoverMetadata = typeof coverMetadata.$inferSelect;
+
 export const cookies = sqliteTable("cookies", {
 	id: integer("id").primaryKey({ autoIncrement: true }),
 	domain: text("domain").notNull(),
@@ -92,6 +94,8 @@ export const cookies = sqliteTable("cookies", {
 	name: text("name").notNull(),
 	value: text("value").notNull(),
 });
+
+export type Cookie = typeof cookies.$inferSelect;
 
 export const generalCache = sqliteTable("general_cache", {
 	key: text("key").primaryKey(),
