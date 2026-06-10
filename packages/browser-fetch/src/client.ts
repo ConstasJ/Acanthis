@@ -82,6 +82,11 @@ export interface BrowserFetchResponse {
 	elapsedTime?: number | undefined;
 }
 
+export type TextResponse = {
+	url: string;
+	mimeType: string;
+};
+
 export type BinaryResponse = {
 	mimeType: string;
 	data: Buffer;
@@ -306,14 +311,17 @@ export class BrowserFetchClient {
 	async text(
 		url: string,
 		options?: Omit<BrowserFetchRequest, "url" | "responseType">,
-	): Promise<string> {
+	): Promise<TextResponse> {
 		const response = await this.request({
 			url,
 			...options,
 			responseType: "text",
 		});
 		if (typeof response.body === "string") {
-			return response.body;
+			return {
+				url: response.url,
+				mimeType: response.contentType?.mimeType || "text/plain",
+			}
 		} else {
 			throw new Error("Response body is not a string");
 		}
