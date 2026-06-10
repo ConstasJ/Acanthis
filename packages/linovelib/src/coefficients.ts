@@ -5,7 +5,7 @@ import type { StorageService } from "@acanthis-dec/storage";
 import { parse } from "@babel/parser";
 import traverse from "@babel/traverse";
 import * as t from "@babel/types";
-import * as cheerio from 'cheerio';
+import * as cheerio from "cheerio";
 import { z } from "zod";
 
 const descrambleCoefficientsSchema = z.object({
@@ -96,17 +96,17 @@ export async function extractCoefficients(
 }
 
 export function extractChapterLogScriptUrl(html: string): string {
-    const $ = cheerio.load(html);
-    const chapterLogScriptUrl =
-        $(
-            $("script")
-                .toArray()
-                .find((el) => {
-                    const scriptContent = $(el).attr("src") || "";
-                    return /chapterlog\.js/.test(scriptContent);
-                }),
-        ).attr("src") || "";
-    return chapterLogScriptUrl;
+	const $ = cheerio.load(html);
+	const chapterLogScriptUrl =
+		$(
+			$("script")
+				.toArray()
+				.find((el) => {
+					const scriptContent = $(el).attr("src") || "";
+					return /chapterlog\.js/.test(scriptContent);
+				}),
+		).attr("src") || "";
+	return chapterLogScriptUrl;
 }
 
 export async function getCoefficientsFromPage(
@@ -120,16 +120,25 @@ export async function getCoefficientsFromPage(
 	}
 	const version = scriptUrl.match(/chapterlog\.js\?(v.*)/)?.[1] || "";
 	if (storage) {
-		const cachedVersion = await storage.getCache<string>("chapterlog_js_version", z.string());
+		const cachedVersion = await storage.getCache<string>(
+			"chapterlog_js_version",
+			z.string(),
+		);
 		if (version && cachedVersion === version) {
-			const cachedCoefficients = await storage.getCache<DescrambleCoefficients>("coefficients", descrambleCoefficientsSchema);
+			const cachedCoefficients = await storage.getCache<DescrambleCoefficients>(
+				"coefficients",
+				descrambleCoefficientsSchema,
+			);
 			if (cachedCoefficients) {
 				return cachedCoefficients;
 			}
 		}
 	}
 	const scriptContent = await fetchClient.text(scriptUrl);
-	const coefficients = await extractCoefficients(scriptContent);
+	if (!scriptContent.mimeType.includes("javascript")) {
+		throw new Error("Fetched content is not JavaScript");
+	}
+	const coefficients = await extractCoefficients(scriptContent.data);
 	if (storage) {
 		await storage.setCache("chapterlog_js_version", version);
 		await storage.setCache("coefficients", coefficients);

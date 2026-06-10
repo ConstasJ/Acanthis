@@ -83,7 +83,7 @@ export interface BrowserFetchResponse {
 }
 
 export type TextResponse = {
-	url: string;
+	data: string;
 	mimeType: string;
 };
 
@@ -319,9 +319,9 @@ export class BrowserFetchClient {
 		});
 		if (typeof response.body === "string") {
 			return {
-				url: response.url,
 				mimeType: response.contentType?.mimeType || "text/plain",
-			}
+				data: response.body,
+			};
 		} else {
 			throw new Error("Response body is not a string");
 		}

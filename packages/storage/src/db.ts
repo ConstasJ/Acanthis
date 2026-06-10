@@ -2,6 +2,7 @@ import type { Novel, NovelSearchResult } from "@acanthis-dec/core";
 import { and, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
+import type { z } from "zod";
 import {
 	type Cookie,
 	type CoverMetadata,
@@ -18,7 +19,6 @@ import {
 	volumes,
 } from "./table.js";
 import type { DataWithUpdatedAt } from "./type.js";
-import { z } from "zod";
 
 export type MigrationOptions = {
 	enabled?: boolean;
