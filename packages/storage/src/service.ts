@@ -1,0 +1,81 @@
+import type { Novel, NovelSearchResult } from "@acanthis-dec/core";
+import { DatabaseCookieStore } from "./cookies.js";
+import { type DatabaseOptions, DatabaseService } from "./db.js";
+import { FSStorageService } from "./files.js";
+
+export interface StorageServiceOptions {
+	dataDir?: string;
+	db: DatabaseOptions;
+}
+
+export class StorageService {
+	private db: DatabaseService;
+	private files: FSStorageService;
+	private cookieStore: DatabaseCookieStore;
+
+	constructor(options: StorageServiceOptions) {
+		this.db = new DatabaseService(options.db);
+		this.files = new FSStorageService(options.dataDir ?? "", this.db);
+		this.cookieStore = new DatabaseCookieStore(this.db);
+	}
+
+	async getNovelContent(
+		novelId: number,
+		chapterId: number,
+	): Promise<string | null> {
+		return await this.files.getNovelContent(novelId, chapterId);
+	}
+
+	async setNovelContent(
+		novelId: number,
+		chapterId: number,
+		content: string,
+	): Promise<void> {
+		await this.files.setNovelContent(novelId, chapterId, content);
+	}
+
+	async getCoverData(url: string): Promise<Buffer | null> {
+		return await this.files.getCoverData(url);
+	}
+
+	async setCoverData(
+		url: string,
+		data: Buffer,
+		contentType: string,
+	): Promise<void> {
+		await this.files.setCoverData(url, data, contentType);
+	}
+
+	async addSearchResult(
+		keyword: string,
+		results: NovelSearchResult[],
+	): Promise<void> {
+		await this.db.addSearchResult(keyword, results);
+	}
+
+	async searchNovels(keyword: string): Promise<NovelSearchResult[] | null> {
+		const data = await this.db.searchNovels(keyword);
+		return data ? data.data : null;
+	}
+
+	async getNovelCache(platform: string, platformId: string) {
+		const data = await this.db.getNovelCache(platform, platformId);
+		return data ? data.data : null;
+	}
+
+	async addNovelCache(novel: Novel) {
+		await this.db.addNovelCache(novel);
+	}
+
+	getCookieStore() {
+		return this.cookieStore;
+	}
+
+	async getCache(key: string): Promise<string | null> {
+		return await this.db.getCache(key);
+	}
+
+	async setCache(key: string, value: string): Promise<void> {
+		await this.db.setCache(key, value);
+	}
+}

@@ -5,9 +5,7 @@ export {
 	type BrowserFetchRequest,
 	type BrowserFetchResponse,
 } from "./client.js";
-export type {
-	CookieStore,
-} from "./cookies.js";
+export type { CookieStore } from "./cookies.js";
 export type {
 	TransportHttpOptions,
 	TransportRequest,
