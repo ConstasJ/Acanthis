@@ -21,13 +21,22 @@
 	"bugs": {
 		"url": "https://github.com/ConstasJ/Acanthis/issues"
 	},
+	"dependencies": {
+		"@acanthis-dec/core": "workspace:*",
+		"@acanthis-dec/deobfuscator": "workspace:*",
+		"@babel/parser": "^7.29.7",
+		"@babel/traverse": "^7.29.7",
+		"@babel/types": "^7.29.7",
+		"cheerio": "^1.2.0"
+	},
 	"devDependencies": {
 		"@acanthis-dec/config-tsdown": "workspace:*",
 		"@acanthis-dec/config-typescript": "workspace:*",
 		"@types/node": "catalog:",
 		"tsdown": "catalog:",
 		"tsx": "catalog:",
-		"typescript": "catalog:"
+		"typescript": "catalog:",
+		"@types/babel__traverse": "^7.28.0"
 	},
 	"publishConfig": {
 		"exports": {

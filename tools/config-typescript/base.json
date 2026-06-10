@@ -1,7 +1,7 @@
 {
 	"$schema": "http://json.schemastore.org/tsconfig",
 	"compilerOptions": {
-		"module": "nodenext",
+		"module": "es6",
 		"target": "esnext",
 		"types": ["node"],
 		"noUncheckedIndexedAccess": true,
