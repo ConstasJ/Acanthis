@@ -66,13 +66,15 @@ export class NovelChapterQueue {
 			const retry: RetryOptions = {
 				retries: 10,
 				factor: 2,
-				minRetryDelayMs: this.backoff.NORMAL_DELAY_MIN,
-				maxRetryDelayMs: this.backoff.NORMAL_DELAY_MAX,
-				randomize: true,
-				shouldRetry: async (ctx) => {
+				minRetryDelayMs: 0,
+				maxRetryDelayMs: 0,
+				randomize: false,
+				onFailedAttempt: async (ctx) => {
 					if (ctx.error instanceof CloudflareBlockError) {
 						await this._sleep(this.backoff.FAILURE_DELAY);
 					}
+				},
+				shouldRetry: async (ctx) => {
 					return (
 						defaultRetryPolicy(ctx) || ctx.error instanceof CloudflareBlockError
 					);
