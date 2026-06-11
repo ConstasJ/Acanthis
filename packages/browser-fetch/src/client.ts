@@ -101,14 +101,40 @@ export class BrowserFetchClient {
 	private requestDefaults: RequestDefaults;
 	private transport: Transport;
 
-	constructor(options: BrowserFetchClientOptions) {
+	constructor(options?: BrowserFetchClientOptions) {
+		if (!options) options = {
+			profile: "chrome149-linux",
+			cookieStore: {
+				type: "memory",
+			},
+			requestDefaults: {
+				timeout: 30000,
+				retries: 0,
+				retryDelayMs: 1000,
+				followRedirects: true,
+				maxRedirects: 10,
+			},
+			challengeSolver: {
+				autoSolve: "auto",
+				detector: "cloudflare"
+			},
+			transport: new ImpersTransport({
+				http2Multiplexing: true,
+				maxConnections: 100,
+				maxHostConnections: 10,
+			}),
+			flareSolverr: {
+				enabled: false,
+				host: "http://localhost:8191",
+			},
+		};
 		if (options.profile) {
 			this.profile =
 				typeof options.profile === "string"
 					? parseBrowserProfile(options.profile)
 					: options.profile;
 		} else {
-			this.profile = parseBrowserProfile("chrome146-linux");
+			this.profile = parseBrowserProfile("chrome149-linux");
 		}
 		// Initialize cookie store based on options
 		switch (options.cookieStore?.type) {
