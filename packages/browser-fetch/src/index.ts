@@ -12,4 +12,5 @@ export type {
 	BrowserFetchClientOptions,
 	BrowserFetchRequest,
 	BrowserFetchResponse,
+	RetryOptions,
 } from "./types";

@@ -283,6 +283,16 @@ export class BrowserFetchClient {
 					retries.onFailedAttempt(ctx);
 				}
 			},
+			shouldConsumeRetry: (ctx) => {
+				if (retries.shouldConsumeRetry) {
+					return retries.shouldConsumeRetry(ctx);
+				} else return true;
+			},
+			shouldRetry: (ctx) => {
+				if (retries.shouldRetry) {
+					return retries.shouldRetry(ctx);
+				} else return true;
+			}
 		});
 	}
 

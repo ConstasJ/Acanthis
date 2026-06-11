@@ -44,7 +44,9 @@ export type RetryOptions = {
 	maxRetryDelayMs?: number;
 	randomize: boolean;
 	factor: number;
-	onFailedAttempt?: (context: RetryContext) => void;
+	onFailedAttempt?: (context: RetryContext) => void | Promise<void>;
+	shouldConsumeRetry?: (context: RetryContext) => boolean | Promise<boolean>;
+	shouldRetry?: (context: RetryContext) => boolean | Promise<boolean>;
 };
 
 export type BrowserFetchRequest = {
