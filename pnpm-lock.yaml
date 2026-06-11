@@ -32,9 +32,9 @@ importers:
 
   packages/browser-fetch:
     dependencies:
-      impers:
-        specifier: ^0.0.7
-        version: 0.0.7
+      '@constasj/impers':
+        specifier: ^0.0.8
+        version: 0.0.8
       p-retry:
         specifier: ^8.0.0
         version: 8.0.0
@@ -149,6 +149,9 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 25.9.2
+      domhandler:
+        specifier: ^6.0.1
+        version: 6.0.1
       tsdown:
         specifier: 'catalog:'
         version: 0.22.2(tsx@4.22.4)(typescript@6.0.3)
@@ -362,6 +365,9 @@ packages:
 
   '@codemod/utils@1.1.0':
     resolution: {integrity: sha512-Zx6A4xDifEqL0s9ejh62/mQmDXje+E62zYHGiGfRHzVhzmA41pDFZW/m7Hl9+fmbODJxlg9ElMsjHdhasSm7TA==}
+
+  '@constasj/impers@0.0.8':
+    resolution: {integrity: sha512-PTjThpq769o3W+q4nwT55W32wm57CpCJOWf0cRbXYt7xP7KIuuAm3SAsEvI49uApVvEbYuLiABBQaWGUYUmiNg==, tarball: https://registry.npmjs.org/@constasj/impers/-/impers-0.0.8.tgz}
 
   '@drizzle-team/brocli@0.11.0':
     resolution: {integrity: sha512-hD3pekGiPg0WPCCGAZmusBBJsDqGUR66Y452YgQsZOnkdQ7ViEPKuyP4huUGEZQefp8g34RRodXYmJ2TbCH+tg==}
@@ -963,9 +969,17 @@ packages:
   domelementtype@2.3.0:
     resolution: {integrity: sha512-OLETBj6w0OsagBwdXnPdN0cnMfF9opN69co+7ZrbfPGrdpPVNBUj02spi6B1N7wChLQiPn4CSH/zJvXw56gmHw==}
 
+  domelementtype@3.0.0:
+    resolution: {integrity: sha512-umCQid3jKbDmVjx8jGaW7uUykm4DEUeyV21hPxNMo2nV955DhUThwqyOIDtreepP31hl84X7G5U9ZfsWvIB3Pg==}
+    engines: {node: '>=20.19.0'}
+
   domhandler@5.0.3:
     resolution: {integrity: sha512-cgwlv/1iFQiFnU96XXgROh8xTeetsnJiDsTc7TYCLFd9+/WNkIqPTxiM/8pSd8VIrhXGTf1Ny1q1hquVqDJB5w==}
     engines: {node: '>= 4'}
+
+  domhandler@6.0.1:
+    resolution: {integrity: sha512-gYzvtM72ZtxQO0T048kd6HWSbbGCNOUwcnfQ01cqIJ4X2IYKFFHZ5mKvrQETcFXxsRObZulDaKmy//R7TPtsBg==}
+    engines: {node: '>=20.19.0'}
 
   domutils@3.2.2:
     resolution: {integrity: sha512-6kZKyUajlDuqlHKVX1w7gyslj9MPIXzIFiz/rGu35uC1wMi+kMhQwGhl4lt9unC9Vb9INnY9Z3/ZA3+FhASLaw==}
@@ -1191,9 +1205,6 @@ packages:
   iconv-lite@0.6.3:
     resolution: {integrity: sha512-4fCk79wshMdzMp2rH06qWrJE4iolqLhCUH+OiuIgU++RB0+94NlDL81atO7GX55uUKueo0txHNtvEyI6D7WdMw==}
     engines: {node: '>=0.10.0'}
-
-  impers@0.0.7:
-    resolution: {integrity: sha512-O4KUPPsejljKSiOqbnkDhLE+5/apR0EHzs7K/V5rdibMeKhs0vZ+HAbVM//wQhjnT6M6r1qFFsa4LUl7csoeDw==}
 
   import-without-cache@0.4.0:
     resolution: {integrity: sha512-NkJQA7oZ4YHQhd2+H3BoRFKF3d/XNsiKpHZCQEMH9pDX27hQQLsTyOocyRgaIVtf8gHX3Nt3LPkR4e5EdtPAGQ==}
@@ -1695,6 +1706,10 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
+  '@constasj/impers@0.0.8':
+    dependencies:
+      koffi: 2.16.2
+
   '@drizzle-team/brocli@0.11.0': {}
 
   '@emnapi/core@1.10.0':
@@ -2096,9 +2111,15 @@ snapshots:
 
   domelementtype@2.3.0: {}
 
+  domelementtype@3.0.0: {}
+
   domhandler@5.0.3:
     dependencies:
       domelementtype: 2.3.0
+
+  domhandler@6.0.1:
+    dependencies:
+      domelementtype: 3.0.0
 
   domutils@3.2.2:
     dependencies:
@@ -2243,10 +2264,6 @@ snapshots:
   iconv-lite@0.6.3:
     dependencies:
       safer-buffer: 2.1.2
-
-  impers@0.0.7:
-    dependencies:
-      koffi: 2.16.2
 
   import-without-cache@0.4.0: {}
 
