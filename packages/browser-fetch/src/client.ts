@@ -1,6 +1,7 @@
 import pRetry from "p-retry";
 import {
 	type ChallengeOptions,
+	detectCloudflareBlock,
 	getDetector,
 	solveCloudflareChallenge,
 } from "./challenge";
@@ -9,6 +10,12 @@ import {
 	FileCookieStore,
 	InMemoryCookieStore,
 } from "./cookies";
+import {
+	CloudflareBlockError,
+	FlareSolverrError,
+	HttpStatusError,
+	NetworkError,
+} from "./errors";
 import { FlareSolverrClient } from "./flaresolverr";
 import { type BrowserProfile, parseBrowserProfile } from "./profile";
 import { ImpersTransport } from "./transport/impers";
@@ -200,64 +207,70 @@ export class BrowserFetchClient {
 			},
 		};
 
-		const response = await this.transport.request(transportRequest);
+		try {
+			const response = await this.transport.request(transportRequest);
 
-		// Update cookie store with any new cookies from the response
-		if (response.cookies) {
-			await this.cookieStore.setCookies(
-				new URL(init.url).hostname,
-				new URL(init.url).pathname,
-				Object.fromEntries(response.cookies),
-			);
-		}
-
-		let body: string | Buffer;
-
-		if (response.contentType?.isText) {
-			body = response.body.toString(response.contentType.charset);
-		} else {
-			body = response.body;
-		}
-
-		if (this.challengeSolver && this.challengeSolver.autoSolve === "auto") {
-			const detector = getDetector(this.challengeSolver);
-			if (
-				typeof body === "string" &&
-				response.contentType?.mimeType.includes("text/html") &&
-				detector(response.status, body)
-			) {
-				const method = init.method === "POST" ? "POST" : "GET";
-				// Retry the original request after solving the challenge
-				const clearance = await this._getClearanceToken(
-					init.url,
-					method,
-					init.body,
+			// Update cookie store with any new cookies from the response
+			if (response.cookies) {
+				await this.cookieStore.setCookies(
+					new URL(init.url).hostname,
+					new URL(init.url).pathname,
+					Object.fromEntries(response.cookies),
 				);
-				if (clearance) {
-					const newInit = init;
-					newInit.cookies = {
-						...newInit.cookies,
-						cf_clearance: clearance,
-					};
-					return await this._request(newInit);
-				} else {
-					throw new Error(
-						"Failed to obtain clearance token after solving challenge.",
-					);
-				}
 			}
-		}
 
-		return {
-			url: response.url,
-			status: response.status,
-			statusText: response.statusText,
-			headers: response.headers,
-			cookies: response.cookies,
-			body: body,
-			contentType: response.contentType,
-			elapsedTime: response.elapsedTime,
-		};
+			let body: string | Buffer;
+
+			if (response.contentType?.isText) {
+				body = response.body.toString(response.contentType.charset);
+			} else {
+				body = response.body;
+			}
+
+			return {
+				url: response.url,
+				status: response.status,
+				statusText: response.statusText,
+				headers: response.headers,
+				cookies: response.cookies,
+				body: body,
+				contentType: response.contentType,
+				elapsedTime: response.elapsedTime,
+			};
+		} catch (error) {
+			if (error instanceof HttpStatusError) {
+				if (this.challengeSolver && this.challengeSolver.autoSolve === "auto") {
+					const detector = getDetector(this.challengeSolver);
+					if (detector(error.status, error.responseText)) {
+						const method = init.method === "POST" ? "POST" : "GET";
+						// Retry the original request after solving the challenge
+						const clearance = await this._getClearanceToken(
+							init.url,
+							method,
+							init.body,
+						);
+						if (clearance) {
+							const newInit = init;
+							newInit.cookies = {
+								...newInit.cookies,
+								cf_clearance: clearance,
+							};
+							return await this._request(newInit);
+						} else {
+							throw new FlareSolverrError(
+								this.flareSolverrClient?.host ?? "",
+								"Failed to obtain clearance token during auto-solve.",
+							);
+						}
+					}
+				}
+				if (detectCloudflareBlock(error.status, error.responseText)) {
+					throw new CloudflareBlockError(init.url);
+				}
+				throw error;
+			}
+			throw error;
+		}
 	}
 
 	async request(init: BrowserFetchRequest): Promise<BrowserFetchResponse> {
@@ -291,8 +304,18 @@ export class BrowserFetchClient {
 			shouldRetry: (ctx) => {
 				if (retries.shouldRetry) {
 					return retries.shouldRetry(ctx);
-				} else return true;
-			}
+				} else {
+					// By default, retry on network errors and 5xx HTTP errors
+					const error = ctx.error;
+					if (error instanceof NetworkError) {
+						return true;
+					}
+					if (error instanceof HttpStatusError) {
+						return error.status >= 500 && error.status < 600;
+					}
+					return false;
+				}
+			},
 		});
 	}
 

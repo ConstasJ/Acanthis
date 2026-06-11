@@ -37,7 +37,7 @@ export type FlareSolverrReqResponse = {
 };
 
 export class FlareSolverrClient {
-	private host: string;
+	host: string;
 	private sessionId: string | undefined;
 	private timeoutMs: number;
 

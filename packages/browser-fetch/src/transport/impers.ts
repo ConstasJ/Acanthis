@@ -12,6 +12,7 @@ import type {
 	TransportSessionKey,
 	TransportSessionPolicy,
 } from "./types";
+import { HttpStatusError, NetworkError } from "@/errors";
 
 export type SessionOptions = {
 	maxConnections?: number;
@@ -182,41 +183,55 @@ export class ImpersTransport implements Transport {
 				break;
 		}
 
-		const impersResponse = await session.request(
-			request.method,
-			request.url,
-			impersRequest,
-		);
-		if (request.session?.mode === "fresh") {
-			await session.close();
+		try {
+			const impersResponse = await session.request(
+				request.method,
+				request.url,
+				impersRequest,
+			);
+			impersResponse.raiseForStatus();
+			if (request.session?.mode === "fresh") {
+				await session.close();
+			}
+			return {
+				url: request.url,
+				finalUrl: impersResponse.url,
+				status: impersResponse.status,
+				statusText: impersResponse.statusText,
+				headers: (() => {
+					const headers: Map<string, string> = new Map();
+					for (const [key, value] of impersResponse.headers.entries()) {
+						headers.set(key, value);
+					}
+					return headers;
+				})(),
+				cookies: (() => {
+					const cookies: Map<string, string> = new Map();
+					for (const [key, value] of impersResponse.cookies.entries()) {
+						cookies.set(key, value);
+					}
+					return cookies;
+				})(),
+				contentType: extractContentType(
+					impersResponse.contentType ?? "application/octet-stream",
+				),
+				body: impersResponse.content,
+				elapsedTime: impersResponse.elapsed,
+				reusedSession: request.session?.mode === "reuse",
+				sessionKey: getKeyFromSessionKey(sessionKey),
+			};
+		} catch (error) {
+			if (error instanceof impers.RequestException) {
+				if (error instanceof impers.ConnectionError || error instanceof impers.Timeout || error instanceof impers.SSLError) {
+					throw new NetworkError(request.url, error.message);
+				}
+			}
+			if (error instanceof impers.HTTPError) {
+				const responseText = error.response ? (error.response as impers.Response).text ?? "" : "";
+				throw new HttpStatusError(error.statusCode, request.url, responseText);
+			}
+			throw error;
 		}
-		return {
-			url: request.url,
-			finalUrl: impersResponse.url,
-			status: impersResponse.status,
-			statusText: impersResponse.statusText,
-			headers: (() => {
-				const headers: Map<string, string> = new Map();
-				for (const [key, value] of impersResponse.headers.entries()) {
-					headers.set(key, value);
-				}
-				return headers;
-			})(),
-			cookies: (() => {
-				const cookies: Map<string, string> = new Map();
-				for (const [key, value] of impersResponse.cookies.entries()) {
-					cookies.set(key, value);
-				}
-				return cookies;
-			})(),
-			contentType: extractContentType(
-				impersResponse.contentType ?? "application/octet-stream",
-			),
-			body: impersResponse.content,
-			elapsedTime: impersResponse.elapsed,
-			reusedSession: request.session?.mode === "reuse",
-			sessionKey: getKeyFromSessionKey(sessionKey),
-		};
 	}
 
 	async close(): Promise<void> {
