@@ -71,8 +71,8 @@ export type TransportResponse = {
 	status: number;
 	statusText: string;
 
-	headers: Record<string, string>;
-	cookies: Record<string, string>;
+	headers: Map<string, string>;
+	cookies: Map<string, string>;
 
 	contentType?: ContentTypeInfo;
 	body: Buffer;

@@ -75,8 +75,8 @@ export interface BrowserFetchResponse {
 	url: string;
 	status: number;
 	statusText?: string;
-	headers: Record<string, string>;
-	cookies: Record<string, string>;
+	headers: Map<string, string>;
+	cookies: Map<string, string>;
 	body: string | Buffer;
 	contentType?: ContentTypeInfo | undefined;
 	elapsedTime?: number | undefined;
@@ -235,7 +235,7 @@ export class BrowserFetchClient {
 			await this.cookieStore.setCookies(
 				new URL(init.url).hostname,
 				new URL(init.url).pathname,
-				response.cookies,
+				Object.fromEntries(response.cookies),
 			);
 		}
 

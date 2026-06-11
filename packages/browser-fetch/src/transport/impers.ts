@@ -196,16 +196,16 @@ export class ImpersTransport implements Transport {
 			status: impersResponse.status,
 			statusText: impersResponse.statusText,
 			headers: (() => {
-				const headers: Record<string, string> = {};
+				const headers: Map<string, string> = new Map();
 				for (const [key, value] of impersResponse.headers.entries()) {
-					headers[key] = value;
+					headers.set(key, value);
 				}
 				return headers;
 			})(),
 			cookies: (() => {
-				const cookies: Record<string, string> = {};
+				const cookies: Map<string, string> = new Map();
 				for (const [key, value] of impersResponse.cookies.entries()) {
-					cookies[key] = value;
+					cookies.set(key, value);
 				}
 				return cookies;
 			})(),
