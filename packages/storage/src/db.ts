@@ -1,4 +1,4 @@
-import type { Novel, NovelSearchResult } from "@acanthis-dec/core";
+import type { Chapter, Novel, NovelSearchResult } from "@acanthis-dec/core";
 import { and, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
@@ -298,6 +298,31 @@ export class DatabaseService {
 				})),
 			},
 			updatedAt: novelRecord.updateAt,
+		};
+	}
+
+	async getChapterFromTitle(
+		title: string,
+	): Promise<Partial<Chapter> | undefined> {
+		if (this.migrationOptions.enabled) {
+			this._migrate();
+		}
+
+		const chapterRecord = await this.db.query.chapters
+			.findFirst({
+				where: {
+					name: title,
+				},
+			})
+			.execute();
+
+		if (!chapterRecord) {
+			return undefined;
+		}
+
+		return {
+			id: chapterRecord.platformId,
+			title: chapterRecord.name,
 		};
 	}
 

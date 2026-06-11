@@ -1,4 +1,4 @@
-import type { Novel, NovelSearchResult } from "@acanthis-dec/core";
+import type { Chapter, Novel, NovelSearchResult } from "@acanthis-dec/core";
 import type z from "zod";
 import { DatabaseCookieStore } from "./cookies";
 import { type DatabaseOptions, DatabaseService } from "./db";
@@ -66,6 +66,10 @@ export class StorageService {
 
 	async addNovelCache(novel: Novel) {
 		await this.db.addNovelCache(novel);
+	}
+
+	async getChapterFromTitle(title: string): Promise<Partial<Chapter> | undefined> {
+		return await this.db.getChapterFromTitle(title);
 	}
 
 	getCookieStore() {
