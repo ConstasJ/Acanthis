@@ -14,3 +14,6 @@ export type {
 	BrowserFetchResponse,
 	RetryOptions,
 } from "./types";
+export { 
+	defaultRetryPolicy,
+} from './utils';

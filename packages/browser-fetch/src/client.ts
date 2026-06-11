@@ -14,7 +14,6 @@ import {
 	CloudflareBlockError,
 	FlareSolverrError,
 	HttpStatusError,
-	NetworkError,
 } from "./errors";
 import { FlareSolverrClient } from "./flaresolverr";
 import { type BrowserProfile, parseBrowserProfile } from "./profile";
@@ -30,6 +29,7 @@ import type {
 	TextResponse,
 } from "./types";
 import {
+	defaultRetryPolicy,
 	iswwwFormUrlEncoded,
 	wwwFormUrlEncodedToRecordStringString,
 } from "./utils";
@@ -305,15 +305,7 @@ export class BrowserFetchClient {
 				if (retries.shouldRetry) {
 					return retries.shouldRetry(ctx);
 				} else {
-					// By default, retry on network errors and 5xx HTTP errors
-					const error = ctx.error;
-					if (error instanceof NetworkError) {
-						return true;
-					}
-					if (error instanceof HttpStatusError) {
-						return error.status >= 500 && error.status < 600;
-					}
-					return false;
+					return defaultRetryPolicy(ctx);
 				}
 			},
 		});

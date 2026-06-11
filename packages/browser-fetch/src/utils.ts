@@ -1,3 +1,6 @@
+import type { RetryContext } from "p-retry";
+import { HttpStatusError, NetworkError } from "./errors";
+
 export function isJSON(str: string): boolean {
 	if (typeof str !== "string") return false;
 	try {
@@ -169,4 +172,16 @@ export function extractContentType(contetType: string): ContentTypeInfo {
 		isText,
 		charset: charset ?? (isText ? "utf-8" : undefined),
 	};
+}
+
+export function defaultRetryPolicy(ctx: RetryContext): boolean {
+	// By default, retry on network errors and 5xx HTTP errors
+	const error = ctx.error;
+	if (error instanceof NetworkError) {
+		return true;
+	}
+	if (error instanceof HttpStatusError) {
+		return error.status >= 500 && error.status < 600;
+	}
+	return false;
 }
