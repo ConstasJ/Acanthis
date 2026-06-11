@@ -1,5 +1,5 @@
 import type { CookieStore } from "@acanthis-dec/browser-fetch";
-import type { DatabaseService } from "./db.js";
+import type { DatabaseService } from "./db";
 
 export class DatabaseCookieStore implements CookieStore {
 	private db: DatabaseService;

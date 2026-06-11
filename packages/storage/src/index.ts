@@ -1,11 +1,11 @@
-export { DatabaseCookieStore } from "./cookies.js";
+export { DatabaseCookieStore } from "./cookies";
 export {
 	type DatabaseOptions,
 	DatabaseService,
 	type MigrationOptions,
-} from "./db.js";
-export { FSStorageService } from "./files.js";
+} from "./db";
+export { FSStorageService } from "./files";
 export {
 	StorageService,
 	type StorageServiceOptions,
-} from "./service.js";
+} from "./service";

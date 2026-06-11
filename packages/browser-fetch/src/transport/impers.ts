@@ -4,14 +4,14 @@ import {
 	isFormUrlEncoded,
 	isJSON,
 	isRecordStringString,
-} from "@/utils.js";
+} from "@/utils";
 import type {
 	Transport,
 	TransportRequest,
 	TransportResponse,
 	TransportSessionKey,
 	TransportSessionPolicy,
-} from "./types.js";
+} from "./types";
 
 export type SessionOptions = {
 	maxConnections?: number;

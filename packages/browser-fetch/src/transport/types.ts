@@ -1,6 +1,6 @@
-import type { BrowserProfile } from "@/profile.js";
-import type { HttpMethod, ProxyOptions } from "@/types.js";
-import type { ContentTypeInfo } from "@/utils.js";
+import type { BrowserProfile } from "@/profile";
+import type { HttpMethod, ProxyOptions } from "@/types";
+import type { ContentTypeInfo } from "@/utils";
 
 export type TransportSessionKey = {
 	origin: string;

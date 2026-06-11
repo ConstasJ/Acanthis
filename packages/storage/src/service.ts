@@ -1,8 +1,8 @@
 import type { Novel, NovelSearchResult } from "@acanthis-dec/core";
 import type z from "zod";
-import { DatabaseCookieStore } from "./cookies.js";
-import { type DatabaseOptions, DatabaseService } from "./db.js";
-import { FSStorageService } from "./files.js";
+import { DatabaseCookieStore } from "./cookies";
+import { type DatabaseOptions, DatabaseService } from "./db";
+import { FSStorageService } from "./files";
 
 export interface StorageServiceOptions {
 	dataDir?: string;

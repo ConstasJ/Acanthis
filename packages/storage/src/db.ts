@@ -17,8 +17,8 @@ import {
 	novels,
 	relations,
 	volumes,
-} from "./table.js";
-import type { DataWithUpdatedAt } from "./type.js";
+} from "./table";
+import type { DataWithUpdatedAt } from "./type";
 
 export type MigrationOptions = {
 	enabled?: boolean;

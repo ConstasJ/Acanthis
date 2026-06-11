@@ -1,12 +1,12 @@
 import { existsSync } from "node:fs";
 import { mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
-import type { DatabaseService } from "./db.js";
+import type { DatabaseService } from "./db";
 import {
 	getCoverHash,
 	getExtFromContentType,
 	zstdCompress,
 	zstdDecompress,
-} from "./utils.js";
+} from "./utils";
 
 export class FSStorageService {
 	private basePath: string;

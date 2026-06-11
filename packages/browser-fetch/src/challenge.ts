@@ -1,4 +1,4 @@
-import type { FlareSolverrClient } from "./flaresolverr.js";
+import type { FlareSolverrClient } from "./flaresolverr";
 
 export type AutoSolvePolicy = "auto" | "force-refresh" | "never";
 
@@ -32,22 +32,14 @@ export function detectCloudflareChallenge(
 	statusCode: number,
 	body: string,
 ): boolean {
-	return (
-		statusCode === 403 &&
-		body.includes("Just a moment...") &&
-		body.includes("Cloudflare Ray ID")
-	);
+	return statusCode === 403 && body.includes("Just a moment...");
 }
 
 export function detectCloudflareBlock(
 	statusCode: number,
 	body: string,
 ): boolean {
-	return (
-		statusCode === 403 &&
-		body.includes("Attention Required!") &&
-		body.includes("Cloudflare Ray ID")
-	);
+	return statusCode === 403 && body.includes("Attention Required!");
 }
 
 export async function solveCloudflareChallenge(

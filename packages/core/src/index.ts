@@ -1,10 +1,10 @@
-export { type ContentNode, joinChapterHtml } from "./content.js";
+export { type ContentNode, joinChapterHtml } from "./content";
 export {
 	buildDescrambleMapping,
 	type DescrambleCoefficients,
 	type LcgConfig,
 	restoreByMapping,
-} from "./descramble.js";
+} from "./descramble";
 export type {
 	Chapter,
 	ChapterContent,
@@ -13,4 +13,4 @@ export type {
 	NovelSearchResult,
 	NovelStatus,
 	Volume,
-} from "./types.js";
+} from "./types";

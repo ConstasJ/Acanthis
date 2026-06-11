@@ -1,5 +1,5 @@
 import { webcrack } from "webcrack";
-import { detectObfuscation } from "./detector.js";
+import { detectObfuscation } from "./detector";
 
 export async function deobfuscate(code: string): Promise<string> {
 	let codeToDeobf = code;

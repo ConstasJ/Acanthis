@@ -22,7 +22,8 @@
 		"url": "https://github.com/ConstasJ/Acanthis/issues"
 	},
 	"dependencies": {
-		"impers": "^0.0.7"
+		"impers": "^0.0.7",
+		"p-retry": "^8.0.0"
 	},
 	"devDependencies": {
 		"@acanthis-dec/config-tsdown": "workspace:*",

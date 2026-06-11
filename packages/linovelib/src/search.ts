@@ -77,14 +77,14 @@ export async function searchNovels(
 	keyword: string,
 	fetchClient: BrowserFetchClient,
 	storage?: StorageService,
-    haha?: string,
+	haha?: string,
 ): Promise<NovelSearchResult[]> {
-    if (!haha) haha = "";
+	if (!haha) haha = "";
 	if (storage) {
 		const cachedHaha = await storage.getCache<string>("haha", z.string());
-        if (cachedHaha) {
-            haha = cachedHaha;
-        }
+		if (cachedHaha) {
+			haha = cachedHaha;
+		}
 	}
 	let response = await fetchClient.text("https://www.linovelib.com/S6", {
 		method: "POST",

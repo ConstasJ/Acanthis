@@ -1,2 +1,2 @@
-export { deobfuscate } from "./deobfuscate.js";
-export { detectObfuscation } from "./detector.js";
+export { deobfuscate } from "./deobfuscate";
+export { detectObfuscation } from "./detector";
