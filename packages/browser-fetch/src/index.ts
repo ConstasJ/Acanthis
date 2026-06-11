@@ -1,5 +1,12 @@
 export { BrowserFetchClient } from "./client";
 export type { CookieStore } from "./cookies";
+export {
+	BrowserFetchError,
+	CloudflareBlockError,
+	FlareSolverrError,
+	HttpStatusError,
+	NetworkError,
+} from "./errors";
 export type {
 	TransportHttpOptions,
 	TransportRequest,
@@ -14,6 +21,4 @@ export type {
 	BrowserFetchResponse,
 	RetryOptions,
 } from "./types";
-export { 
-	defaultRetryPolicy,
-} from './utils';
+export { defaultRetryPolicy } from "./utils";

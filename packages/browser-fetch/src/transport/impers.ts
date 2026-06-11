@@ -1,4 +1,5 @@
 import * as impers from "impers";
+import { HttpStatusError, NetworkError } from "@/errors";
 import {
 	extractContentType,
 	isFormUrlEncoded,
@@ -12,7 +13,6 @@ import type {
 	TransportSessionKey,
 	TransportSessionPolicy,
 } from "./types";
-import { HttpStatusError, NetworkError } from "@/errors";
 
 export type SessionOptions = {
 	maxConnections?: number;
@@ -222,12 +222,18 @@ export class ImpersTransport implements Transport {
 			};
 		} catch (error) {
 			if (error instanceof impers.RequestException) {
-				if (error instanceof impers.ConnectionError || error instanceof impers.Timeout || error instanceof impers.SSLError) {
+				if (
+					error instanceof impers.ConnectionError ||
+					error instanceof impers.Timeout ||
+					error instanceof impers.SSLError
+				) {
 					throw new NetworkError(request.url, error.message);
 				}
 			}
 			if (error instanceof impers.HTTPError) {
-				const responseText = error.response ? (error.response as impers.Response).text ?? "" : "";
+				const responseText = error.response
+					? ((error.response as impers.Response).text ?? "")
+					: "";
 				throw new HttpStatusError(error.statusCode, request.url, responseText);
 			}
 			throw error;
