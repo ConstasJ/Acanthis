@@ -1,6 +1,4 @@
-export {
-	BrowserFetchClient,
-} from "./client";
+export { BrowserFetchClient } from "./client";
 export type { CookieStore } from "./cookies";
 export type {
 	TransportHttpOptions,
@@ -14,4 +12,4 @@ export type {
 	BrowserFetchClientOptions,
 	BrowserFetchRequest,
 	BrowserFetchResponse,
-} from './types';
+} from "./types";

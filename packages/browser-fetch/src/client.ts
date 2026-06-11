@@ -265,7 +265,11 @@ export class BrowserFetchClient {
 			...this.requestDefaults.retry,
 			...init.retry,
 		};
-		if (!retries || Object.keys(retries).length === 0 || retries.retries === 0) {
+		if (
+			!retries ||
+			Object.keys(retries).length === 0 ||
+			retries.retries === 0
+		) {
 			return await this._request(init);
 		}
 		return await pRetry(() => this._request(init), {
