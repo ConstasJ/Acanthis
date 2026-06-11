@@ -1,95 +1,62 @@
+import pRetry from "p-retry";
 import {
-	type AutoSolvePolicy,
 	type ChallengeOptions,
 	getDetector,
 	solveCloudflareChallenge,
-} from "./challenge.js";
+} from "./challenge";
 import {
 	type CookieStore,
-	type CookieStoreOptions,
 	FileCookieStore,
 	InMemoryCookieStore,
-} from "./cookies.js";
+} from "./cookies";
+import { FlareSolverrClient } from "./flaresolverr";
+import { type BrowserProfile, parseBrowserProfile } from "./profile";
+import { ImpersTransport } from "./transport/impers";
+import type { Transport, TransportRequest } from "./transport/types";
+import type {
+	BinaryResponse,
+	BrowserFetchClientOptions,
+	BrowserFetchRequest,
+	BrowserFetchResponse,
+	ProxyOptions,
+	RequestDefaults,
+	TextResponse,
+} from "./types";
 import {
-	FlareSolverrClient,
-	type FlareSolverrOptions,
-} from "./flaresolverr.js";
-import {
-	type BrowserProfile,
-	type BrowserProfileName,
-	parseBrowserProfile,
-} from "./profile.js";
-import { ImpersTransport } from "./transport/impers.js";
-import type { Transport, TransportRequest } from "./transport/types.js";
-import type { HttpMethod, ProxyOptions } from "./types.js";
-import {
-	type ContentTypeInfo,
 	iswwwFormUrlEncoded,
 	wwwFormUrlEncodedToRecordStringString,
-} from "./utils.js";
+} from "./utils";
 
-export type RequestDefaults = {
-	headers?: Record<string, string>;
-	timeout?: number;
-	connectionTimeout?: number;
-	retries?: number;
-	retryDelayMs?: number;
-	followRedirects?: boolean;
-	maxRedirects?: number;
-};
-
-export type BrowserFetchClientOptions = {
-	profile?: BrowserProfileName | BrowserProfile;
-	cookieStore?: CookieStoreOptions;
-	flareSolverr?: FlareSolverrOptions;
-	proxy?: ProxyOptions;
-	challengeSolver?: ChallengeOptions;
-	requestDefaults?: RequestDefaults;
-	transport?: Transport;
-};
-
-export type BrowserFetchRequest = {
-	url: string;
-	method?: HttpMethod;
-	headers?: Record<string, string>;
-	body?:
-		| string
-		| Buffer
-		| URLSearchParams
-		| FormData
-		| Record<string, string>
-		| unknown;
-	cookies?: Record<string, string>;
-	profile?: BrowserProfileName | BrowserProfile;
-	responseType?: "text" | "json" | "buffer";
-	timeout?: number;
-	connectionTimeout?: number;
-	retries?: number;
-	retryDelayMs?: number;
-	followRedirects?: boolean;
-	maxRedirects?: number;
-	challengePolicy?: AutoSolvePolicy;
-};
-
-export interface BrowserFetchResponse {
-	url: string;
-	status: number;
-	statusText?: string;
-	headers: Map<string, string>;
-	cookies: Map<string, string>;
-	body: string | Buffer;
-	contentType?: ContentTypeInfo | undefined;
-	elapsedTime?: number | undefined;
-}
-
-export type TextResponse = {
-	data: string;
-	mimeType: string;
-};
-
-export type BinaryResponse = {
-	mimeType: string;
-	data: Buffer;
+const defaultOptions: BrowserFetchClientOptions = {
+	profile: "chrome149-linux",
+	cookieStore: {
+		type: "memory",
+	},
+	requestDefaults: {
+		timeout: 30000,
+		retry: {
+			retries: 0,
+			minRetryDelayMs: 1000,
+			maxRetryDelayMs: 10000,
+			randomize: true,
+			factor: 2,
+		},
+		followRedirects: true,
+		maxRedirects: 10,
+	},
+	challengeSolver: {
+		autoSolve: "auto",
+		detector: "cloudflare",
+	},
+	transport: new ImpersTransport({
+		http2Multiplexing: true,
+		maxConnections: 100,
+		maxHostConnections: 10,
+	}),
+	flareSolverr: {
+		enabled: false,
+		host: "http://localhost:8191",
+	},
 };
 
 export class BrowserFetchClient {
@@ -102,33 +69,7 @@ export class BrowserFetchClient {
 	private transport: Transport;
 
 	constructor(options?: BrowserFetchClientOptions) {
-		if (!options)
-			options = {
-				profile: "chrome149-linux",
-				cookieStore: {
-					type: "memory",
-				},
-				requestDefaults: {
-					timeout: 30000,
-					retries: 0,
-					retryDelayMs: 1000,
-					followRedirects: true,
-					maxRedirects: 10,
-				},
-				challengeSolver: {
-					autoSolve: "auto",
-					detector: "cloudflare",
-				},
-				transport: new ImpersTransport({
-					http2Multiplexing: true,
-					maxConnections: 100,
-					maxHostConnections: 10,
-				}),
-				flareSolverr: {
-					enabled: false,
-					host: "http://localhost:8191",
-				},
-			};
+		if (!options) options = defaultOptions;
 		if (options.profile) {
 			this.profile =
 				typeof options.profile === "string"
@@ -320,23 +261,25 @@ export class BrowserFetchClient {
 	}
 
 	async request(init: BrowserFetchRequest): Promise<BrowserFetchResponse> {
-		let attempts = 0;
-		const maxRetries = init.retries ?? this.requestDefaults.retries ?? 0;
-		const retryDelayMs =
-			init.retryDelayMs ?? this.requestDefaults.retryDelayMs ?? 1000;
-
-		while (true) {
-			try {
-				return await this._request(init);
-			} catch (error) {
-				if (attempts < maxRetries) {
-					attempts++;
-					await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
-				} else {
-					throw error;
-				}
-			}
+		const retries = {
+			...this.requestDefaults.retry,
+			...init.retry,
+		};
+		if (!retries || Object.keys(retries).length === 0 || retries.retries === 0) {
+			return await this._request(init);
 		}
+		return await pRetry(() => this._request(init), {
+			retries: retries.retries ?? 0,
+			minTimeout: retries.minRetryDelayMs ?? 1000,
+			maxTimeout: retries.maxRetryDelayMs ?? 10000,
+			randomize: retries.randomize ?? true,
+			factor: retries.factor ?? 2,
+			onFailedAttempt: (ctx) => {
+				if (retries.onFailedAttempt) {
+					retries.onFailedAttempt(ctx);
+				}
+			},
+		});
 	}
 
 	async text(

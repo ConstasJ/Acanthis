@@ -1,3 +1,4 @@
+import type { RetryContext } from "p-retry";
 import type { AutoSolvePolicy, ChallengeOptions } from "./challenge";
 import type { CookieStoreOptions } from "./cookies";
 import type { FlareSolverrOptions } from "./flaresolverr";
@@ -22,8 +23,7 @@ export type RequestDefaults = {
 	headers?: Record<string, string>;
 	timeout?: number;
 	connectionTimeout?: number;
-	retries?: number;
-	retryDelayMs?: number;
+	retry?: RetryOptions;
 	followRedirects?: boolean;
 	maxRedirects?: number;
 };
@@ -36,6 +36,15 @@ export type BrowserFetchClientOptions = {
 	challengeSolver?: ChallengeOptions;
 	requestDefaults?: RequestDefaults;
 	transport?: Transport;
+};
+
+export type RetryOptions = {
+	retries?: number;
+	minRetryDelayMs?: number;
+	maxRetryDelayMs?: number;
+	randomize: boolean;
+	factor: number;
+	onFailedAttempt?: (context: RetryContext) => void;
 };
 
 export type BrowserFetchRequest = {
@@ -54,8 +63,7 @@ export type BrowserFetchRequest = {
 	responseType?: "text" | "json" | "buffer";
 	timeout?: number;
 	connectionTimeout?: number;
-	retries?: number;
-	retryDelayMs?: number;
+	retry?: RetryOptions;
 	followRedirects?: boolean;
 	maxRedirects?: number;
 	challengePolicy?: AutoSolvePolicy;
