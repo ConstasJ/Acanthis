@@ -68,7 +68,9 @@ export class StorageService {
 		await this.db.addNovelCache(novel);
 	}
 
-	async getChapterFromTitle(title: string): Promise<Partial<Chapter> | undefined> {
+	async getChapterFromTitle(
+		title: string,
+	): Promise<Partial<Chapter> | undefined> {
 		return await this.db.getChapterFromTitle(title);
 	}
 
