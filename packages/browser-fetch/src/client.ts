@@ -148,10 +148,14 @@ export class BrowserFetchClient {
 				}
 				this.cookieStore = new FileCookieStore(options.cookieStore.path);
 				break;
+			case "custom":
+				if (!options.cookieStore?.store) {
+					throw new Error("Custom cookie store requires a store instance");
+				}
+				this.cookieStore = options.cookieStore.store;
+				break;
 			default:
-				throw new Error(
-					`Unsupported cookie store type: ${options.cookieStore?.type}`,
-				);
+				this.cookieStore = new InMemoryCookieStore();
 		}
 		if (options.flareSolverr?.enabled) {
 			this.flareSolverrClient = new FlareSolverrClient(options.flareSolverr);

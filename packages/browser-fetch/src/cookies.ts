@@ -2,11 +2,12 @@ import { existsSync } from "node:fs";
 import { readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
-export type CookieStoreType = "memory" | "file" | "database";
+export type CookieStoreType = "memory" | "file" | "custom";
 
 export type CookieStoreOptions = {
 	type: CookieStoreType;
 	path?: string; // For file type, the path to store cookies
+	store?: CookieStore; // For custom type, an instance of CookieStore
 };
 
 export interface CookieStore {
