@@ -1,9 +1,9 @@
+import { webcrypto } from "node:crypto";
 import type { BrowserFetchClient } from "@acanthis-dec/browser-fetch";
 import type { NovelSearchResult } from "@acanthis-dec/core";
-import { webcrypto } from "node:crypto";
-import z from "zod";
-import * as cheerio from "cheerio";
 import type { StorageService } from "@acanthis-dec/storage";
+import * as cheerio from "cheerio";
+import z from "zod";
 import { extractNovelIdFromUrl } from "./utils";
 
 function k(e: string): Uint8Array<ArrayBuffer> {
@@ -80,7 +80,7 @@ export async function searchNovels(
 ): Promise<NovelSearchResult[]> {
 	let haha = "";
 	if (storage) {
-		haha = await storage.getCache<string>("haha", z.string()) ?? "";
+		haha = (await storage.getCache<string>("haha", z.string())) ?? "";
 	}
 	let response = await fetchClient.text("https://www.linovelib.com/S6", {
 		method: "POST",
@@ -107,73 +107,82 @@ export async function searchNovels(
 				c = scriptContent.match(/window\.c\s*=\s*'([^']+)'/)?.[1] || "";
 			}
 		});
-        haha = await solveSearchChallenge(a, b, c);
-        await new Promise((r) => setTimeout(r, 3000));
-        response = await fetchClient.text("https://www.linovelib.com/S6", {
-            method: "POST",
-            body: new URLSearchParams({
-                searchkey: keyword,
-            }),
-            cookies: {
-                haha,
-            },
-        });
-        $ = cheerio.load(response.data);
-        if ($("#challenge-running").length === 0 && storage) {
-            await storage.setCache("haha", haha);
-        }
+		haha = await solveSearchChallenge(a, b, c);
+		await new Promise((r) => setTimeout(r, 3000));
+		response = await fetchClient.text("https://www.linovelib.com/S6", {
+			method: "POST",
+			body: new URLSearchParams({
+				searchkey: keyword,
+			}),
+			cookies: {
+				haha,
+			},
+		});
+		$ = cheerio.load(response.data);
+		if ($("#challenge-running").length === 0 && storage) {
+			await storage.setCache("haha", haha);
+		}
 	}
-    if ($("div.book-html-box").length > 0) {
-        return [
-            {
-                title: $("h1.book-name").text().trim(),
-                platform: "linovelib",
-                id: extractNovelIdFromUrl($("meta[name=url]").attr("content") ?? "") || "",
-                cover: $("div.book-img img").attr("src") || "",
-            }
-        ]
-    }
-    if (!response.data.includes("有关")) {
-        throw new Error("Unexpected search result format, keyword not found");
-    }
-    const pages = $("em#pagestats").text().match(/1\/(\d+)/)?.[1] || "1";
-    const results: NovelSearchResult[] = [];
-    $("div.search-html-box div.search-result-list").each((_, el) => {
-        const $el = $(el);
-        const title = $el.find("h2").text().trim();
-        const url = $el.find("h2 a").attr("href") || "";
-        const id = extractNovelIdFromUrl(url) ?? "";
-        const cover = $el.find("img").attr("src") || "";
-        results.push({
-            title,
-            platform: "linovelib",
-            id,
-            cover
-        });
-    });
-    if (Number(pages) > 1) {
-        let currentPageHtml = response.data;
-        while(true) {
-            const $2 = cheerio.load(currentPageHtml);
-            if ($2("a.next").length > 0) {
-                currentPageHtml = (await fetchClient.text(`https://www.linovelib.com${$2("a.next").attr("href")}`)).data;
-            }
-            const $3 = cheerio.load(currentPageHtml);
-            $3("div.search-html-box div.search-result-list").each((_, el) => {
-                const $el = $3(el);
-                const title = $el.find("h2").text().trim();
-                const url = $el.find("h2 a").attr("href") || "";
-                const id = extractNovelIdFromUrl(url) ?? "";
-                const cover = $el.find("img").attr("src") || "";
-                results.push({
-                    title,
-                    platform: "linovelib",
-                    id,
-                    cover
-                });
-            });
-            if ($3("a.next").length === 0) break;
-        }
-    }
-    return results;
+	if ($("div.book-html-box").length > 0) {
+		return [
+			{
+				title: $("h1.book-name").text().trim(),
+				platform: "linovelib",
+				id:
+					extractNovelIdFromUrl($("meta[name=url]").attr("content") ?? "") ||
+					"",
+				cover: $("div.book-img img").attr("src") || "",
+			},
+		];
+	}
+	if (!response.data.includes("有关")) {
+		throw new Error("Unexpected search result format, keyword not found");
+	}
+	const pages =
+		$("em#pagestats")
+			.text()
+			.match(/1\/(\d+)/)?.[1] || "1";
+	const results: NovelSearchResult[] = [];
+	$("div.search-html-box div.search-result-list").each((_, el) => {
+		const $el = $(el);
+		const title = $el.find("h2").text().trim();
+		const url = $el.find("h2 a").attr("href") || "";
+		const id = extractNovelIdFromUrl(url) ?? "";
+		const cover = $el.find("img").attr("src") || "";
+		results.push({
+			title,
+			platform: "linovelib",
+			id,
+			cover,
+		});
+	});
+	if (Number(pages) > 1) {
+		let currentPageHtml = response.data;
+		while (true) {
+			const $2 = cheerio.load(currentPageHtml);
+			if ($2("a.next").length > 0) {
+				currentPageHtml = (
+					await fetchClient.text(
+						`https://www.linovelib.com${$2("a.next").attr("href")}`,
+					)
+				).data;
+			}
+			const $3 = cheerio.load(currentPageHtml);
+			$3("div.search-html-box div.search-result-list").each((_, el) => {
+				const $el = $3(el);
+				const title = $el.find("h2").text().trim();
+				const url = $el.find("h2 a").attr("href") || "";
+				const id = extractNovelIdFromUrl(url) ?? "";
+				const cover = $el.find("img").attr("src") || "";
+				results.push({
+					title,
+					platform: "linovelib",
+					id,
+					cover,
+				});
+			});
+			if ($3("a.next").length === 0) break;
+		}
+	}
+	return results;
 }
