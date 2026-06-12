@@ -13,7 +13,7 @@ export const novels = sqliteTable("novels", {
 	name: text("name").notNull(),
 	author: text("author").notNull(),
 	summary: text("summary").notNull(),
-	cover: text("cover").notNull(),
+	coverUrl: text("cover_url").notNull(),
 	status: text("status", {
 		enum: ["ongoing", "completed", "unknown"],
 	}).notNull(),

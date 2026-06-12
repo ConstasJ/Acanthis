@@ -2,7 +2,7 @@ export interface NovelSearchResult {
 	id: string;
 	platform: string;
 	title: string;
-	cover?: string;
+	coverUrl?: string;
 }
 
 export interface NovelInfo extends NovelSearchResult {
