@@ -1,10 +1,10 @@
+import type { BinaryResponse } from "@acanthis-dec/browser-fetch";
 import type { Chapter, Novel, NovelSearchResult } from "@acanthis-dec/core";
 import type z from "zod";
 import { DatabaseCookieStore } from "./cookies";
 import { type DatabaseOptions, DatabaseService } from "./db";
 import { FSStorageService } from "./files";
 import type { ChapterWithNovelId } from "./type";
-import type { BinaryResponse } from "@acanthis-dec/browser-fetch";
 
 export interface StorageServiceOptions {
 	dataDir?: string;
@@ -37,7 +37,10 @@ export class StorageService {
 		await this.files.setNovelContent(novelId, chapterId, content);
 	}
 
-	async getCoverData(platform: string, novelId: string): Promise<BinaryResponse | undefined> {
+	async getCoverData(
+		platform: string,
+		novelId: string,
+	): Promise<BinaryResponse | undefined> {
 		return await this.files.getCoverData(platform, novelId);
 	}
 

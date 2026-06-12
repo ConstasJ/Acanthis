@@ -364,7 +364,10 @@ export class DatabaseService {
 		};
 	}
 
-	async getCoverMetadata(platform: string, novelId: string): Promise<CoverMetadata | undefined> {
+	async getCoverMetadata(
+		platform: string,
+		novelId: string,
+	): Promise<CoverMetadata | undefined> {
 		if (this.migrationOptions.enabled) {
 			this._migrate();
 		}

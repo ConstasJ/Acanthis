@@ -1,5 +1,6 @@
 import { existsSync } from "node:fs";
 import { mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import type { BinaryResponse } from "@acanthis-dec/browser-fetch";
 import type { DatabaseService } from "./db";
 import {
 	getCoverHash,
@@ -7,7 +8,6 @@ import {
 	zstdCompress,
 	zstdDecompress,
 } from "./utils";
-import type { BinaryResponse } from "@acanthis-dec/browser-fetch";
 
 export class FSStorageService {
 	private basePath: string;
@@ -76,7 +76,10 @@ export class FSStorageService {
 		await writeFile(chapterFilePath, compressedData);
 	}
 
-	async getCoverData(platform: string, novelId: string): Promise<BinaryResponse | undefined> {
+	async getCoverData(
+		platform: string,
+		novelId: string,
+	): Promise<BinaryResponse | undefined> {
 		await this._initPath();
 		const meta = await this.dbService.getCoverMetadata(platform, novelId);
 		if (!meta) {
