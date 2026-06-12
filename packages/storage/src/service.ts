@@ -44,8 +44,10 @@ export class StorageService {
 		url: string,
 		data: Buffer,
 		contentType: string,
+		platform: string,
+		platformId: string,
 	): Promise<void> {
-		await this.files.setCoverData(url, data, contentType);
+		await this.files.setCoverData(url, platform, platformId, data, contentType);
 	}
 
 	async addSearchResult(

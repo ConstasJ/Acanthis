@@ -82,7 +82,7 @@ export class FSStorageService {
 		if (!meta) {
 			return undefined;
 		}
-		const coverPath = `${this.basePath}/covers/${coverHash}.${meta.ext}`;
+		const coverPath = `${this.basePath}/covers/${coverHash.slice(0, 2)}/${coverHash}.${meta.ext}`;
 		if (!existsSync(coverPath)) {
 			return undefined;
 		}
@@ -91,15 +91,19 @@ export class FSStorageService {
 
 	async setCoverData(
 		url: string,
+		platform: string,
+		platformId: string,
 		data: Buffer,
 		contentType: string,
 	): Promise<void> {
 		await this._initPath();
 		const coverHash = getCoverHash(url);
 		const ext = getExtFromContentType(contentType);
-		const coverPath = `${this.basePath}/covers/${coverHash}.${ext}`;
+		const coverPath = `${this.basePath}/covers/${coverHash.slice(0, 2)}/${coverHash}.${ext}`;
 		await writeFile(coverPath, data);
 		await this.dbService.addCoverMetadata({
+			platform,
+			novelId: platformId,
 			hash: coverHash,
 			contentType,
 			originalUrl: url,

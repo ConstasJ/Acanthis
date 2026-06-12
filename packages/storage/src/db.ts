@@ -5,7 +5,6 @@ import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 import type { z } from "zod";
 import {
 	type Cookie,
-	type CoverMetadata,
 	chapters,
 	cookies,
 	coverMetadata,
@@ -18,7 +17,7 @@ import {
 	relations,
 	volumes,
 } from "./table";
-import type { ChapterWithNovelId, DataWithUpdatedAt } from "./type";
+import type { ChapterWithNovelId, CoverMetadata, DataWithUpdatedAt } from "./type";
 
 export type MigrationOptions = {
 	enabled?: boolean;
@@ -366,13 +365,29 @@ export class DatabaseService {
 			this._migrate();
 		}
 
-		return await this.db.query.coverMetadata
+		const queryResult = await this.db.query.coverMetadata
 			.findFirst({
 				where: {
 					hash,
 				},
+				with: {
+					novel: true,
+				}
 			})
 			.execute();
+
+		if (!queryResult) {
+			return undefined;
+		}
+
+		return {
+			platform: queryResult.novel?.platform ?? null,
+			novelId: queryResult.novel?.platformId ?? null,
+			hash: queryResult.hash ?? "",
+			contentType: queryResult.contentType ?? "",
+			originalUrl: queryResult.originalUrl ?? "",
+			ext: queryResult.ext ?? "",
+		}
 	}
 
 	async addCoverMetadata(metadata: CoverMetadata) {
@@ -380,15 +395,31 @@ export class DatabaseService {
 			this._migrate();
 		}
 
+		const novel = (metadata.novelId && metadata.platform) ? await this.db.query.novels
+			.findFirst({
+				where: {
+					platform: metadata.platform,
+					platformId: metadata.novelId,
+				},
+			})
+			.execute() : null;
+
 		this.db
 			.insert(coverMetadata)
-			.values(metadata)
+			.values({
+				hash: metadata.hash,
+				contentType: metadata.contentType,
+				originalUrl: metadata.originalUrl,
+				ext: metadata.ext,
+				novelId: novel?.id ?? null,
+			})
 			.onConflictDoUpdate({
 				target: coverMetadata.hash,
 				set: {
 					contentType: metadata.contentType,
 					originalUrl: metadata.originalUrl,
 					ext: metadata.ext,
+					novelId: novel?.id ?? null,
 				},
 			})
 			.run();

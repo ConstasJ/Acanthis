@@ -82,10 +82,9 @@ export const coverMetadata = sqliteTable("cover_metadata", {
 	hash: text("hash").primaryKey(),
 	contentType: text("content_type").notNull(),
 	originalUrl: text("original_url").notNull(),
+	novelId: integer("novel_id").references(() => novels.id, { onDelete: "set null" }),
 	ext: text("ext").notNull(),
 });
-
-export type CoverMetadata = typeof coverMetadata.$inferSelect;
 
 export const cookies = sqliteTable("cookies", {
 	id: integer("id").primaryKey({ autoIncrement: true }),
@@ -125,6 +124,10 @@ export const relations = defineRelations(
 				from: r.novels.id,
 				to: r.volumes.novelId,
 			}),
+			cover: r.one.coverMetadata({
+				from: r.novels.id,
+				to: r.coverMetadata.novelId,
+			}),
 		},
 		genres: {
 			novels: r.many.novels(),
@@ -134,6 +137,12 @@ export const relations = defineRelations(
 			chapters: r.many.chapters({
 				from: r.volumes.id,
 				to: r.chapters.volumeId,
+			}),
+		},
+		coverMetadata: {
+			novel: r.one.novels({
+				from: r.coverMetadata.novelId,
+				to: r.novels.id,
 			}),
 		},
 		chapters: {
