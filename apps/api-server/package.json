@@ -1,0 +1,31 @@
+{
+	"name": "@acanthis-dec/api-server",
+	"version": "0.0.1",
+    "private": true,
+	"description": "An API server for Acanthis, providing API endpoints for interacting with all supported sites.",
+	"author": "ConstasJ <constasj@qq.com>",
+	"license": "MIT",
+	"type": "module",
+	"packageManager": "pnpm@11.5.2",
+	"scripts": {},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/ConstasJ/Acanthis.git"
+	},
+	"homepage": "https://github.com/ConstasJ/Acanthis#readme",
+	"bugs": {
+		"url": "https://github.com/ConstasJ/Acanthis/issues"
+	},
+	"dependencies": {
+		"@acanthis-dec/core": "workspace:*",
+		"@acanthis-dec/storage": "workspace:*",
+		"@acanthis-dec/linovelib": "workspace:*"
+	},
+	"devDependencies": {
+		"@acanthis-dec/config-typescript": "workspace:*",
+		"@types/node": "catalog:",
+		"tsdown": "catalog:",
+		"tsx": "catalog:",
+		"typescript": "catalog:"
+	}
+}

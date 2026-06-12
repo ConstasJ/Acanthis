@@ -30,6 +30,34 @@ importers:
         specifier: ^2.9.17
         version: 2.9.17
 
+  apps/api-server:
+    dependencies:
+      '@acanthis-dec/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@acanthis-dec/linovelib':
+        specifier: workspace:*
+        version: link:../../packages/linovelib
+      '@acanthis-dec/storage':
+        specifier: workspace:*
+        version: link:../../packages/storage
+    devDependencies:
+      '@acanthis-dec/config-typescript':
+        specifier: workspace:*
+        version: link:../../tools/config-typescript
+      '@types/node':
+        specifier: 'catalog:'
+        version: 25.9.2
+      tsdown:
+        specifier: 'catalog:'
+        version: 0.22.2(tsx@4.22.4)(typescript@6.0.3)
+      tsx:
+        specifier: 'catalog:'
+        version: 4.22.4
+      typescript:
+        specifier: 'catalog:'
+        version: 6.0.3
+
   packages/browser-fetch:
     dependencies:
       '@constasj/impers':
