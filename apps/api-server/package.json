@@ -1,13 +1,16 @@
 {
 	"name": "@acanthis-dec/api-server",
 	"version": "0.0.1",
-    "private": true,
+	"private": true,
 	"description": "An API server for Acanthis, providing API endpoints for interacting with all supported sites.",
 	"author": "ConstasJ <constasj@qq.com>",
 	"license": "MIT",
 	"type": "module",
 	"packageManager": "pnpm@11.6.0",
-	"scripts": {},
+	"scripts": {
+		"dev": "tsx watch src/index.ts",
+		"build": "tsx scripts/build.ts"
+	},
 	"repository": {
 		"type": "git",
 		"url": "git+https://github.com/ConstasJ/Acanthis.git"
@@ -18,13 +21,16 @@
 	},
 	"dependencies": {
 		"@acanthis-dec/core": "workspace:*",
+		"@acanthis-dec/linovelib": "workspace:*",
 		"@acanthis-dec/storage": "workspace:*",
-		"@acanthis-dec/linovelib": "workspace:*"
+		"@hono/node-server": "^2.0.4",
+		"hono": "^4.12.25",
+		"zod": "^4.4.3"
 	},
 	"devDependencies": {
 		"@acanthis-dec/config-typescript": "workspace:*",
 		"@types/node": "catalog:",
-		"tsdown": "catalog:",
+		"esbuild": "^0.28.0",
 		"tsx": "catalog:",
 		"typescript": "catalog:"
 	}
