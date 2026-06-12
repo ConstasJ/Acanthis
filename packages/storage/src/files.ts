@@ -7,6 +7,7 @@ import {
 	zstdCompress,
 	zstdDecompress,
 } from "./utils";
+import type { BinaryResponse } from "@acanthis-dec/browser-fetch";
 
 export class FSStorageService {
 	private basePath: string;
@@ -75,7 +76,7 @@ export class FSStorageService {
 		await writeFile(chapterFilePath, compressedData);
 	}
 
-	async getCoverData(platform: string, novelId: string): Promise<Buffer | undefined> {
+	async getCoverData(platform: string, novelId: string): Promise<BinaryResponse | undefined> {
 		await this._initPath();
 		const meta = await this.dbService.getCoverMetadata(platform, novelId);
 		if (!meta) {
@@ -85,7 +86,8 @@ export class FSStorageService {
 		if (!existsSync(coverPath)) {
 			return undefined;
 		}
-		return await readFile(coverPath);
+		const data = await readFile(coverPath);
+		return { data, mimeType: meta.contentType };
 	}
 
 	async setCoverData(
