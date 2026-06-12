@@ -6,7 +6,7 @@
 	"author": "ConstasJ <constasj@qq.com>",
 	"license": "MIT",
 	"type": "module",
-	"packageManager": "pnpm@11.5.2",
+	"packageManager": "pnpm@11.6.0",
 	"scripts": {},
 	"repository": {
 		"type": "git",
