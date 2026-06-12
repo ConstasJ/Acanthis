@@ -6,6 +6,7 @@ import type { Chapter, Novel, NovelStatus, Volume } from "@acanthis-dec/core";
 import type { StorageService } from "@acanthis-dec/storage";
 import * as cheerio from "cheerio";
 import type { Element } from "domhandler";
+import { novelIdToCoverUrl } from "./cover";
 import type { NovelChapterQueue } from "./queue";
 
 function extractVolumesArray(catalog: string): Element[] {
@@ -145,7 +146,7 @@ export async function getNovelInfo(
 	).data;
 	const $ = cheerio.load(html);
 	const title = $("h1.book-name").text().trim();
-	const cover = $(".book-img img").attr("src") ?? "";
+	const coverUrl = novelIdToCoverUrl(id);
 	const summary = (() => {
 		const $container = $(".book-dec.Jbook-dec").clone();
 		$container.find(".notice").remove();
@@ -173,7 +174,7 @@ export async function getNovelInfo(
 		id,
 		platform: "linovelib",
 		title,
-		cover,
+		coverUrl,
 		summary,
 		author,
 		status,

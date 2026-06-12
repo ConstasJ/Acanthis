@@ -4,10 +4,10 @@ import {
 	defaultRetryPolicy,
 	type RetryOptions,
 } from "@acanthis-dec/browser-fetch";
+import type { Novel, NovelSearchResult } from "@acanthis-dec/core";
+import type { StorageService } from "@acanthis-dec/storage";
 import PQueue from "p-queue";
 import { getNovelInfo } from "./novel";
-import type { StorageService } from "@acanthis-dec/storage";
-import type { Novel, NovelSearchResult } from "@acanthis-dec/core";
 import { searchNovels } from "./search";
 
 /**
@@ -53,8 +53,13 @@ export class SearchQueue {
 		this.storage = storage;
 	}
 
-	async searchNovels(keyword: string, haha?: string): Promise<NovelSearchResult[]> {
-		return await this.queue.add(async () => await searchNovels(keyword, this.client, this.storage, haha));
+	async searchNovels(
+		keyword: string,
+		haha?: string,
+	): Promise<NovelSearchResult[]> {
+		return await this.queue.add(
+			async () => await searchNovels(keyword, this.client, this.storage, haha),
+		);
 	}
 }
 
@@ -129,7 +134,11 @@ export class NovelInfoQueue {
 	private chapterQueue: NovelChapterQueue;
 	private storage?: StorageService | undefined;
 
-	constructor(client: BrowserFetchClient, chapterQueue: NovelChapterQueue, storage?: StorageService) {
+	constructor(
+		client: BrowserFetchClient,
+		chapterQueue: NovelChapterQueue,
+		storage?: StorageService,
+	) {
 		this.queue = new PQueue({ concurrency: 1 });
 		this.client = client;
 		this.backoff = new SimpleBackoff();
@@ -161,7 +170,13 @@ export class NovelInfoQueue {
 				},
 			};
 
-			const novel = await getNovelInfo(id, this.client, retry, this.chapterQueue, this.storage);
+			const novel = await getNovelInfo(
+				id,
+				this.client,
+				retry,
+				this.chapterQueue,
+				this.storage,
+			);
 			if (!novel) {
 				throw new Error(`Failed to fetch novel info for ID: ${id}`);
 			}
