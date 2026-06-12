@@ -17,7 +17,11 @@ import {
 	relations,
 	volumes,
 } from "./table";
-import type { ChapterWithNovelId, CoverMetadata, DataWithUpdatedAt } from "./type";
+import type {
+	ChapterWithNovelId,
+	CoverMetadata,
+	DataWithUpdatedAt,
+} from "./type";
 
 export type MigrationOptions = {
 	enabled?: boolean;
@@ -360,7 +364,7 @@ export class DatabaseService {
 		};
 	}
 
-	async getCoverMetadata(hash: string): Promise<CoverMetadata | undefined> {
+	async getCoverMetadata(platform: string, novelId: string): Promise<CoverMetadata | undefined> {
 		if (this.migrationOptions.enabled) {
 			this._migrate();
 		}
@@ -368,11 +372,14 @@ export class DatabaseService {
 		const queryResult = await this.db.query.coverMetadata
 			.findFirst({
 				where: {
-					hash,
+					novel: {
+						platform: platform,
+						platformId: novelId,
+					},
 				},
 				with: {
 					novel: true,
-				}
+				},
 			})
 			.execute();
 
@@ -386,8 +393,7 @@ export class DatabaseService {
 			hash: queryResult.hash ?? "",
 			contentType: queryResult.contentType ?? "",
 			originalUrl: queryResult.originalUrl ?? "",
-			ext: queryResult.ext ?? "",
-		}
+		};
 	}
 
 	async addCoverMetadata(metadata: CoverMetadata) {
@@ -395,14 +401,17 @@ export class DatabaseService {
 			this._migrate();
 		}
 
-		const novel = (metadata.novelId && metadata.platform) ? await this.db.query.novels
-			.findFirst({
-				where: {
-					platform: metadata.platform,
-					platformId: metadata.novelId,
-				},
-			})
-			.execute() : null;
+		const novel =
+			metadata.novelId && metadata.platform
+				? await this.db.query.novels
+						.findFirst({
+							where: {
+								platform: metadata.platform,
+								platformId: metadata.novelId,
+							},
+						})
+						.execute()
+				: null;
 
 		this.db
 			.insert(coverMetadata)
@@ -410,7 +419,6 @@ export class DatabaseService {
 				hash: metadata.hash,
 				contentType: metadata.contentType,
 				originalUrl: metadata.originalUrl,
-				ext: metadata.ext,
 				novelId: novel?.id ?? null,
 			})
 			.onConflictDoUpdate({
@@ -418,7 +426,6 @@ export class DatabaseService {
 				set: {
 					contentType: metadata.contentType,
 					originalUrl: metadata.originalUrl,
-					ext: metadata.ext,
 					novelId: novel?.id ?? null,
 				},
 			})

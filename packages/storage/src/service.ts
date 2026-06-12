@@ -36,8 +36,8 @@ export class StorageService {
 		await this.files.setNovelContent(novelId, chapterId, content);
 	}
 
-	async getCoverData(url: string): Promise<Buffer | undefined> {
-		return await this.files.getCoverData(url);
+	async getCoverData(platform: string, novelId: string): Promise<Buffer | undefined> {
+		return await this.files.getCoverData(platform, novelId);
 	}
 
 	async setCoverData(

@@ -25,8 +25,8 @@ export const zstdDecompress = (data: Buffer): Promise<Buffer> => {
 	});
 };
 
-export function getCoverHash(url: string): string {
-	return createHash("md5").update(url).digest("hex");
+export function getCoverHash(data: Buffer): string {
+	return createHash("md5").update(data).digest("hex");
 }
 
 export function getExtFromContentType(contentType: string): string {

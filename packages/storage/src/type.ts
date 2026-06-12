@@ -16,5 +16,4 @@ export interface CoverMetadata {
 	hash: string;
 	contentType: string;
 	originalUrl: string;
-	ext: string;
 }
