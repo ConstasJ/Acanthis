@@ -24,11 +24,15 @@
 		"@acanthis-dec/linovelib": "workspace:*",
 		"@acanthis-dec/storage": "workspace:*",
 		"@hono/node-server": "^2.0.4",
+		"deepmerge-ts": "^7.1.5",
+		"dotenv": "^17.4.2",
 		"hono": "^4.12.25",
+		"js-yaml": "^4.2.0",
 		"zod": "^4.4.3"
 	},
 	"devDependencies": {
 		"@acanthis-dec/config-typescript": "workspace:*",
+		"@types/js-yaml": "^4.0.9",
 		"@types/node": "catalog:",
 		"esbuild": "^0.28.0",
 		"tsx": "catalog:",
