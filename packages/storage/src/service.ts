@@ -22,21 +22,21 @@ export class StorageService {
 	}
 
 	async getNovelContent(
-		novelId: number,
-		chapterId: number,
-	): Promise<string | null> {
+		novelId: string,
+		chapterId: string,
+	): Promise<string | undefined> {
 		return await this.files.getNovelContent(novelId, chapterId);
 	}
 
 	async setNovelContent(
-		novelId: number,
-		chapterId: number,
+		novelId: string,
+		chapterId: string,
 		content: string,
 	): Promise<void> {
 		await this.files.setNovelContent(novelId, chapterId, content);
 	}
 
-	async getCoverData(url: string): Promise<Buffer | null> {
+	async getCoverData(url: string): Promise<Buffer | undefined> {
 		return await this.files.getCoverData(url);
 	}
 
@@ -55,14 +55,14 @@ export class StorageService {
 		await this.db.addSearchResult(keyword, results);
 	}
 
-	async searchNovels(keyword: string): Promise<NovelSearchResult[] | null> {
+	async searchNovels(keyword: string): Promise<NovelSearchResult[] | undefined> {
 		const data = await this.db.searchNovels(keyword);
-		return data ? data.data : null;
+		return data ? data.data : undefined;
 	}
 
 	async getNovelCache(platform: string, platformId: string) {
 		const data = await this.db.getNovelCache(platform, platformId);
-		return data ? data.data : null;
+		return data ? data.data : undefined;
 	}
 
 	async addNovelCache(novel: Novel) {

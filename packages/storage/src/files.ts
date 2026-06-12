@@ -34,20 +34,20 @@ export class FSStorageService {
 	}
 
 	async getNovelContent(
-		novelId: number,
-		chapterId: number,
-	): Promise<string | null> {
+		novelId: string,
+		chapterId: string,
+	): Promise<string | undefined> {
 		await this._initPath();
 		const novelCacheDir = `${this.basePath}/novels/${novelId}`;
 		if (
 			!existsSync(novelCacheDir) ||
 			(await stat(novelCacheDir)).isDirectory() === false
 		) {
-			return null;
+			return undefined;
 		}
 		const chapterFilePath = `${novelCacheDir}/${chapterId}.zst`;
 		if (!existsSync(chapterFilePath)) {
-			return null;
+			return undefined;
 		}
 		const compressedData = await readFile(chapterFilePath);
 		const decompressedData = await zstdDecompress(compressedData);
@@ -55,8 +55,8 @@ export class FSStorageService {
 	}
 
 	async setNovelContent(
-		novelId: number,
-		chapterId: number,
+		novelId: string,
+		chapterId: string,
 		content: string,
 	): Promise<void> {
 		await this._initPath();
@@ -75,16 +75,16 @@ export class FSStorageService {
 		await writeFile(chapterFilePath, compressedData);
 	}
 
-	async getCoverData(url: string): Promise<Buffer | null> {
+	async getCoverData(url: string): Promise<Buffer | undefined> {
 		await this._initPath();
 		const coverHash = getCoverHash(url);
 		const meta = await this.dbService.getCoverMetadata(coverHash);
 		if (!meta) {
-			return null;
+			return undefined;
 		}
 		const coverPath = `${this.basePath}/covers/${coverHash}.${meta.ext}`;
 		if (!existsSync(coverPath)) {
-			return null;
+			return undefined;
 		}
 		return await readFile(coverPath);
 	}
