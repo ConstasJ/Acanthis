@@ -345,7 +345,7 @@ export class DatabaseService {
 				with: {
 					novel: true,
 					volume: true,
-				}
+				},
 			})
 			.execute();
 

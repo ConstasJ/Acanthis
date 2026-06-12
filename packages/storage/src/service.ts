@@ -55,7 +55,9 @@ export class StorageService {
 		await this.db.addSearchResult(keyword, results);
 	}
 
-	async searchNovels(keyword: string): Promise<NovelSearchResult[] | undefined> {
+	async searchNovels(
+		keyword: string,
+	): Promise<NovelSearchResult[] | undefined> {
 		const data = await this.db.searchNovels(keyword);
 		return data ? data.data : undefined;
 	}
