@@ -3,6 +3,7 @@ import type z from "zod";
 import { DatabaseCookieStore } from "./cookies";
 import { type DatabaseOptions, DatabaseService } from "./db";
 import { FSStorageService } from "./files";
+import type { ChapterWithNovelId } from "./type";
 
 export interface StorageServiceOptions {
 	dataDir?: string;
@@ -72,6 +73,13 @@ export class StorageService {
 		title: string,
 	): Promise<Partial<Chapter> | undefined> {
 		return await this.db.getChapterFromTitle(title);
+	}
+
+	async getChapterFromId(
+		platform: string,
+		platformId: string,
+	): Promise<ChapterWithNovelId | undefined> {
+		return await this.db.getChapterFromId(platform, platformId);
 	}
 
 	getCookieStore() {

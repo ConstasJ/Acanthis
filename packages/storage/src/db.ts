@@ -18,7 +18,7 @@ import {
 	relations,
 	volumes,
 } from "./table";
-import type { DataWithUpdatedAt } from "./type";
+import type { ChapterWithNovelId, DataWithUpdatedAt } from "./type";
 
 export type MigrationOptions = {
 	enabled?: boolean;
@@ -323,6 +323,41 @@ export class DatabaseService {
 		return {
 			id: chapterRecord.platformId,
 			title: chapterRecord.name,
+		};
+	}
+
+	async getChapterFromId(
+		platform: string,
+		platformId: string,
+	): Promise<ChapterWithNovelId | undefined> {
+		if (this.migrationOptions.enabled) {
+			this._migrate();
+		}
+
+		const chapterRecord = await this.db.query.chapters
+			.findFirst({
+				where: {
+					platformId,
+					novel: {
+						platform,
+					},
+				},
+				with: {
+					novel: true,
+					volume: true,
+				}
+			})
+			.execute();
+
+		if (!chapterRecord) {
+			return undefined;
+		}
+
+		return {
+			id: chapterRecord.platformId,
+			name: chapterRecord.name,
+			novelId: chapterRecord.novel?.platformId ?? "",
+			volumeId: chapterRecord.volume?.platformId ?? "",
 		};
 	}
 
