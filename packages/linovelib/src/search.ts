@@ -135,7 +135,7 @@ export async function searchNovels(
 				id:
 					extractNovelIdFromUrl($("meta[name=url]").attr("content") ?? "") ||
 					"",
-				cover: $("div.book-img img").attr("src") || "",
+				coverUrl: $("div.book-img img").attr("src") || "",
 			},
 		];
 	}
@@ -152,12 +152,12 @@ export async function searchNovels(
 		const title = $el.find("h2").text().trim();
 		const url = $el.find("h2 a").attr("href") || "";
 		const id = extractNovelIdFromUrl(url) ?? "";
-		const cover = $el.find("img").attr("src") || "";
+		const coverUrl = $el.find("img").attr("src") || "";
 		results.push({
 			title,
 			platform: "linovelib",
 			id,
-			cover,
+			coverUrl,
 		});
 	});
 	if (Number(pages) > 1) {
@@ -177,12 +177,12 @@ export async function searchNovels(
 				const title = $el.find("h2").text().trim();
 				const url = $el.find("h2 a").attr("href") || "";
 				const id = extractNovelIdFromUrl(url) ?? "";
-				const cover = $el.find("img").attr("src") || "";
+				const coverUrl = $el.find("img").attr("src") || "";
 				results.push({
 					title,
 					platform: "linovelib",
 					id,
-					cover,
+					coverUrl,
 				});
 			});
 			if ($3("a.next").length === 0) break;
