@@ -5,6 +5,10 @@ import {
 	type RetryOptions,
 } from "@acanthis-dec/browser-fetch";
 import PQueue from "p-queue";
+import { getNovelInfo } from "./novel";
+import type { StorageService } from "@acanthis-dec/storage";
+import type { Novel, NovelSearchResult } from "@acanthis-dec/core";
+import { searchNovels } from "./search";
 
 /**
  * Simple backoff strategy for request rate limiting
@@ -35,6 +39,22 @@ class SimpleBackoff {
 			this.NORMAL_DELAY_MIN +
 			Math.random() * (this.NORMAL_DELAY_MAX - this.NORMAL_DELAY_MIN)
 		);
+	}
+}
+
+export class SearchQueue {
+	private queue: PQueue;
+	private client: BrowserFetchClient;
+	private storage?: StorageService | undefined;
+
+	constructor(client: BrowserFetchClient, storage?: StorageService) {
+		this.queue = new PQueue({ concurrency: 1 });
+		this.client = client;
+		this.storage = storage;
+	}
+
+	async searchNovels(keyword: string, haha?: string): Promise<NovelSearchResult[]> {
+		return await this.queue.add(async () => await searchNovels(keyword, this.client, this.storage, haha));
 	}
 }
 
@@ -98,6 +118,55 @@ export class NovelChapterQueue {
 			}
 			await this._sleep(this.backoff.getDelayForSuccess());
 			return content;
+		});
+	}
+}
+
+export class NovelInfoQueue {
+	private queue: PQueue;
+	private client: BrowserFetchClient;
+	private backoff: SimpleBackoff;
+	private chapterQueue: NovelChapterQueue;
+	private storage?: StorageService | undefined;
+
+	constructor(client: BrowserFetchClient, chapterQueue: NovelChapterQueue, storage?: StorageService) {
+		this.queue = new PQueue({ concurrency: 1 });
+		this.client = client;
+		this.backoff = new SimpleBackoff();
+		this.chapterQueue = chapterQueue;
+		this.storage = storage;
+	}
+
+	private async _sleep(ms: number) {
+		return new Promise((resolve) => setTimeout(resolve, ms));
+	}
+
+	async fetchNovelInfo(id: string): Promise<Novel> {
+		return await this.queue.add(async () => {
+			const retry: RetryOptions = {
+				retries: 10,
+				factor: 2,
+				minRetryDelayMs: 0,
+				maxRetryDelayMs: 0,
+				randomize: false,
+				onFailedAttempt: async (ctx) => {
+					if (ctx.error instanceof CloudflareBlockError) {
+						await this._sleep(this.backoff.FAILURE_DELAY);
+					}
+				},
+				shouldRetry: async (ctx) => {
+					return (
+						defaultRetryPolicy(ctx) || ctx.error instanceof CloudflareBlockError
+					);
+				},
+			};
+
+			const novel = await getNovelInfo(id, this.client, retry, this.chapterQueue, this.storage);
+			if (!novel) {
+				throw new Error(`Failed to fetch novel info for ID: ${id}`);
+			}
+			await this._sleep(this.backoff.getDelayForSuccess());
+			return novel;
 		});
 	}
 }
