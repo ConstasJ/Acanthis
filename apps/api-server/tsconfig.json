@@ -1,3 +1,3 @@
 {
-    "extends": "@acanthis-dec/config-typescript/apps.json",
+	"extends": "@acanthis-dec/config-typescript/apps.json"
 }

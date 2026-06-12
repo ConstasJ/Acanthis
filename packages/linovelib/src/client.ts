@@ -6,17 +6,19 @@ import { getCover } from "./cover";
 import { NovelChapterQueue, NovelInfoQueue, SearchQueue } from "./queue";
 import { ensureValidSession } from "./session";
 
-export type SessionOptions = {
-    enabled: false;
-} | {
-    enabled: true;
-    username: string;
-    password: string;
-}
+export type SessionOptions =
+	| {
+			enabled: false;
+	  }
+	| {
+			enabled: true;
+			username: string;
+			password: string;
+	  };
 
 export type LinovelibClientOptions = {
-    session: SessionOptions;
-}
+	session: SessionOptions;
+};
 
 export class LinovelibClient {
 	private storage?: StorageService | undefined;
@@ -24,14 +26,14 @@ export class LinovelibClient {
 	private novelChapterQueue: NovelChapterQueue;
 	private novelInfoQueue: NovelInfoQueue;
 	private searchQueue: SearchQueue;
-    private options?: LinovelibClientOptions;
+	private options?: LinovelibClientOptions;
 
 	constructor(options?: LinovelibClientOptions, storage?: StorageService) {
 		this.options = options ?? {
-            session: {
-                enabled: false,
-            },
-        }
+			session: {
+				enabled: false,
+			},
+		};
 		this.storage = storage;
 		this.fetchClient = new BrowserFetchClient();
 		this.novelChapterQueue = new NovelChapterQueue(this.fetchClient);
@@ -44,12 +46,12 @@ export class LinovelibClient {
 	}
 
 	async getNovelInfo(id: string): Promise<Novel | undefined> {
-        if (this.options?.session.enabled && this.storage) {
-            await ensureValidSession(this.storage, this.fetchClient, {
-                username: this.options.session.username,
-                password: this.options.session.password,
-            });
-        }
+		if (this.options?.session.enabled && this.storage) {
+			await ensureValidSession(this.storage, this.fetchClient, {
+				username: this.options.session.username,
+				password: this.options.session.password,
+			});
+		}
 		return await this.novelInfoQueue.fetchNovelInfo(id);
 	}
 
@@ -57,12 +59,12 @@ export class LinovelibClient {
 		keyword: string,
 		haha?: string,
 	): Promise<NovelSearchResult[]> {
-        if (this.options?.session.enabled && this.storage) {
-            await ensureValidSession(this.storage, this.fetchClient, {
-                username: this.options.session.username,
-                password: this.options.session.password,
-            });
-        }
+		if (this.options?.session.enabled && this.storage) {
+			await ensureValidSession(this.storage, this.fetchClient, {
+				username: this.options.session.username,
+				password: this.options.session.password,
+			});
+		}
 		return await this.searchQueue.searchNovels(keyword, haha);
 	}
 
@@ -74,12 +76,12 @@ export class LinovelibClient {
 		novelId: string,
 		chapterId: string,
 	): Promise<string | undefined> {
-        if (this.options?.session.enabled && this.storage) {
-            await ensureValidSession(this.storage, this.fetchClient, {
-                username: this.options.session.username,
-                password: this.options.session.password,
-            });
-        }
+		if (this.options?.session.enabled && this.storage) {
+			await ensureValidSession(this.storage, this.fetchClient, {
+				username: this.options.session.username,
+				password: this.options.session.password,
+			});
+		}
 		return await getChapter(
 			chapterId,
 			this.novelChapterQueue,

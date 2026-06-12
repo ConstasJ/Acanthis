@@ -2,4 +2,6 @@ import { Hono } from "hono";
 
 const app = new Hono();
 
-app.get('/')
+app.get("/");
+
+export default app;

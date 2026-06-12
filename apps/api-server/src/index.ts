@@ -1,13 +1,13 @@
-import { serve } from '@hono/node-server'
-import { Hono } from 'hono';
+import { serve } from "@hono/node-server";
+import { Hono } from "hono";
+import { config } from "./config";
+import LinovelibRoutes from "./linovelib";
 
 const app = new Hono();
 
-app.get('/', (c) => {
-  return c.text('Hello, World!');
-});
+app.route("/linovelib", LinovelibRoutes);
 
 serve({
-    fetch: app.fetch,
-    port: 5301,
-})
+	fetch: app.fetch,
+	port: config.port ?? 5301,
+});
