@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, rmSync, statSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import type { Chapter, Novel, NovelSearchResult } from "@acanthis-dec/core";
+import Database from "better-sqlite3";
 import { and, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
@@ -35,14 +36,15 @@ export type DatabaseOptions = {
 	migrations?: MigrationOptions;
 };
 
-function getDrizzle(path: string) {
+function getDrizzle(client: Database.Database) {
 	return drizzle({
-		connection: path,
+		client,
 		relations,
 	});
 }
 
 export class DatabaseService {
+	private client: Database.Database;
 	private db: ReturnType<typeof getDrizzle>;
 	private isMigrated: boolean = false;
 	private migrationOptions: MigrationOptions;
@@ -55,7 +57,9 @@ export class DatabaseService {
 			rmSync(parentDir);
 			mkdirSync(parentDir, { recursive: true });
 		}
-		this.db = getDrizzle(options.path);
+		this.client = new Database(options.path);
+		this.client.pragma("journal_mode = WAL");
+		this.db = getDrizzle(this.client);
 		this.migrationOptions = options.migrations || {
 			enabled: true,
 			directory: "migrations",
@@ -565,6 +569,6 @@ export class DatabaseService {
 	}
 
 	close() {
-		this.db.$client.close();
+		this.client.close();
 	}
 }
