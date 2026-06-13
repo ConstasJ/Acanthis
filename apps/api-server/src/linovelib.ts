@@ -1,6 +1,8 @@
+import { novelIdToCoverUrl } from "@acanthis-dec/linovelib";
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import z from "zod";
+import { config } from "./config";
 import { linovelibClient, logger, storageService } from "./services";
 import { type OutputStyle, outputStyleSchema } from "./types";
 import { transformOutputStyleForNovel } from "./utils";
@@ -64,6 +66,7 @@ app.get(
 	zValidator("query", z.object({ style: outputStyleSchema.optional() })),
 	async (c) => {
 		try {
+			const host = config.host ?? c.header("host") ?? "http://localhost:5301";
 			const novelId = c.req.param("novelId");
 			const style = c.req.query("style") as OutputStyle | undefined;
 			const cachedNovel = await storageService.getNovelCache(
@@ -80,6 +83,7 @@ app.get(
 			const novel = await linovelibClient.getNovelInfo(novelId);
 			if (novel) {
 				await storageService.addNovelCache(novel);
+				novel.coverUrl = `${host}/linovelib/novel/${novelId}/cover`;
 				return c.json({
 					code: 0,
 					message: "Success",
@@ -87,6 +91,44 @@ app.get(
 				});
 			}
 			return c.json({ error: "Novel not found" }, 404);
+		} catch (error) {
+			logger.error(error);
+			return c.json({
+				code: 20000,
+				message: "Internal Server Error",
+			});
+		}
+	},
+);
+
+app.get(
+	"/novel/:novelId/cover",
+	zValidator("param", novelParamSchema),
+	async (c) => {
+		try {
+			const novelId = c.req.param("novelId");
+			const cachedCover = await storageService.getCoverData(
+				"linovelib",
+				novelId,
+			);
+			if (cachedCover) {
+				c.header("Content-Type", cachedCover.mimeType);
+				c.header("Cache-Control", "public, max-age=86400");
+				return c.body(new Uint8Array(cachedCover.data));
+			}
+			const coverData = await linovelibClient.getNovelCover(novelId);
+			if (coverData) {
+				await storageService.setCoverData(
+					novelIdToCoverUrl(novelId),
+					coverData.data,
+					coverData.mimeType,
+					"linovelib",
+					novelId,
+				);
+				c.header("Content-Type", coverData.mimeType);
+				c.header("Cache-Control", "public, max-age=86400");
+				return c.body(new Uint8Array(coverData.data));
+			}
 		} catch (error) {
 			logger.error(error);
 			return c.json({
