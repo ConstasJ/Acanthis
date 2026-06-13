@@ -1,7 +1,7 @@
 import { novelIdToCoverUrl } from "@acanthis-dec/linovelib";
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
-import z, { prettifyError } from "zod";
+import z from "zod";
 import { config } from "./config";
 import { linovelibClient, logger, storageService } from "./services";
 import { type OutputStyle, outputStyleSchema } from "./types";
@@ -60,10 +60,13 @@ app.get(
 			return c.json({ error: "Chapter not found" }, 404);
 		} catch (error) {
 			logger.error(`${error instanceof Error ? error.stack : String(error)}`);
-			return c.json({
-				code: 20000,
-				message: "Internal Server Error",
-			}, 500);
+			return c.json(
+				{
+					code: 20000,
+					message: "Internal Server Error",
+				},
+				500,
+			);
 		}
 	},
 );
@@ -101,10 +104,13 @@ app.get(
 			return c.json({ error: "Novel not found" }, 404);
 		} catch (error) {
 			logger.error(`${error instanceof Error ? error.stack : String(error)}`);
-			return c.json({
-				code: 20000,
-				message: "Internal Server Error",
-			}, 500);
+			return c.json(
+				{
+					code: 20000,
+					message: "Internal Server Error",
+				},
+				500,
+			);
 		}
 	},
 );
@@ -139,10 +145,13 @@ app.get(
 			}
 		} catch (error) {
 			logger.error(`${error instanceof Error ? error.stack : String(error)}`);
-			return c.json({
-				code: 20000,
-				message: "Internal Server Error",
-			}, 500);
+			return c.json(
+				{
+					code: 20000,
+					message: "Internal Server Error",
+				},
+				500,
+			);
 		}
 	},
 );
@@ -177,10 +186,13 @@ app.get("/search", zValidator("query", searchQuerySchema), async (c) => {
 		});
 	} catch (error) {
 		logger.error(`${error instanceof Error ? error.stack : String(error)}`);
-		return c.json({
-			code: 20000,
-			message: "Internal Server Error",
-		}, 500);
+		return c.json(
+			{
+				code: 20000,
+				message: "Internal Server Error",
+			},
+			500,
+		);
 	}
 });
 

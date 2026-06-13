@@ -1,9 +1,13 @@
-import { BrowserFetchClient } from "@acanthis-dec/browser-fetch";
+import {
+	BrowserFetchClient,
+	type BrowserFetchClientOptions,
+	type FlareSolverrOptions,
+	type ProxyOptions,
+} from "@acanthis-dec/browser-fetch";
 import type { Novel, NovelSearchResult } from "@acanthis-dec/core";
 import type { StorageService } from "@acanthis-dec/storage";
 import { deepmerge } from "deepmerge-ts";
 import type { Logger } from "winston";
-import type { FlareSolverrOptions } from "../../browser-fetch/src/flaresolverr";
 import { getChapter } from "./chapter";
 import { getCover } from "./cover";
 import { NovelChapterQueue, NovelInfoQueue, SearchQueue } from "./queue";
@@ -22,6 +26,7 @@ export type SessionOptions =
 export type LinovelibClientOptions = {
 	session: SessionOptions;
 	flareSolverr: FlareSolverrOptions;
+	proxy?: ProxyOptions;
 };
 
 export class LinovelibClient {
@@ -54,24 +59,24 @@ export class LinovelibClient {
 		) as LinovelibClientOptions;
 		this.storage = storage;
 		this.logger = logger;
-		this.fetchClient = new BrowserFetchClient({
-			flareSolverr: (() => {
-				if (this.options?.flareSolverr.enabled) {
-					return {
-						enabled: true,
-						host: this.options.flareSolverr.host,
-						timeoutMs: this.options.flareSolverr.timeoutMs ?? 60000,
-						sessionId:
-							this.options.flareSolverr.sessionId ??
-							"acanthis-linovelib-client",
-					};
-				} else {
-					return {
-						enabled: false,
-					};
-				}
-			})(),
-		});
+		const browserFetchOptions: BrowserFetchClientOptions = {};
+		if (this.options?.flareSolverr.enabled) {
+			browserFetchOptions.flareSolverr = {
+				enabled: true,
+				host: this.options.flareSolverr.host,
+				timeoutMs: this.options.flareSolverr.timeoutMs ?? 60000,
+				sessionId:
+					this.options.flareSolverr.sessionId ?? "acanthis-linovelib-client",
+			};
+		} else {
+			browserFetchOptions.flareSolverr = {
+				enabled: false,
+			};
+		}
+		if (this.options?.proxy) {
+			browserFetchOptions.proxy = this.options.proxy;
+		}
+		this.fetchClient = new BrowserFetchClient(browserFetchOptions);
 		this.novelChapterQueue = new NovelChapterQueue(
 			this.fetchClient,
 			this.logger,

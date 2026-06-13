@@ -20,7 +20,10 @@ export const ConfigSchema = z.object({
 		.object({
 			filePath: z.string().default("data").describe("数据文件存储路径"),
 			dbPath: z.string().default("data/data.db").describe("数据库文件路径"),
-			migrationsPath: z.string().default("migrations").describe("数据库迁移文件路径"),
+			migrationsPath: z
+				.string()
+				.default("migrations")
+				.describe("数据库迁移文件路径"),
 		})
 		.describe("数据存储相关配置"),
 	impersonate: z
@@ -74,6 +77,10 @@ export const ConfigSchema = z.object({
 		})
 		.optional()
 		.describe("日志配置"),
+	proxy: z.object({
+		http: z.string().optional().describe("HTTP 代理地址"),
+		https: z.string().optional().describe("HTTPS 代理地址"),
+	}).optional().describe("代理配置"),
 });
 
 export type Config = z.infer<typeof ConfigSchema>;
@@ -135,6 +142,10 @@ export function getConfig(): Config {
 						: undefined,
 					dir: process.env.LOGGING_FILE_DIR,
 				},
+			},
+			proxy: {
+				http: process.env.PROXY_HTTP,
+				https: process.env.PROXY_HTTPS,
 			},
 		};
 		const mergedRaw = deepmerge(fileConfig, envConfig);

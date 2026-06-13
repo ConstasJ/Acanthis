@@ -7,6 +7,7 @@ export {
 	HttpStatusError,
 	NetworkError,
 } from "./errors";
+export type { FlareSolverrOptions } from "./flaresolverr";
 export type {
 	TransportHttpOptions,
 	TransportRequest,
@@ -19,6 +20,7 @@ export type {
 	BrowserFetchClientOptions,
 	BrowserFetchRequest,
 	BrowserFetchResponse,
+	ProxyOptions,
 	RetryOptions,
 } from "./types";
 export { defaultRetryPolicy } from "./utils";

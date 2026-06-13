@@ -1,4 +1,7 @@
-import { LinovelibClient } from "@acanthis-dec/linovelib";
+import {
+	LinovelibClient,
+	type LinovelibClientOptions,
+} from "@acanthis-dec/linovelib";
 import { StorageService } from "@acanthis-dec/storage";
 import { createLogger, format, transports } from "winston";
 import { config } from "./config";
@@ -9,7 +12,7 @@ export const storageService = new StorageService({
 		migrations: {
 			enabled: true,
 			directory: config.data.migrationsPath,
-		}
+		},
 	},
 	dataDir: config.data.filePath,
 });
@@ -43,27 +46,31 @@ export const logger = createLogger({
 	],
 });
 
-export const linovelibClient = new LinovelibClient(
-	{
-		session: (() => {
-			if (config.credentials?.linovelib) {
-				return {
-					enabled: true,
-					username: config.credentials.linovelib.username,
-					password: config.credentials.linovelib.password,
-				};
-			} else
-				return {
-					enabled: false,
-				};
-		})(),
-		flareSolverr: {
-			enabled: config.flaresolverr.enabled,
-			host: config.flaresolverr.host,
-			timeoutMs: config.flaresolverr.timeoutMs,
-			sessionId: config.flaresolverr.sessionId,
-		},
+const linovelibOptions: Partial<LinovelibClientOptions> = {
+	flareSolverr: {
+		enabled: config.flaresolverr.enabled,
+		host: config.flaresolverr.host,
+		timeoutMs: config.flaresolverr.timeoutMs,
+		sessionId: config.flaresolverr.sessionId,
 	},
-	storageService,
-	logger,
-);
+};
+
+if (config.credentials?.linovelib) {
+	linovelibOptions.session = {
+		enabled: true,
+		username: config.credentials.linovelib.username,
+		password: config.credentials.linovelib.password,
+	};
+} else
+	linovelibOptions.session = {
+		enabled: false,
+	};
+
+if (config.proxy) {
+	linovelibOptions.proxy = {
+		http: config.proxy.http ?? "",
+		https: config.proxy.https ?? "",
+	};
+}
+
+export const linovelibClient = new LinovelibClient(linovelibOptions as LinovelibClientOptions, storageService, logger);
