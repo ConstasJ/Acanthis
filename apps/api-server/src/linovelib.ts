@@ -5,7 +5,7 @@ import z from "zod";
 import { config } from "./config";
 import { linovelibClient, logger, storageService } from "./services";
 import { type OutputStyle, outputStyleSchema } from "./types";
-import { transformOutputStyleForNovel } from "./utils";
+import { transformOutputStyleForNovel, transformOutputStyleForSearchResult } from "./utils";
 
 const app = new Hono();
 
@@ -16,6 +16,11 @@ const chapterParamSchema = z.object({
 
 const novelParamSchema = z.object({
 	novelId: z.string().min(1, "Novel ID is required"),
+});
+
+const searchQuerySchema = z.object({
+	keyword: z.string().min(1, "Keyword is required"),
+	style: outputStyleSchema.optional(),
 });
 
 app.get(
@@ -138,5 +143,37 @@ app.get(
 		}
 	},
 );
+
+app.get("/search", zValidator("query", searchQuerySchema), async (c) => {
+		try {
+			const keyword = c.req.query("keyword") as string;
+			const style = c.req.query("style") as OutputStyle | undefined;
+			const cachedResults = await storageService.searchNovels(keyword, "linovelib");
+			if (cachedResults) {
+				return c.json({
+					code: 0,
+					message: "Success",
+					data: cachedResults.map((novel) =>
+						transformOutputStyleForSearchResult(novel, style),
+					),
+				});
+			}
+			const results = await linovelibClient.searchNovels(keyword);
+			if (results.length > 0) {
+				await storageService.addSearchResult(keyword, "linovelib", results);
+			}
+			return c.json({
+				code: 0,
+				message: "Success",
+				data: results.map((novel) => transformOutputStyleForSearchResult(novel, style)),
+			});
+		} catch (error) {
+			logger.error(error);
+			return c.json({
+				code: 20000,
+				message: "Internal Server Error",
+			});
+		}
+	});
 
 export default app;
