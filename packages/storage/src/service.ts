@@ -56,15 +56,17 @@ export class StorageService {
 
 	async addSearchResult(
 		keyword: string,
+		platform: string,
 		results: NovelSearchResult[],
 	): Promise<void> {
-		await this.db.addSearchResult(keyword, results);
+		await this.db.addSearchResult(keyword, platform, results);
 	}
 
 	async searchNovels(
 		keyword: string,
+		platform: string,
 	): Promise<NovelSearchResult[] | undefined> {
-		const data = await this.db.searchNovels(keyword);
+		const data = await this.db.searchNovels(keyword, platform);
 		return data ? data.data : undefined;
 	}
 

@@ -61,6 +61,7 @@ export const chapters = sqliteTable("chapters", {
 
 export const keywordSearches = sqliteTable("keyword_searches", {
 	keyword: text("keyword").primaryKey(),
+	platform: text("platform").notNull(),
 	queryTime: integer("query_time").notNull(),
 	total: integer("total").notNull(),
 });

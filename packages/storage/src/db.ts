@@ -62,7 +62,7 @@ export class DatabaseService {
 		this.isMigrated = true;
 	}
 
-	addSearchResult(keyword: string, results: NovelSearchResult[]) {
+	addSearchResult(keyword: string, platform: string, results: NovelSearchResult[]) {
 		if (this.migrationOptions.enabled) {
 			this._migrate();
 		}
@@ -71,6 +71,7 @@ export class DatabaseService {
 			tx.insert(keywordSearches)
 				.values({
 					keyword,
+					platform,
 					queryTime: Date.now(),
 					total: results.length,
 				})
@@ -123,6 +124,7 @@ export class DatabaseService {
 
 	async searchNovels(
 		keyword: string,
+		platform: string,
 	): Promise<DataWithUpdatedAt<NovelSearchResult[]>> {
 		if (this.migrationOptions.enabled) {
 			this._migrate();
@@ -133,7 +135,8 @@ export class DatabaseService {
 		const searchRecord = await this.db.query.keywordSearches
 			.findFirst({
 				where: {
-					keyword: keyword,
+					keyword,
+					platform,
 					queryTime: {
 						gte: minQueryTime,
 					},
