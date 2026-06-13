@@ -103,4 +103,8 @@ export class StorageService {
 	async setCache<T>(key: string, value: T): Promise<void> {
 		await this.db.setCache(key, value);
 	}
+
+	close() {
+		this.db.close();
+	}
 }

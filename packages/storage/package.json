@@ -22,8 +22,8 @@
 		"url": "https://github.com/ConstasJ/Acanthis/issues"
 	},
 	"dependencies": {
-		"@acanthis-dec/core": "workspace:*",
 		"@acanthis-dec/browser-fetch": "workspace:*",
+		"@acanthis-dec/core": "workspace:*",
 		"better-sqlite3": "^12.10.0",
 		"drizzle-orm": "rc",
 		"zod": "^4.4.3"
@@ -31,6 +31,7 @@
 	"devDependencies": {
 		"@acanthis-dec/config-tsdown": "workspace:*",
 		"@acanthis-dec/config-typescript": "workspace:*",
+		"@types/better-sqlite3": "^7.6.13",
 		"@types/node": "catalog:",
 		"drizzle-kit": "rc",
 		"tsdown": "catalog:",

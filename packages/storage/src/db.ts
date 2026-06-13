@@ -550,4 +550,8 @@ export class DatabaseService {
 			})
 			.run();
 	}
+
+	close() {
+		this.db.$client.close();
+	}
 }
