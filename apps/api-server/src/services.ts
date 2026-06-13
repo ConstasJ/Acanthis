@@ -1,11 +1,11 @@
 import { LinovelibClient } from "@acanthis-dec/linovelib";
 import { StorageService } from "@acanthis-dec/storage";
-import { createLogger, transports, format } from "winston";
+import { createLogger, format, transports } from "winston";
 import { config } from "./config";
 
 export const storageService = new StorageService({
 	db: {
-		path: config.data.dbPath ?? "data/db.sqlite",
+		path: config.data.dbPath ?? "data/data.db",
 	},
 	dataDir: config.data.filePath ?? "data",
 });
@@ -18,13 +18,13 @@ export const logger = createLogger({
 			format: "YYYY-MM-DD HH:mm:ss",
 		}),
 		format((info) => {
-            info.level = info.level.toUpperCase();
-            return info;
-        })(),
+			info.level = info.level.toUpperCase();
+			return info;
+		})(),
 		format.colorize(),
 		format.printf((info) => {
 			return `${info.timestamp} [${info.level}]: ${info.message}`;
-		})
+		}),
 	),
 	transports: [
 		new transports.Console(),
