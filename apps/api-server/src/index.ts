@@ -10,10 +10,13 @@ const app = new Hono();
 app.use(loggerMiddleware);
 app.route("/linovelib", LinovelibRoutes);
 
-serve({
-	fetch: app.fetch,
-	port: config.port ?? 5301,
-	hostname: config.listenHost ?? "localhost", 
-}, (info) => {
-	logger.info(`Server is listening on ${info.address}:${info.port}`);
-});
+serve(
+	{
+		fetch: app.fetch,
+		port: config.port ?? 5301,
+		hostname: config.listenHost ?? "localhost",
+	},
+	(info) => {
+		logger.info(`Server is listening on ${info.address}:${info.port}`);
+	},
+);

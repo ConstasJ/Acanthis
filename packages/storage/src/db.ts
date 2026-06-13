@@ -62,7 +62,11 @@ export class DatabaseService {
 		this.isMigrated = true;
 	}
 
-	addSearchResult(keyword: string, platform: string, results: NovelSearchResult[]) {
+	addSearchResult(
+		keyword: string,
+		platform: string,
+		results: NovelSearchResult[],
+	) {
 		if (this.migrationOptions.enabled) {
 			this._migrate();
 		}
