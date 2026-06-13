@@ -31,20 +31,20 @@ export const linovelibClient = new LinovelibClient(
 export const logger = winston.createLogger({
 	level:
 		config.logging?.level ?? (config.env === "development" ? "debug" : "info"),
-    format: winston.format.combine(
-        winston.format.timestamp(),
-        winston.format.printf(({ timestamp, level, message }) => {
-            return `${timestamp} [${level.toUpperCase()}]: ${message}`;
-        })
-    ),
-    transports: [
-        new winston.transports.Console(),
-        ...(config.logging?.file?.enabled
-            ? [
-                  new winston.transports.File({
-                      filename: `${config.logging.file.dir}/${config.env}.log`,
-                  }),
-              ]
-            : []),
-    ],
+	format: winston.format.combine(
+		winston.format.timestamp(),
+		winston.format.printf(({ timestamp, level, message }) => {
+			return `${timestamp} [${level.toUpperCase()}]: ${message}`;
+		}),
+	),
+	transports: [
+		new winston.transports.Console(),
+		...(config.logging?.file?.enabled
+			? [
+					new winston.transports.File({
+						filename: `${config.logging.file.dir}/${config.env}.log`,
+					}),
+				]
+			: []),
+	],
 });
