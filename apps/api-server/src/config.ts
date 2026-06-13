@@ -23,6 +23,30 @@ export const ConfigSchema = z.object({
 		host: z.string().default("http://localhost:8191").optional(),
 		timeoutMs: z.number().default(60000).optional(),
 	}),
+	credentials: z
+		.object({
+			linovelib: z
+				.object({
+					username: z.string().describe("Username for Linovelib"),
+					password: z.string().describe("Password for Linovelib"),
+				})
+				.optional(),
+		})
+		.optional(),
+	logging: z
+		.object({
+			level: z
+				.enum(["error", "warn", "info", "debug"])
+				.default("info")
+				.optional(),
+			file: z
+				.object({
+					enabled: z.boolean().default(false),
+					dir: z.string().default("logs").optional(),
+				})
+				.optional(),
+		})
+		.optional(),
 });
 
 export type Config = z.infer<typeof ConfigSchema>;
@@ -64,6 +88,22 @@ export function getConfig(): Config {
 				timeoutMs: process.env.FLARESOLVERR_TIMEOUT_MS
 					? parseInt(process.env.FLARESOLVERR_TIMEOUT_MS, 10)
 					: undefined,
+			},
+			credentials: {
+				linovelib: process.env.LINOVELIB_USERNAME
+					? {
+							username: process.env.LINOVELIB_USERNAME,
+							password: process.env.LINOVELIB_PASSWORD ?? "",
+						}
+					: undefined,
+			},
+			logging: {
+				file: {
+					enabled: process.env.LOGGING_FILE_ENABLED
+						? process.env.LOGGING_FILE_ENABLED === "true"
+						: undefined,
+					dir: process.env.LOGGING_FILE_DIR,
+				},
 			},
 		};
 		const mergedRaw = deepmerge(fileConfig, envConfig);

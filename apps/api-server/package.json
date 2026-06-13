@@ -28,6 +28,7 @@
 		"dotenv": "^17.4.2",
 		"hono": "^4.12.25",
 		"js-yaml": "^4.2.0",
+		"winston": "^3.19.0",
 		"zod": "^4.4.3"
 	},
 	"devDependencies": {
