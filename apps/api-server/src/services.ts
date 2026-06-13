@@ -6,6 +6,10 @@ import { config } from "./config";
 export const storageService = new StorageService({
 	db: {
 		path: config.data.dbPath,
+		migrations: {
+			enabled: true,
+			directory: config.data.migrationsPath,
+		}
 	},
 	dataDir: config.data.filePath,
 });

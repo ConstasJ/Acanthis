@@ -20,6 +20,7 @@ export const ConfigSchema = z.object({
 		.object({
 			filePath: z.string().default("data").describe("数据文件存储路径"),
 			dbPath: z.string().default("data/data.db").describe("数据库文件路径"),
+			migrationsPath: z.string().default("migrations").describe("数据库迁移文件路径"),
 		})
 		.describe("数据存储相关配置"),
 	impersonate: z
@@ -99,6 +100,7 @@ export function getConfig(): Config {
 			data: {
 				filePath: process.env.DATA_FILE_PATH,
 				dbPath: process.env.DATA_DB_PATH,
+				migrationsPath: process.env.DATA_MIGRATIONS_PATH,
 			},
 			impersonate: {
 				enabled: process.env.IMPERSONATE_ENABLED
