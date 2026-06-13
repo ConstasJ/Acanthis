@@ -1,11 +1,11 @@
 import * as impers from "@constasj/impers";
-import { HttpStatusError, NetworkError } from "@/errors";
+import { HttpStatusError, NetworkError } from "../errors";
 import {
 	extractContentType,
 	isFormUrlEncoded,
 	isJSON,
 	isRecordStringString,
-} from "@/utils";
+} from "../utils";
 import type {
 	Transport,
 	TransportRequest,
