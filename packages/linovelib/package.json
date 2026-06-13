@@ -30,18 +30,19 @@
 		"@babel/traverse": "^7.29.7",
 		"@babel/types": "^7.29.7",
 		"cheerio": "^1.2.0",
-		"zod": "^4.4.3",
-		"p-queue": "^9.3.0"
+		"p-queue": "^9.3.0",
+		"zod": "^4.4.3"
 	},
 	"devDependencies": {
 		"@acanthis-dec/config-tsdown": "workspace:*",
 		"@acanthis-dec/config-typescript": "workspace:*",
 		"@types/babel__traverse": "^7.28.0",
 		"@types/node": "catalog:",
+		"domhandler": "^6.0.1",
 		"tsdown": "catalog:",
 		"tsx": "catalog:",
 		"typescript": "catalog:",
-		"domhandler": "^6.0.1"
+		"winston": "^3.19.0"
 	},
 	"publishConfig": {
 		"exports": {

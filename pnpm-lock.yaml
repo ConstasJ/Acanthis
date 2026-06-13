@@ -216,6 +216,9 @@ importers:
       typescript:
         specifier: 'catalog:'
         version: 6.0.3
+      winston:
+        specifier: ^3.19.0
+        version: 3.19.0
 
   packages/storage:
     dependencies:

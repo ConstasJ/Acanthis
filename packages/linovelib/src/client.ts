@@ -1,6 +1,7 @@
 import { BrowserFetchClient } from "@acanthis-dec/browser-fetch";
 import type { Novel, NovelSearchResult } from "@acanthis-dec/core";
 import type { StorageService } from "@acanthis-dec/storage";
+import type { Logger } from "winston";
 import { getChapter } from "./chapter";
 import { getCover } from "./cover";
 import { NovelChapterQueue, NovelInfoQueue, SearchQueue } from "./queue";
@@ -27,22 +28,25 @@ export class LinovelibClient {
 	private novelInfoQueue: NovelInfoQueue;
 	private searchQueue: SearchQueue;
 	private options?: LinovelibClientOptions;
+	private logger?: Logger | undefined;
 
-	constructor(options?: LinovelibClientOptions, storage?: StorageService) {
+	constructor(options?: LinovelibClientOptions, storage?: StorageService, logger?: Logger) {
 		this.options = options ?? {
 			session: {
 				enabled: false,
 			},
 		};
 		this.storage = storage;
+		this.logger = logger;
 		this.fetchClient = new BrowserFetchClient();
-		this.novelChapterQueue = new NovelChapterQueue(this.fetchClient);
+		this.novelChapterQueue = new NovelChapterQueue(this.fetchClient, this.logger);
 		this.novelInfoQueue = new NovelInfoQueue(
 			this.fetchClient,
 			this.novelChapterQueue,
 			this.storage,
+			this.logger,
 		);
-		this.searchQueue = new SearchQueue(this.fetchClient, this.storage);
+		this.searchQueue = new SearchQueue(this.fetchClient, this.storage, this.logger);
 	}
 
 	async getNovelInfo(id: string): Promise<Novel | undefined> {

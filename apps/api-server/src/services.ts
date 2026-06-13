@@ -10,24 +10,6 @@ export const storageService = new StorageService({
 	dataDir: config.data.filePath ?? "data",
 });
 
-export const linovelibClient = new LinovelibClient(
-	{
-		session: (() => {
-			if (config.credentials?.linovelib) {
-				return {
-					enabled: true,
-					username: config.credentials.linovelib.username,
-					password: config.credentials.linovelib.password,
-				};
-			} else
-				return {
-					enabled: false,
-				};
-		})(),
-	},
-	storageService,
-);
-
 export const logger = winston.createLogger({
 	level:
 		config.logging?.level ?? (config.env === "development" ? "debug" : "info"),
@@ -50,3 +32,22 @@ export const logger = winston.createLogger({
 			: []),
 	],
 });
+
+export const linovelibClient = new LinovelibClient(
+	{
+		session: (() => {
+			if (config.credentials?.linovelib) {
+				return {
+					enabled: true,
+					username: config.credentials.linovelib.username,
+					password: config.credentials.linovelib.password,
+				};
+			} else
+				return {
+					enabled: false,
+				};
+		})(),
+	},
+	storageService,
+	logger,
+);
