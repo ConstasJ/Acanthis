@@ -52,6 +52,12 @@ export const linovelibClient = new LinovelibClient(
 					enabled: false,
 				};
 		})(),
+		flareSolverr: {
+			enabled: config.flaresolverr.enabled,
+			host: config.flaresolverr.host,
+			timeoutMs: config.flaresolverr.timeoutMs,
+			sessionId: config.flaresolverr.sessionId,
+		},
 	},
 	storageService,
 	logger,

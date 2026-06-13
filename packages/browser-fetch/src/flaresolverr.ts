@@ -1,9 +1,13 @@
-export type FlareSolverrOptions = {
-	enabled: boolean;
-	host: string;
-	sessionId?: string;
-	timeoutMs?: number;
-};
+export type FlareSolverrOptions =
+	| {
+			enabled: true;
+			host: string;
+			sessionId?: string;
+			timeoutMs?: number;
+	  }
+	| {
+			enabled: false;
+	  };
 
 export type FlareSolverrCookie = {
 	name: string;
@@ -42,9 +46,12 @@ export class FlareSolverrClient {
 	private timeoutMs: number;
 
 	constructor(options: FlareSolverrOptions) {
+		if (!options.enabled) {
+			throw new Error("FlareSolverr is disabled in the options.");
+		}
 		this.host = options.host;
 		this.sessionId = options.sessionId;
-		this.timeoutMs = options.timeoutMs || 30000; // Default to 30 seconds
+		this.timeoutMs = options.timeoutMs ?? 60000;
 	}
 
 	async listSession(): Promise<string[]> {

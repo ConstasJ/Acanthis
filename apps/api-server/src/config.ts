@@ -39,6 +39,10 @@ export const ConfigSchema = z.object({
 				.default("http://localhost:8191")
 				.describe("Flaresolverr 服务器地址"),
 			timeoutMs: z.number().default(60000).describe("请求超时时间（毫秒）"),
+			sessionId: z
+				.string()
+				.default("acanthis-api-server")
+				.describe("Flaresolverr 会话 ID"),
 		})
 		.describe("Flaresolverr 配置"),
 	credentials: z
@@ -112,6 +116,7 @@ export function getConfig(): Config {
 				timeoutMs: process.env.FLARESOLVERR_TIMEOUT_MS
 					? parseInt(process.env.FLARESOLVERR_TIMEOUT_MS, 10)
 					: undefined,
+				sessionId: process.env.FLARESOLVERR_SESSION_ID,
 			},
 			credentials: {
 				linovelib: process.env.LINOVELIB_USERNAME

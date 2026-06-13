@@ -1,3 +1,4 @@
+import { deepmerge } from "deepmerge-ts";
 import pRetry from "p-retry";
 import {
 	type ChallengeOptions,
@@ -62,7 +63,6 @@ const defaultOptions: BrowserFetchClientOptions = {
 	}),
 	flareSolverr: {
 		enabled: false,
-		host: "http://localhost:8191",
 	},
 };
 
@@ -75,8 +75,11 @@ export class BrowserFetchClient {
 	private requestDefaults: RequestDefaults;
 	private transport: Transport;
 
-	constructor(options?: BrowserFetchClientOptions) {
-		if (!options) options = defaultOptions;
+	constructor(options?: Partial<BrowserFetchClientOptions>) {
+		options = deepmerge(
+			defaultOptions,
+			options ?? {},
+		) as BrowserFetchClientOptions;
 		if (options.profile) {
 			this.profile =
 				typeof options.profile === "string"

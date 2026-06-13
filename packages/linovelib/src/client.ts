@@ -1,7 +1,9 @@
 import { BrowserFetchClient } from "@acanthis-dec/browser-fetch";
 import type { Novel, NovelSearchResult } from "@acanthis-dec/core";
 import type { StorageService } from "@acanthis-dec/storage";
+import { deepmerge } from "deepmerge-ts";
 import type { Logger } from "winston";
+import type { FlareSolverrOptions } from "../../browser-fetch/src/flaresolverr";
 import { getChapter } from "./chapter";
 import { getCover } from "./cover";
 import { NovelChapterQueue, NovelInfoQueue, SearchQueue } from "./queue";
@@ -19,6 +21,7 @@ export type SessionOptions =
 
 export type LinovelibClientOptions = {
 	session: SessionOptions;
+	flareSolverr: FlareSolverrOptions;
 };
 
 export class LinovelibClient {
@@ -35,14 +38,40 @@ export class LinovelibClient {
 		storage?: StorageService,
 		logger?: Logger,
 	) {
-		this.options = options ?? {
-			session: {
-				enabled: false,
+		this.options = deepmerge(
+			{
+				session: {
+					enabled: false,
+				},
+				flareSolverr: {
+					enabled: true,
+					host: "http://localhost:8191",
+					timeoutMs: 60000,
+					sessionId: "acanthis-linovelib-client",
+				},
 			},
-		};
+			options ?? {},
+		) as LinovelibClientOptions;
 		this.storage = storage;
 		this.logger = logger;
-		this.fetchClient = new BrowserFetchClient();
+		this.fetchClient = new BrowserFetchClient({
+			flareSolverr: (() => {
+				if (this.options?.flareSolverr.enabled) {
+					return {
+						enabled: true,
+						host: this.options.flareSolverr.host,
+						timeoutMs: this.options.flareSolverr.timeoutMs ?? 60000,
+						sessionId:
+							this.options.flareSolverr.sessionId ??
+							"acanthis-linovelib-client",
+					};
+				} else {
+					return {
+						enabled: false,
+					};
+				}
+			})(),
+		});
 		this.novelChapterQueue = new NovelChapterQueue(
 			this.fetchClient,
 			this.logger,

@@ -23,6 +23,7 @@
 	},
 	"dependencies": {
 		"@constasj/impers": "^0.0.8",
+		"deepmerge-ts": "^7.1.5",
 		"p-retry": "^8.0.0"
 	},
 	"devDependencies": {
