@@ -7,6 +7,7 @@ import { z } from "zod";
 
 export const ConfigSchema = z.object({
 	env: z.enum(["development", "production", "test"]).default("development"),
+	host: z.string().default("http://localhost:5301").optional(),
 	port: z.number().default(5301).optional(),
 	data: z.object({
 		filePath: z.string().default("data").optional(),
@@ -67,6 +68,7 @@ export function getConfig(): Config {
 		}
 		const envConfig: Record<string, unknown> = {
 			env,
+			host: process.env.HOST ?? `http://localhost:${process.env.PORT ?? 5301}`,
 			port: process.env.PORT ? parseInt(process.env.PORT, 10) : undefined,
 			data: {
 				filePath: process.env.DATA_FILE_PATH,
