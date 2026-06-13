@@ -142,7 +142,7 @@ export class DatabaseService {
 	async searchNovels(
 		keyword: string,
 		platform: string,
-	): Promise<DataWithUpdatedAt<NovelSearchResult[]>> {
+	): Promise<DataWithUpdatedAt<NovelSearchResult[] | undefined>> {
 		if (this.migrationOptions.enabled) {
 			this._migrate();
 		}
@@ -178,7 +178,7 @@ export class DatabaseService {
 					id: novel.platformId,
 					title: novel.name,
 					coverUrl: novel.coverUrl,
-				})) || [],
+				})) || undefined,
 			updatedAt: searchRecord?.queryTime || 0,
 		};
 	}
