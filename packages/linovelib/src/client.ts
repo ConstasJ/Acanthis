@@ -30,7 +30,11 @@ export class LinovelibClient {
 	private options?: LinovelibClientOptions;
 	private logger?: Logger | undefined;
 
-	constructor(options?: LinovelibClientOptions, storage?: StorageService, logger?: Logger) {
+	constructor(
+		options?: LinovelibClientOptions,
+		storage?: StorageService,
+		logger?: Logger,
+	) {
 		this.options = options ?? {
 			session: {
 				enabled: false,
@@ -39,14 +43,21 @@ export class LinovelibClient {
 		this.storage = storage;
 		this.logger = logger;
 		this.fetchClient = new BrowserFetchClient();
-		this.novelChapterQueue = new NovelChapterQueue(this.fetchClient, this.logger);
+		this.novelChapterQueue = new NovelChapterQueue(
+			this.fetchClient,
+			this.logger,
+		);
 		this.novelInfoQueue = new NovelInfoQueue(
 			this.fetchClient,
 			this.novelChapterQueue,
 			this.storage,
 			this.logger,
 		);
-		this.searchQueue = new SearchQueue(this.fetchClient, this.storage, this.logger);
+		this.searchQueue = new SearchQueue(
+			this.fetchClient,
+			this.storage,
+			this.logger,
+		);
 	}
 
 	async getNovelInfo(id: string): Promise<Novel | undefined> {

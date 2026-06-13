@@ -7,9 +7,9 @@ import {
 import type { Novel, NovelSearchResult } from "@acanthis-dec/core";
 import type { StorageService } from "@acanthis-dec/storage";
 import PQueue from "p-queue";
+import type { Logger } from "winston";
 import { getNovelInfo } from "./novel";
 import { searchNovels } from "./search";
-import type { Logger } from "winston";
 
 /**
  * Simple backoff strategy for request rate limiting
@@ -51,37 +51,52 @@ export class SearchQueue {
 	private readonly COOLDOWN_MS = 5000;
 	private lastSearchTime = 0;
 
-	constructor(client: BrowserFetchClient, storage?: StorageService, logger?: Logger) {
+	constructor(
+		client: BrowserFetchClient,
+		storage?: StorageService,
+		logger?: Logger,
+	) {
 		this.queue = new PQueue({ concurrency: 1 });
 		this.client = client;
 		this.storage = storage;
 		this.logger = logger;
 		this.queue.on("add", () => {
-			this.logger?.debug(`[SearchQueue] 任务已添加，当前排队数: ${this.queue.size} (等待中任务数: ${this.queue.pending})`);
-		}),
+			this.logger?.debug(
+				`[SearchQueue] 任务已添加，当前排队数: ${this.queue.size} (等待中任务数: ${this.queue.pending})`,
+			);
+		});
 		this.queue.on("next", () => {
-			this.logger?.debug(`[SearchQueue] 任务完成或超时，开始下一个任务。剩余：${this.queue.size} `);
-		})
+			this.logger?.debug(
+				`[SearchQueue] 任务完成或超时，开始下一个任务。剩余：${this.queue.size} `,
+			);
+		});
 	}
 
 	async searchNovels(
 		keyword: string,
 		haha?: string,
 	): Promise<NovelSearchResult[]> {
-		return await this.queue.add(
-			async () => {
-				if (Date.now() - this.lastSearchTime < this.COOLDOWN_MS) {
-					const waitTime = this.COOLDOWN_MS - (Date.now() - this.lastSearchTime);
-					this.logger?.debug(`[SearchQueue] 搜索请求过快，等待 ${waitTime}ms 后重试`);
-					await new Promise((resolve) => setTimeout(resolve, waitTime));
-				}
-				this.logger?.debug(`[SearchQueue] 开始搜索关键词 "${keyword}"`);
-				const results = await searchNovels(keyword, this.client, this.storage, haha);
-				this.logger?.debug(`[SearchQueue] 搜索完成，关键词 "${keyword}" 共找到 ${results.length} 条结果`);
-				this.lastSearchTime = Date.now();
-				return results;
-			},
-		);
+		return await this.queue.add(async () => {
+			if (Date.now() - this.lastSearchTime < this.COOLDOWN_MS) {
+				const waitTime = this.COOLDOWN_MS - (Date.now() - this.lastSearchTime);
+				this.logger?.debug(
+					`[SearchQueue] 搜索请求过快，等待 ${waitTime}ms 后重试`,
+				);
+				await new Promise((resolve) => setTimeout(resolve, waitTime));
+			}
+			this.logger?.debug(`[SearchQueue] 开始搜索关键词 "${keyword}"`);
+			const results = await searchNovels(
+				keyword,
+				this.client,
+				this.storage,
+				haha,
+			);
+			this.logger?.debug(
+				`[SearchQueue] 搜索完成，关键词 "${keyword}" 共找到 ${results.length} 条结果`,
+			);
+			this.lastSearchTime = Date.now();
+			return results;
+		});
 	}
 }
 
@@ -97,11 +112,15 @@ export class NovelChapterQueue {
 		this.backoff = new SimpleBackoff();
 		this.logger = logger;
 		this.queue.on("add", () => {
-			this.logger?.debug(`[NovelChapterQueue] 任务已添加，当前排队数: ${this.queue.size} (等待中任务数: ${this.queue.pending})`);
-		}),
+			this.logger?.debug(
+				`[NovelChapterQueue] 任务已添加，当前排队数: ${this.queue.size} (等待中任务数: ${this.queue.pending})`,
+			);
+		});
 		this.queue.on("next", () => {
-			this.logger?.debug(`[NovelChapterQueue] 任务完成或超时，开始下一个任务。剩余：${this.queue.size} `);
-		})
+			this.logger?.debug(
+				`[NovelChapterQueue] 任务完成或超时，开始下一个任务。剩余：${this.queue.size} `,
+			);
+		});
 	}
 
 	private async _sleep(ms: number) {
@@ -117,7 +136,9 @@ export class NovelChapterQueue {
 			const novelId = match[1];
 			const chapterId = match[2];
 			const partId = match[3] || "1";
-			this.logger?.debug(`[NovelChapterQueue] 开始获取小说${novelId}章节${chapterId}的第${partId}部分内容`);
+			this.logger?.debug(
+				`[NovelChapterQueue] 开始获取小说${novelId}章节${chapterId}的第${partId}部分内容`,
+			);
 
 			const retry: RetryOptions = {
 				retries: 10,
@@ -127,11 +148,15 @@ export class NovelChapterQueue {
 				randomize: false,
 				onFailedAttempt: async (ctx) => {
 					if (ctx.error instanceof CloudflareBlockError) {
-						this.logger?.warn(`[NovelChapterQueue] 请求被 Cloudflare 阻挡，错误信息: ${ctx.error.message}。正在等待 ${this.backoff.FAILURE_DELAY / 1000}s 后重试...`);
+						this.logger?.warn(
+							`[NovelChapterQueue] 请求被 Cloudflare 阻挡，错误信息: ${ctx.error.message}。正在等待 ${this.backoff.FAILURE_DELAY / 1000}s 后重试...`,
+						);
 						await this._sleep(this.backoff.FAILURE_DELAY);
 					}
 					if (ctx.attemptNumber >= (retry.retries ?? 3)) {
-						this.logger?.error(`[NovelChapterQueue] 请求重试次数已达上限 (${ctx.attemptNumber} 次)，错误信息: ${ctx.error.message}`);
+						this.logger?.error(
+							`[NovelChapterQueue] 请求重试次数已达上限 (${ctx.attemptNumber} 次)，错误信息: ${ctx.error.message}`,
+						);
 					}
 				},
 				shouldRetry: async (ctx) => {
@@ -154,12 +179,16 @@ export class NovelChapterQueue {
 					})
 				).data;
 				const delay = this.backoff.getDelayForSuccess(true);
-				this.logger?.debug(`[NovelChapterQueue] 小说${novelId}-章节${chapterId}_${partId} 获取成功。下一次请求将在 ${delay.toFixed(0)}ms 后进行`);
+				this.logger?.debug(
+					`[NovelChapterQueue] 小说${novelId}-章节${chapterId}_${partId} 获取成功。下一次请求将在 ${delay.toFixed(0)}ms 后进行`,
+				);
 				await this._sleep(delay);
 				return content;
 			}
 			const delay = this.backoff.getDelayForSuccess();
-			this.logger?.debug(`[NovelChapterQueue] 小说${novelId}-章节${chapterId}_${partId} 获取成功。下一次请求将在 ${delay.toFixed(0)}ms 后进行`);
+			this.logger?.debug(
+				`[NovelChapterQueue] 小说${novelId}-章节${chapterId}_${partId} 获取成功。下一次请求将在 ${delay.toFixed(0)}ms 后进行`,
+			);
 			await this._sleep(delay);
 			return content;
 		});
@@ -187,11 +216,15 @@ export class NovelInfoQueue {
 		this.storage = storage;
 		this.logger = logger;
 		this.queue.on("add", () => {
-			this.logger?.debug(`[NovelInfoQueue] 任务已添加，当前排队数: ${this.queue.size} (等待中任务数: ${this.queue.pending})`);
-		}),
+			this.logger?.debug(
+				`[NovelInfoQueue] 任务已添加，当前排队数: ${this.queue.size} (等待中任务数: ${this.queue.pending})`,
+			);
+		});
 		this.queue.on("next", () => {
-			this.logger?.debug(`[NovelInfoQueue] 任务完成或超时，开始下一个任务。剩余：${this.queue.size} `);
-		})
+			this.logger?.debug(
+				`[NovelInfoQueue] 任务完成或超时，开始下一个任务。剩余：${this.queue.size} `,
+			);
+		});
 	}
 
 	private async _sleep(ms: number) {
@@ -209,11 +242,15 @@ export class NovelInfoQueue {
 				randomize: false,
 				onFailedAttempt: async (ctx) => {
 					if (ctx.error instanceof CloudflareBlockError) {
-						this.logger?.warn(`[NovelInfoQueue] 请求被 Cloudflare 阻挡，错误信息: ${ctx.error.message}。正在等待 ${this.backoff.FAILURE_DELAY / 1000}s 后重试...`);
+						this.logger?.warn(
+							`[NovelInfoQueue] 请求被 Cloudflare 阻挡，错误信息: ${ctx.error.message}。正在等待 ${this.backoff.FAILURE_DELAY / 1000}s 后重试...`,
+						);
 						await this._sleep(this.backoff.FAILURE_DELAY);
 					}
 					if (ctx.attemptNumber >= (retry.retries ?? 3)) {
-						this.logger?.error(`[NovelInfoQueue] 请求重试次数已达上限 (${ctx.attemptNumber} 次)，错误信息: ${ctx.error.message}`);
+						this.logger?.error(
+							`[NovelInfoQueue] 请求重试次数已达上限 (${ctx.attemptNumber} 次)，错误信息: ${ctx.error.message}`,
+						);
 					}
 				},
 				shouldRetry: async (ctx) => {
@@ -234,7 +271,9 @@ export class NovelInfoQueue {
 				throw new Error(`无法获取小说信息: ${id}`);
 			}
 			const delay = this.backoff.getDelayForSuccess();
-			this.logger?.debug(`[NovelInfoQueue] 小说${id} 信息获取成功。下一次请求将在 ${delay.toFixed(0)}ms 后进行`);
+			this.logger?.debug(
+				`[NovelInfoQueue] 小说${id} 信息获取成功。下一次请求将在 ${delay.toFixed(0)}ms 后进行`,
+			);
 			await this._sleep(delay);
 			return novel;
 		});
