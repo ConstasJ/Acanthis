@@ -1,6 +1,6 @@
 import { LinovelibClient } from "@acanthis-dec/linovelib";
 import { StorageService } from "@acanthis-dec/storage";
-import * as winston from "winston";
+import { createLogger, transports, format } from "winston";
 import { config } from "./config";
 
 export const storageService = new StorageService({
@@ -10,22 +10,27 @@ export const storageService = new StorageService({
 	dataDir: config.data.filePath ?? "data",
 });
 
-export const logger = winston.createLogger({
+export const logger = createLogger({
 	level:
 		config.logging?.level ?? (config.env === "development" ? "debug" : "info"),
-	format: winston.format.combine(
-		winston.format.timestamp(),
-		winston.format.cli(),
-		winston.format.errors({ stack: true }),
-		winston.format.printf(({ timestamp, level, message }) => {
-			return `${timestamp} [${level.toUpperCase()}]: ${message}`;
+	format: format.combine(
+		format.timestamp({
+			format: "YYYY-MM-DD HH:mm:ss",
 		}),
+		format((info) => {
+            info.level = info.level.toUpperCase();
+            return info;
+        })(),
+		format.cli(),
+		format.printf((info) => {
+			return `${info.timestamp} [${info.level}]: ${info.message}`;
+		})
 	),
 	transports: [
-		new winston.transports.Console(),
+		new transports.Console(),
 		...(config.logging?.file?.enabled
 			? [
-					new winston.transports.File({
+					new transports.File({
 						filename: `${config.logging.file.dir}/${config.env}.log`,
 					}),
 				]
