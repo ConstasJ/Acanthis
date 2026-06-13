@@ -33,6 +33,8 @@ export const logger = winston.createLogger({
 		config.logging?.level ?? (config.env === "development" ? "debug" : "info"),
 	format: winston.format.combine(
 		winston.format.timestamp(),
+		winston.format.cli(),
+		winston.format.errors({ stack: true }),
 		winston.format.printf(({ timestamp, level, message }) => {
 			return `${timestamp} [${level.toUpperCase()}]: ${message}`;
 		}),
