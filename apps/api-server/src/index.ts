@@ -5,7 +5,7 @@ import LinovelibRoutes from "./linovelib";
 import { loggerMiddleware } from "./middleware";
 import { logger } from "./services";
 
-const app = new Hono();
+const app = new Hono().basePath("/v1");
 
 app.use(loggerMiddleware);
 app.route("/linovelib", LinovelibRoutes);
