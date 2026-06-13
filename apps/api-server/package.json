@@ -9,7 +9,7 @@
 	"packageManager": "pnpm@11.6.0",
 	"scripts": {
 		"dev": "tsx watch src/index.ts",
-		"build": "tsx scripts/build.ts"
+		"build": "tsx build.ts"
 	},
 	"repository": {
 		"type": "git",
@@ -23,12 +23,16 @@
 		"@acanthis-dec/core": "workspace:*",
 		"@acanthis-dec/linovelib": "workspace:*",
 		"@acanthis-dec/storage": "workspace:*",
+		"@constasj/impers": "0.0.8",
 		"@hono/node-server": "^2.0.4",
 		"@hono/zod-validator": "^0.8.0",
+		"better-sqlite3": "^12.10.0",
 		"deepmerge-ts": "^7.1.5",
 		"dotenv": "^17.4.2",
 		"hono": "^4.12.25",
+		"isolated-vm": "^7.0.0",
 		"js-yaml": "^4.2.0",
+		"koffi": "2.16.2",
 		"winston": "^3.19.0",
 		"zod": "^4.4.3"
 	},

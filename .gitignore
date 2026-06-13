@@ -144,3 +144,7 @@ vite.config.ts.timestamp-*
 
 data
 .turbo/
+
+# Opencode and its plugins
+.opencode/
+.omo/
