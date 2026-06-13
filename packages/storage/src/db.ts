@@ -1,3 +1,5 @@
+import { existsSync, mkdirSync, rmSync, statSync } from "node:fs";
+import { dirname, resolve } from "node:path";
 import type { Chapter, Novel, NovelSearchResult } from "@acanthis-dec/core";
 import { and, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/better-sqlite3";
@@ -46,6 +48,13 @@ export class DatabaseService {
 	private migrationOptions: MigrationOptions;
 
 	constructor(options: DatabaseOptions) {
+		const parentDir = dirname(resolve(options.path));
+		if (!existsSync(parentDir)) {
+			mkdirSync(parentDir, { recursive: true });
+		} else if (existsSync(parentDir) && statSync(parentDir).isFile() === true) {
+			rmSync(parentDir);
+			mkdirSync(parentDir, { recursive: true });
+		}
 		this.db = getDrizzle(options.path);
 		this.migrationOptions = options.migrations || {
 			enabled: true,
