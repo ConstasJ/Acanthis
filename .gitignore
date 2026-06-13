@@ -148,3 +148,5 @@ data
 # Opencode and its plugins
 .opencode/
 .omo/
+
+config.yaml

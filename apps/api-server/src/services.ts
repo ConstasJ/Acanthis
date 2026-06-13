@@ -5,9 +5,9 @@ import { config } from "./config";
 
 export const storageService = new StorageService({
 	db: {
-		path: config.data.dbPath ?? "data/data.db",
+		path: config.data.dbPath,
 	},
-	dataDir: config.data.filePath ?? "data",
+	dataDir: config.data.filePath,
 });
 
 export const logger = createLogger({
