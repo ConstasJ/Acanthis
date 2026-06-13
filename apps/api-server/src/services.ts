@@ -21,7 +21,7 @@ export const logger = createLogger({
             info.level = info.level.toUpperCase();
             return info;
         })(),
-		format.cli(),
+		format.colorize(),
 		format.printf((info) => {
 			return `${info.timestamp} [${info.level}]: ${info.message}`;
 		})
