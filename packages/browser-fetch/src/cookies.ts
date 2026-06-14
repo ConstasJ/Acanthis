@@ -2,13 +2,22 @@ import { existsSync } from "node:fs";
 import { readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
-export type CookieStoreType = "memory" | "file" | "custom";
+interface CookieStoreMap {
+	memory: Record<never, never>;
+	file: {
+		path: string;
+	};
+	custom: {
+		store: CookieStore;
+	};
+}
+
+export type CookieStoreType = keyof CookieStoreMap;
 
 export type CookieStoreOptions = {
-	type: CookieStoreType;
-	path?: string; // For file type, the path to store cookies
-	store?: CookieStore; // For custom type, an instance of CookieStore
-};
+	[K in keyof CookieStoreMap]:
+		{ type: K } & CookieStoreMap[K]
+}[keyof CookieStoreMap];
 
 export interface CookieStore {
 	getCookies(domain: string, path?: string): Promise<Record<string, string>>;
