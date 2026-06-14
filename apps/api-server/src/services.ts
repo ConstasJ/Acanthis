@@ -80,4 +80,20 @@ if (config.proxy) {
 	linovelibOptions.proxy = config.proxy;
 }
 
+if (config.cookies.type === "file") {
+	linovelibOptions.cookies = {
+		type: "file",
+		path: (() => {
+			if (config.cookies.path) {
+				return config.cookies.path;
+			}
+			throw new Error("Cookie file path is required when cookie type is set to file");
+		})(),
+	};
+} else {
+	linovelibOptions.cookies = {
+		type: config.cookies.type,
+	};
+}
+
 export const linovelibClient = new LinovelibClient(linovelibOptions as LinovelibClientOptions, storageService, logger);

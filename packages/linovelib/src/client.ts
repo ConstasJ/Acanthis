@@ -30,10 +30,18 @@ export type ImpersonateOptions = {
 	enabled: false;
 };
 
+export type CookieStoreOptions = {
+	type: "memory" | "database";
+} | {
+	type: "file";
+	path: string;
+}
+
 export type LinovelibClientOptions = {
 	session: SessionOptions;
 	flareSolverr: FlareSolverrOptions;
 	impersonate: ImpersonateOptions;
+	cookies: CookieStoreOptions;
 	proxy?: string | undefined;
 };
 
@@ -65,6 +73,9 @@ export class LinovelibClient {
 				enabled: true,
 				profile: "chrome149-linux",
 			},
+			cookies: {
+				type: "memory",
+			}
 		};
 		this.options = deepmerge(
 			defaultOptions,
@@ -91,6 +102,32 @@ export class LinovelibClient {
 		}
 		if (this.options?.impersonate.enabled) {
 			browserFetchOptions.profile = this.options.impersonate.profile;
+		}
+		switch (this.options?.cookies.type) {
+			case "memory" :
+				browserFetchOptions.cookieStore = {
+					type: "memory",
+				}
+				break;
+			case "file" :
+				browserFetchOptions.cookieStore = {
+					type: "file",
+					path: this.options.cookies.path,
+				}
+				break;
+			case "database" :
+				if (!this.storage) {
+					throw new Error("StorageService is required for database cookie store");
+				}
+				browserFetchOptions.cookieStore = {
+					type: "custom",
+					store: this.storage.getCookieStore()
+				}
+				break;
+			default:
+				browserFetchOptions.cookieStore = {
+					type: "memory",
+				};
 		}
 		this.fetchClient = new BrowserFetchClient(browserFetchOptions);
 		this.novelChapterQueue = new NovelChapterQueue(

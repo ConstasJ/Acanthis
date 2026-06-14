@@ -78,6 +78,10 @@ export const ConfigSchema = z.object({
 		})
 		.optional()
 		.describe("日志配置"),
+	cookies: z.object({
+		type: z.enum(["memory", "file", "database"]).default("memory").describe("Cookie 存储方式"),
+		path: z.string().default("cookies.json").describe("Cookie 文件存储路径，仅在 type 为 file 时使用").optional(),
+	}),
 	proxy: z.string().optional().describe("全局代理地址，格式为 http://host:port 或 https://host:port"),
 });
 
@@ -132,6 +136,10 @@ export function getConfig(): Config {
 							password: process.env.LINOVELIB_PASSWORD ?? "",
 						}
 					: undefined,
+			},
+			cookies: {
+				type: process.env.COOKIE_TYPE as Config["cookies"]["type"] | undefined,
+				path: process.env.COOKIE_PATH,
 			},
 			logging: {
 				file: {
