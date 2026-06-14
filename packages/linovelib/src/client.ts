@@ -23,19 +23,23 @@ export type SessionOptions =
 			password: string;
 	  };
 
-export type ImpersonateOptions = {
-	enabled: true;
-	profile: BrowserProfileName;
-} | {
-	enabled: false;
-};
+export type ImpersonateOptions =
+	| {
+			enabled: true;
+			profile: BrowserProfileName;
+	  }
+	| {
+			enabled: false;
+	  };
 
-export type CookieStoreOptions = {
-	type: "memory" | "database";
-} | {
-	type: "file";
-	path: string;
-}
+export type CookieStoreOptions =
+	| {
+			type: "memory" | "database";
+	  }
+	| {
+			type: "file";
+			path: string;
+	  };
 
 export type LinovelibClientOptions = {
 	session: SessionOptions;
@@ -75,7 +79,7 @@ export class LinovelibClient {
 			},
 			cookies: {
 				type: "memory",
-			}
+			},
 		};
 		this.options = deepmerge(
 			defaultOptions,
@@ -104,25 +108,27 @@ export class LinovelibClient {
 			browserFetchOptions.profile = this.options.impersonate.profile;
 		}
 		switch (this.options?.cookies.type) {
-			case "memory" :
+			case "memory":
 				browserFetchOptions.cookieStore = {
 					type: "memory",
-				}
+				};
 				break;
-			case "file" :
+			case "file":
 				browserFetchOptions.cookieStore = {
 					type: "file",
 					path: this.options.cookies.path,
-				}
+				};
 				break;
-			case "database" :
+			case "database":
 				if (!this.storage) {
-					throw new Error("StorageService is required for database cookie store");
+					throw new Error(
+						"StorageService is required for database cookie store",
+					);
 				}
 				browserFetchOptions.cookieStore = {
 					type: "custom",
-					store: this.storage.getCookieStore()
-				}
+					store: this.storage.getCookieStore(),
+				};
 				break;
 			default:
 				browserFetchOptions.cookieStore = {

@@ -1,10 +1,10 @@
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { browserProfileNames } from "@acanthis-dec/browser-fetch";
 import { deepmerge } from "deepmerge-ts";
 import dotenv from "dotenv";
 import YAML from "js-yaml";
 import { z } from "zod";
-import { browserProfileNames } from "@acanthis-dec/browser-fetch";
 
 export const ConfigSchema = z.object({
 	env: z
@@ -79,10 +79,20 @@ export const ConfigSchema = z.object({
 		.optional()
 		.describe("日志配置"),
 	cookies: z.object({
-		type: z.enum(["memory", "file", "database"]).default("memory").describe("Cookie 存储方式"),
-		path: z.string().default("cookies.json").describe("Cookie 文件存储路径，仅在 type 为 file 时使用").optional(),
+		type: z
+			.enum(["memory", "file", "database"])
+			.default("memory")
+			.describe("Cookie 存储方式"),
+		path: z
+			.string()
+			.default("cookies.json")
+			.describe("Cookie 文件存储路径，仅在 type 为 file 时使用")
+			.optional(),
 	}),
-	proxy: z.string().optional().describe("全局代理地址，格式为 http://host:port 或 https://host:port"),
+	proxy: z
+		.string()
+		.optional()
+		.describe("全局代理地址，格式为 http://host:port 或 https://host:port"),
 });
 
 export type Config = z.infer<typeof ConfigSchema>;

@@ -87,7 +87,9 @@ if (config.cookies.type === "file") {
 			if (config.cookies.path) {
 				return config.cookies.path;
 			}
-			throw new Error("Cookie file path is required when cookie type is set to file");
+			throw new Error(
+				"Cookie file path is required when cookie type is set to file",
+			);
 		})(),
 	};
 } else {
@@ -96,4 +98,8 @@ if (config.cookies.type === "file") {
 	};
 }
 
-export const linovelibClient = new LinovelibClient(linovelibOptions as LinovelibClientOptions, storageService, logger);
+export const linovelibClient = new LinovelibClient(
+	linovelibOptions as LinovelibClientOptions,
+	storageService,
+	logger,
+);

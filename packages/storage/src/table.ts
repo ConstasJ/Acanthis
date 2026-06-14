@@ -7,21 +7,25 @@ import {
 	unique,
 } from "drizzle-orm/sqlite-core";
 
-export const novels = sqliteTable("novels", {
-	id: integer("id").primaryKey({ autoIncrement: true }),
-	platform: text("platform").notNull(),
-	platformId: text("platform_id").notNull(),
-	name: text("name").notNull(),
-	author: text("author").notNull(),
-	summary: text("summary").notNull(),
-	coverUrl: text("cover_url").notNull(),
-	status: text("status", {
-		enum: ["ongoing", "completed", "unknown"],
-	}).notNull(),
-	updateAt: integer("update_at").notNull(),
-}, (table) => [
-	unique("platform_and_pid_idx").on(table.platform, table.platformId),
-]);
+export const novels = sqliteTable(
+	"novels",
+	{
+		id: integer("id").primaryKey({ autoIncrement: true }),
+		platform: text("platform").notNull(),
+		platformId: text("platform_id").notNull(),
+		name: text("name").notNull(),
+		author: text("author").notNull(),
+		summary: text("summary").notNull(),
+		coverUrl: text("cover_url").notNull(),
+		status: text("status", {
+			enum: ["ongoing", "completed", "unknown"],
+		}).notNull(),
+		updateAt: integer("update_at").notNull(),
+	},
+	(table) => [
+		unique("platform_and_pid_idx").on(table.platform, table.platformId),
+	],
+);
 
 export const genres = sqliteTable("genres", {
 	id: integer("id").primaryKey({ autoIncrement: true }),
@@ -41,30 +45,34 @@ export const novelGenres = sqliteTable(
 	(table) => [primaryKey({ columns: [table.novelId, table.genreId] })],
 );
 
-export const volumes = sqliteTable("volumes", {
-	id: integer("id").primaryKey({ autoIncrement: true }),
-	novelId: integer("novel_id")
-		.notNull()
-		.references(() => novels.id, { onDelete: "cascade" }),
-	name: text("name").notNull(),
-	platformId: text("platform_id").notNull(),
-}, (table) => [
-	unique("novel_and_pid_idx").on(table.novelId, table.platformId),
-]);
+export const volumes = sqliteTable(
+	"volumes",
+	{
+		id: integer("id").primaryKey({ autoIncrement: true }),
+		novelId: integer("novel_id")
+			.notNull()
+			.references(() => novels.id, { onDelete: "cascade" }),
+		name: text("name").notNull(),
+		platformId: text("platform_id").notNull(),
+	},
+	(table) => [unique("novel_and_pid_idx").on(table.novelId, table.platformId)],
+);
 
-export const chapters = sqliteTable("chapters", {
-	id: integer("id").primaryKey({ autoIncrement: true }),
-	novelId: integer("novel_id")
-		.notNull()
-		.references(() => novels.id, { onDelete: "cascade" }),
-	volumeId: integer("volume_id")
-		.notNull()
-		.references(() => volumes.id, { onDelete: "cascade" }),
-	platformId: text("platform_id").notNull(),
-	name: text("name").notNull(),
-}, (table) => [
-	unique("novel_and_pid_idx").on(table.novelId, table.platformId),
-]);
+export const chapters = sqliteTable(
+	"chapters",
+	{
+		id: integer("id").primaryKey({ autoIncrement: true }),
+		novelId: integer("novel_id")
+			.notNull()
+			.references(() => novels.id, { onDelete: "cascade" }),
+		volumeId: integer("volume_id")
+			.notNull()
+			.references(() => volumes.id, { onDelete: "cascade" }),
+		platformId: text("platform_id").notNull(),
+		name: text("name").notNull(),
+	},
+	(table) => [unique("novel_and_pid_idx").on(table.novelId, table.platformId)],
+);
 
 export const keywordSearches = sqliteTable("keyword_searches", {
 	keyword: text("keyword").primaryKey(),
@@ -96,15 +104,19 @@ export const coverMetadata = sqliteTable("cover_metadata", {
 	}),
 });
 
-export const cookies = sqliteTable("cookies", {
-	id: integer("id").primaryKey({ autoIncrement: true }),
-	domain: text("domain").notNull(),
-	path: text("path").notNull(),
-	name: text("name").notNull(),
-	value: text("value").notNull(),
-}, (table) => [
-	unique("cookie_unique_idx").on(table.domain, table.path, table.name),
-]);
+export const cookies = sqliteTable(
+	"cookies",
+	{
+		id: integer("id").primaryKey({ autoIncrement: true }),
+		domain: text("domain").notNull(),
+		path: text("path").notNull(),
+		name: text("name").notNull(),
+		value: text("value").notNull(),
+	},
+	(table) => [
+		unique("cookie_unique_idx").on(table.domain, table.path, table.name),
+	],
+);
 
 export type Cookie = typeof cookies.$inferSelect;
 

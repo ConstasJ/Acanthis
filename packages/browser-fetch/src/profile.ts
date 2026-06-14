@@ -4,7 +4,7 @@ export const browserProfileNames = [
 	"chrome149-android",
 ] as const;
 
-export type BrowserProfileName = typeof browserProfileNames[number];
+export type BrowserProfileName = (typeof browserProfileNames)[number];
 
 export type BrowserProfile = {
 	name: BrowserProfileName;
