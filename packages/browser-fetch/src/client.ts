@@ -7,9 +7,10 @@ import {
 	solveCloudflareChallenge,
 } from "./challenge";
 import {
-	type CookieStore,
-	FileCookieStore,
-	InMemoryCookieStore,
+	type Cookie,
+	type CookiesStore,
+	FileCookiesStore,
+	InMemoryCookiesStore,
 } from "./cookies";
 import {
 	CloudflareBlockError,
@@ -67,7 +68,7 @@ const defaultOptions: BrowserFetchClientOptions = {
 
 export class BrowserFetchClient {
 	private profile: BrowserProfile;
-	private cookieStore: CookieStore;
+	private cookieStore: CookiesStore;
 	private flareSolverrClient: FlareSolverrClient | null = null;
 	private proxy: string | undefined = undefined;
 	private challengeSolver: ChallengeOptions | null = null;
@@ -90,13 +91,13 @@ export class BrowserFetchClient {
 		// Initialize cookie store based on options
 		switch (options.cookieStore?.type) {
 			case "memory":
-				this.cookieStore = new InMemoryCookieStore();
+				this.cookieStore = new InMemoryCookiesStore();
 				break;
 			case "file":
 				if (!options.cookieStore?.path) {
 					throw new Error("File cookie store requires a path");
 				}
-				this.cookieStore = new FileCookieStore(options.cookieStore.path);
+				this.cookieStore = new FileCookiesStore(options.cookieStore.path);
 				break;
 			case "custom":
 				if (!options.cookieStore?.store) {
@@ -105,7 +106,7 @@ export class BrowserFetchClient {
 				this.cookieStore = options.cookieStore.store;
 				break;
 			default:
-				this.cookieStore = new InMemoryCookieStore();
+				this.cookieStore = new InMemoryCookiesStore();
 		}
 		if (options.flareSolverr?.enabled) {
 			this.flareSolverrClient = new FlareSolverrClient(options.flareSolverr);
@@ -155,11 +156,14 @@ export class BrowserFetchClient {
 	private async _request(
 		init: BrowserFetchRequest,
 	): Promise<BrowserFetchResponse> {
-		const storedCookies = await this.cookieStore.getCookies(
-			new URL(init.url).hostname,
-			new URL(init.url).pathname,
-		);
-		const cookies = { ...storedCookies, ...init.cookies };
+		const storedCookies = await this.cookieStore.getForUrl(init.url);
+		const cookies: Record<string, string> = {};
+		storedCookies.forEach((cookie) => {
+			cookies[cookie.name] = cookie.value;
+		});
+		if (init.cookies) {
+			Object.assign(cookies, init.cookies);
+		}
 		const headers = {
 			...this.profile.headers,
 			...this.requestDefaults.headers,
@@ -214,11 +218,17 @@ export class BrowserFetchClient {
 
 			// Update cookie store with any new cookies from the response
 			if (response.cookies) {
-				await this.cookieStore.setCookies(
-					new URL(init.url).hostname,
-					new URL(init.url).pathname,
-					Object.fromEntries(response.cookies),
-				);
+				for (const cookie of response.cookies) {
+					await this.cookieStore.set(cookie.name, cookie.value, {
+						domain: cookie.domain,
+						path: cookie.path,
+						expires: cookie.expires,
+						maxAge: cookie.maxAge,
+						secure: cookie.secure,
+						httpOnly: cookie.httpOnly,
+						sameSite: cookie.sameSite ?? "Lax",
+					});
+				}
 			}
 
 			let body: string | Buffer;
@@ -372,56 +382,59 @@ export class BrowserFetchClient {
 	}
 
 	async ensureClearance(
-		domain: string,
-		path: string,
+		url: string,
 		method: "GET" | "POST",
 		body?: unknown,
 	): Promise<void> {
-		const cookies = await this.cookieStore.getCookies(domain, path);
-		if (cookies.cf_clearance) {
+		const cookies = await this.cookieStore.getForUrl(url);
+		if (cookies.findIndex((cookie) => cookie.name === "cf_clearance") !== -1) {
 			return;
 		}
-		const url = `https://${domain}${path}`;
 		const clearance = await this._getClearanceToken(url, method, body);
 		if (clearance) {
-			await this.cookieStore.setCookie(domain, path, "cf_clearance", clearance);
+			await this.cookieStore.set("cf_clearance", clearance, {
+				domain: new URL(url).hostname,
+				path: new URL(url).pathname,
+			});
 		} else {
 			throw new Error("Failed to obtain clearance token.");
 		}
 	}
 
 	async refreshClearance(
-		domain: string,
-		path: string,
+		url: string,
 		method: "GET" | "POST",
 		body?: unknown,
 	): Promise<void> {
-		const url = `https://${domain}${path}`;
 		const clearance = await this._getClearanceToken(url, method, body);
 		if (clearance) {
-			await this.cookieStore.setCookie(domain, path, "cf_clearance", clearance);
+			await this.cookieStore.set("cf_clearance", clearance, {
+				domain: new URL(url).hostname,
+				path: new URL(url).pathname,
+			});
 		} else {
 			throw new Error("Failed to obtain clearance token.");
 		}
 	}
 
-	async getCookies(
-		domain: string,
-		path?: string,
-	): Promise<Record<string, string>> {
-		return await this.cookieStore.getCookies(domain, path);
+	async getCookies(url: string): Promise<Cookie[]> {
+		return await this.cookieStore.getForUrl(url);
 	}
 
-	async setCookies(
-		domain: string,
-		path: string,
-		cookies: Record<string, string>,
-	): Promise<void> {
-		await this.cookieStore.setCookies(domain, path, cookies);
+	async setCookies(cookies: Cookie[]): Promise<void> {
+		for (const cookie of cookies) {
+			await this.cookieStore.set(cookie.name, cookie.value, {
+				domain: cookie.domain,
+				path: cookie.path,
+			});
+		}
 	}
 
-	async clearCookies(domain: string, path?: string): Promise<void> {
-		await this.cookieStore.clearCookies(domain, path);
+	async clearCookies(url: string | URL): Promise<void> {
+		const parsedUrl = typeof url === "string" ? new URL(url) : url;
+		const hostname = parsedUrl.hostname;
+		const path = parsedUrl.pathname;
+		await this.cookieStore.clear(hostname, path);
 	}
 
 	async close(): Promise<void> {

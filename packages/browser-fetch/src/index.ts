@@ -1,5 +1,19 @@
 export { BrowserFetchClient } from "./client";
-export type { CookieStore } from "./cookies";
+export {
+	type Cookie,
+	type CookieOptions,
+	type CookieStoreItem,
+	type CookiesInit,
+	type CookiesStore,
+	cookieItemToCookie,
+	cookieStoreSign,
+	FileCookiesStore,
+	InMemoryCookiesStore,
+	isCookiesStore,
+	makeKey,
+	matchesDomain,
+	matchesPath,
+} from "./cookies";
 export {
 	BrowserFetchError,
 	CloudflareBlockError,

@@ -1,4 +1,5 @@
 import * as impers from "impers";
+import type { Cookie } from "../cookies";
 import { HttpStatusError, NetworkError } from "../errors";
 import {
 	extractContentType,
@@ -209,9 +210,20 @@ export class ImpersTransport implements Transport {
 					return headers;
 				})(),
 				cookies: (() => {
-					const cookies: Map<string, string> = new Map();
-					for (const [key, value] of impersResponse.cookies.entries()) {
-						cookies.set(key, value);
+					const cookies: Cookie[] = [];
+					const url = new URL(request.url);
+					const hostname = url.hostname;
+					const path = url.pathname || "/";
+					for (const cookie of impersResponse.cookies) {
+						cookies.push({
+							name: cookie.name,
+							value: cookie.value,
+							domain: cookie.domain ?? hostname,
+							path: cookie.path ?? path,
+							secure: cookie.secure,
+							httpOnly: cookie.httpOnly,
+							sameSite: cookie.sameSite ?? "Lax",
+						});
 					}
 					return cookies;
 				})(),

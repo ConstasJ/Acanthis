@@ -1,6 +1,6 @@
 import type { RetryContext } from "p-retry";
 import type { AutoSolvePolicy, ChallengeOptions } from "./challenge";
-import type { CookieStoreOptions } from "./cookies";
+import type { Cookie, CookiesStoreOptions } from "./cookies";
 import type { FlareSolverrOptions } from "./flaresolverr";
 import type { BrowserProfile, BrowserProfileName } from "./profile";
 import type { Transport } from "./transport/types";
@@ -26,7 +26,7 @@ export type RequestDefaults = {
 
 export type BrowserFetchClientOptions = {
 	profile?: BrowserProfileName | BrowserProfile;
-	cookieStore?: CookieStoreOptions;
+	cookieStore?: CookiesStoreOptions;
 	flareSolverr?: FlareSolverrOptions;
 	proxy?: string | undefined;
 	challengeSolver?: ChallengeOptions;
@@ -72,7 +72,7 @@ export interface BrowserFetchResponse {
 	status: number;
 	statusText?: string;
 	headers: Map<string, string>;
-	cookies: Map<string, string>;
+	cookies: Cookie[];
 	body: string | Buffer;
 	contentType?: ContentTypeInfo | undefined;
 	elapsedTime?: number | undefined;

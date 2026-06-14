@@ -1,3 +1,4 @@
+import type { Cookie } from "../cookies";
 import type { BrowserProfile } from "../profile";
 import type { HttpMethod } from "../types";
 import type { ContentTypeInfo } from "../utils";
@@ -72,7 +73,7 @@ export type TransportResponse = {
 	statusText: string;
 
 	headers: Map<string, string>;
-	cookies: Map<string, string>;
+	cookies: Cookie[];
 
 	contentType?: ContentTypeInfo;
 	body: Buffer;
