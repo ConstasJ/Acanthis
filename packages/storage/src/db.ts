@@ -46,8 +46,6 @@ function getDrizzle(client: Database.Database) {
 export class DatabaseService {
 	private client: Database.Database;
 	private db: ReturnType<typeof getDrizzle>;
-	private isMigrated: boolean = false;
-	private migrationOptions: MigrationOptions;
 
 	constructor(options: DatabaseOptions) {
 		const parentDir = dirname(resolve(options.path));
@@ -60,19 +58,16 @@ export class DatabaseService {
 		this.client = new Database(options.path);
 		this.client.pragma("journal_mode = WAL");
 		this.db = getDrizzle(this.client);
-		this.migrationOptions = options.migrations || {
-			enabled: true,
-			directory: "migrations",
-		};
+		if (options.migrations?.enabled ?? true) {
+			this._migrate(options.migrations?.directory);
+		}
 	}
 
-	private _migrate() {
-		if (this.isMigrated) return;
+	private _migrate(directory?: string) {
 		if (!this.db) throw new Error("Database not initialized");
 		migrate(this.db, {
-			migrationsFolder: this.migrationOptions.directory || "migrations",
+			migrationsFolder: directory || "migrations",
 		});
-		this.isMigrated = true;
 	}
 
 	addSearchResult(
@@ -80,10 +75,6 @@ export class DatabaseService {
 		platform: string,
 		results: NovelSearchResult[],
 	) {
-		if (this.migrationOptions.enabled) {
-			this._migrate();
-		}
-
 		this.db.transaction((tx) => {
 			tx.insert(keywordSearches)
 				.values({
@@ -143,10 +134,6 @@ export class DatabaseService {
 		keyword: string,
 		platform: string,
 	): Promise<DataWithUpdatedAt<NovelSearchResult[] | undefined>> {
-		if (this.migrationOptions.enabled) {
-			this._migrate();
-		}
-
 		const minQueryTime = Date.now() - 48 * 60 * 60 * 1000; // 48 hours
 
 		const searchRecord = await this.db.query.keywordSearches
@@ -184,10 +171,6 @@ export class DatabaseService {
 	}
 
 	addNovelCache(novel: Novel) {
-		if (this.migrationOptions.enabled) {
-			this._migrate();
-		}
-
 		this.db.transaction((tx) => {
 			const { id: novelId } = tx
 				.insert(novels)
@@ -273,10 +256,6 @@ export class DatabaseService {
 		platform: string,
 		platformId: string,
 	): Promise<DataWithUpdatedAt<Novel | null>> {
-		if (this.migrationOptions.enabled) {
-			this._migrate();
-		}
-
 		const novelRecord = await this.db.query.novels
 			.findFirst({
 				where: {
@@ -327,10 +306,6 @@ export class DatabaseService {
 	async getChapterFromTitle(
 		title: string,
 	): Promise<Partial<Chapter> | undefined> {
-		if (this.migrationOptions.enabled) {
-			this._migrate();
-		}
-
 		const chapterRecord = await this.db.query.chapters
 			.findFirst({
 				where: {
@@ -353,10 +328,6 @@ export class DatabaseService {
 		platform: string,
 		platformId: string,
 	): Promise<ChapterWithNovelId | undefined> {
-		if (this.migrationOptions.enabled) {
-			this._migrate();
-		}
-
 		const chapterRecord = await this.db.query.chapters
 			.findFirst({
 				where: {
@@ -388,10 +359,6 @@ export class DatabaseService {
 		platform: string,
 		novelId: string,
 	): Promise<CoverMetadata | undefined> {
-		if (this.migrationOptions.enabled) {
-			this._migrate();
-		}
-
 		const queryResult = await this.db.query.coverMetadata
 			.findFirst({
 				where: {
@@ -420,10 +387,6 @@ export class DatabaseService {
 	}
 
 	async addCoverMetadata(metadata: CoverMetadata) {
-		if (this.migrationOptions.enabled) {
-			this._migrate();
-		}
-
 		const novel =
 			metadata.novelId && metadata.platform
 				? await this.db.query.novels
@@ -444,22 +407,10 @@ export class DatabaseService {
 				originalUrl: metadata.originalUrl,
 				novelId: novel?.id ?? null,
 			})
-			.onConflictDoUpdate({
-				target: coverMetadata.hash,
-				set: {
-					contentType: metadata.contentType,
-					originalUrl: metadata.originalUrl,
-					novelId: novel?.id ?? null,
-				},
-			})
 			.run();
 	}
 
 	async getCookies(domain: string, path: string): Promise<Cookie[]> {
-		if (this.migrationOptions.enabled) {
-			this._migrate();
-		}
-
 		return await this.db.query.cookies
 			.findMany({
 				where: {
@@ -475,10 +426,6 @@ export class DatabaseService {
 		path: string,
 		cookieList: Omit<Cookie, "id">[],
 	): Promise<void> {
-		if (this.migrationOptions.enabled) {
-			this._migrate();
-		}
-
 		await this.db
 			.delete(cookies)
 			.where(and(eq(cookies.domain, domain), eq(cookies.path, path)))
@@ -500,10 +447,6 @@ export class DatabaseService {
 		path: string,
 		name: string,
 	): Promise<Cookie | undefined> {
-		if (this.migrationOptions.enabled) {
-			this._migrate();
-		}
-
 		return await this.db.query.cookies
 			.findFirst({
 				where: {
@@ -516,10 +459,6 @@ export class DatabaseService {
 	}
 
 	async addCookie(cookie: Omit<Cookie, "id">) {
-		if (this.migrationOptions.enabled) {
-			this._migrate();
-		}
-
 		this.db
 			.insert(cookies)
 			.values(cookie)
@@ -533,10 +472,6 @@ export class DatabaseService {
 	}
 
 	async getCache<T>(key: string, schema: z.ZodType<T>): Promise<T | null> {
-		if (this.migrationOptions.enabled) {
-			this._migrate();
-		}
-
 		const record = await this.db.query.generalCache
 			.findFirst({
 				where: {
@@ -554,10 +489,6 @@ export class DatabaseService {
 	}
 
 	async setCache<T>(key: string, value: T): Promise<void> {
-		if (this.migrationOptions.enabled) {
-			this._migrate();
-		}
-
 		this.db
 			.insert(generalCache)
 			.values({ key, value })

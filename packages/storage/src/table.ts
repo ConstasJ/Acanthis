@@ -4,6 +4,7 @@ import {
 	primaryKey,
 	sqliteTable,
 	text,
+	unique,
 } from "drizzle-orm/sqlite-core";
 
 export const novels = sqliteTable("novels", {
@@ -18,7 +19,9 @@ export const novels = sqliteTable("novels", {
 		enum: ["ongoing", "completed", "unknown"],
 	}).notNull(),
 	updateAt: integer("update_at").notNull(),
-});
+}, (table) => [
+	unique("platform_and_pid_idx").on(table.platform, table.platformId),
+]);
 
 export const genres = sqliteTable("genres", {
 	id: integer("id").primaryKey({ autoIncrement: true }),
@@ -45,7 +48,9 @@ export const volumes = sqliteTable("volumes", {
 		.references(() => novels.id, { onDelete: "cascade" }),
 	name: text("name").notNull(),
 	platformId: text("platform_id").notNull(),
-});
+}, (table) => [
+	unique("novel_and_pid_idx").on(table.novelId, table.platformId),
+]);
 
 export const chapters = sqliteTable("chapters", {
 	id: integer("id").primaryKey({ autoIncrement: true }),
@@ -57,7 +62,9 @@ export const chapters = sqliteTable("chapters", {
 		.references(() => volumes.id, { onDelete: "cascade" }),
 	platformId: text("platform_id").notNull(),
 	name: text("name").notNull(),
-});
+}, (table) => [
+	unique("novel_and_pid_idx").on(table.novelId, table.platformId),
+]);
 
 export const keywordSearches = sqliteTable("keyword_searches", {
 	keyword: text("keyword").primaryKey(),
@@ -81,7 +88,7 @@ export const keywordNovels = sqliteTable(
 
 export const coverMetadata = sqliteTable("cover_metadata", {
 	id: integer("id").primaryKey({ autoIncrement: true }),
-	hash: text("hash").notNull(),
+	hash: text("hash").notNull().unique(),
 	contentType: text("content_type").notNull(),
 	originalUrl: text("original_url").notNull(),
 	novelId: integer("novel_id").references(() => novels.id, {
@@ -95,7 +102,9 @@ export const cookies = sqliteTable("cookies", {
 	path: text("path").notNull(),
 	name: text("name").notNull(),
 	value: text("value").notNull(),
-});
+}, (table) => [
+	unique("cookie_unique_idx").on(table.domain, table.path, table.name),
+]);
 
 export type Cookie = typeof cookies.$inferSelect;
 
