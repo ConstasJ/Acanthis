@@ -20,7 +20,6 @@ export type {
 	BrowserFetchClientOptions,
 	BrowserFetchRequest,
 	BrowserFetchResponse,
-	ProxyOptions,
 	RetryOptions,
 } from "./types";
 export { defaultRetryPolicy } from "./utils";

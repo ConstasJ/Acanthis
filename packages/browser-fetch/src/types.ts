@@ -6,10 +6,6 @@ import type { BrowserProfile, BrowserProfileName } from "./profile";
 import type { Transport } from "./transport/types";
 import type { ContentTypeInfo } from "./utils";
 
-export type ProxyOptions = {
-	http?: string;
-	https?: string;
-};
 export type HttpMethod =
 	| "GET"
 	| "POST"
@@ -32,7 +28,7 @@ export type BrowserFetchClientOptions = {
 	profile?: BrowserProfileName | BrowserProfile;
 	cookieStore?: CookieStoreOptions;
 	flareSolverr?: FlareSolverrOptions;
-	proxy?: ProxyOptions;
+	proxy?: string | undefined;
 	challengeSolver?: ChallengeOptions;
 	requestDefaults?: RequestDefaults;
 	transport?: Transport;

@@ -77,10 +77,7 @@ export const ConfigSchema = z.object({
 		})
 		.optional()
 		.describe("日志配置"),
-	proxy: z.object({
-		http: z.string().optional().describe("HTTP 代理地址"),
-		https: z.string().optional().describe("HTTPS 代理地址"),
-	}).optional().describe("代理配置"),
+	proxy: z.string().optional().describe("全局代理地址，格式为 http://host:port 或 https://host:port"),
 });
 
 export type Config = z.infer<typeof ConfigSchema>;
@@ -143,10 +140,7 @@ export function getConfig(): Config {
 					dir: process.env.LOGGING_FILE_DIR,
 				},
 			},
-			proxy: {
-				http: process.env.PROXY_HTTP,
-				https: process.env.PROXY_HTTPS,
-			},
+			proxy: process.env.PROXY_URL,
 		};
 		const mergedRaw = deepmerge(fileConfig, envConfig);
 		const config = ConfigSchema.safeParse(mergedRaw);

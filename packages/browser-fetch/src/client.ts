@@ -25,7 +25,6 @@ import type {
 	BrowserFetchClientOptions,
 	BrowserFetchRequest,
 	BrowserFetchResponse,
-	ProxyOptions,
 	RequestDefaults,
 	TextResponse,
 } from "./types";
@@ -70,7 +69,7 @@ export class BrowserFetchClient {
 	private profile: BrowserProfile;
 	private cookieStore: CookieStore;
 	private flareSolverrClient: FlareSolverrClient | null = null;
-	private proxy: ProxyOptions | null = null;
+	private proxy: string | undefined = undefined;
 	private challengeSolver: ChallengeOptions | null = null;
 	private requestDefaults: RequestDefaults;
 	private transport: Transport;

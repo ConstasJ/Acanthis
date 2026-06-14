@@ -2,7 +2,6 @@ import {
 	BrowserFetchClient,
 	type BrowserFetchClientOptions,
 	type FlareSolverrOptions,
-	type ProxyOptions,
 } from "@acanthis-dec/browser-fetch";
 import type { Novel, NovelSearchResult } from "@acanthis-dec/core";
 import type { StorageService } from "@acanthis-dec/storage";
@@ -26,7 +25,7 @@ export type SessionOptions =
 export type LinovelibClientOptions = {
 	session: SessionOptions;
 	flareSolverr: FlareSolverrOptions;
-	proxy?: ProxyOptions;
+	proxy?: string | undefined;
 };
 
 export class LinovelibClient {

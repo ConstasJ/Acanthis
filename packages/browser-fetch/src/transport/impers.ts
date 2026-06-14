@@ -106,7 +106,7 @@ export class ImpersTransport implements Transport {
 		const sessionKey: TransportSessionKey = {
 			origin: new URL(request.url).origin,
 			profile: request.profile ? request.profile.name : "default",
-			proxy: request.proxy?.http ?? null,
+			proxy: request.proxy ?? null,
 		};
 		const session = this.sessionManager.getSession(
 			sessionKey,
@@ -126,6 +126,9 @@ export class ImpersTransport implements Transport {
 					? request.profile.impersonate
 					: "chrome",
 		};
+		if (request.proxy) {
+			impersRequest.proxy = request.proxy;
+		}
 		if (request.signal) {
 			impersRequest.signal = request.signal;
 		}

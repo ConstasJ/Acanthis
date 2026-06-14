@@ -1,5 +1,5 @@
 import type { BrowserProfile } from "../profile";
-import type { HttpMethod, ProxyOptions } from "../types";
+import type { HttpMethod } from "../types";
 import type { ContentTypeInfo } from "../utils";
 
 export type TransportSessionKey = {
@@ -54,7 +54,7 @@ export type TransportRequest = {
 		| unknown;
 	signal?: AbortSignal | undefined;
 	profile?: BrowserProfile | undefined;
-	proxy?: ProxyOptions | undefined;
+	proxy?: string | undefined;
 	timeout?: number;
 	connectionTimeout?: number | undefined;
 	followRedirects?: boolean | undefined;

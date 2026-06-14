@@ -67,10 +67,7 @@ if (config.credentials?.linovelib) {
 	};
 
 if (config.proxy) {
-	linovelibOptions.proxy = {
-		http: config.proxy.http ?? "",
-		https: config.proxy.https ?? "",
-	};
+	linovelibOptions.proxy = config.proxy;
 }
 
 export const linovelibClient = new LinovelibClient(linovelibOptions as LinovelibClientOptions, storageService, logger);
