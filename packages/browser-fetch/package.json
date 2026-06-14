@@ -22,7 +22,7 @@
 		"url": "https://github.com/ConstasJ/Acanthis/issues"
 	},
 	"dependencies": {
-		"@constasj/impers": "^0.0.8",
+		"impers": "^0.0.9",
 		"deepmerge-ts": "^7.1.5",
 		"p-retry": "^8.0.0"
 	},

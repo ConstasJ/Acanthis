@@ -1,4 +1,4 @@
-import * as impers from "@constasj/impers";
+import * as impers from "impers";
 import { HttpStatusError, NetworkError } from "../errors";
 import {
 	extractContentType,
