@@ -86,11 +86,15 @@ export async function searchNovels(
 			haha = cachedHaha;
 		}
 	}
-	let response = await fetchClient.text("https://www.linovelib.com/S6", {
+	let response = await fetchClient.text("https://www.linovelib.com/S6/", {
 		method: "POST",
 		body: new URLSearchParams({
 			searchkey: keyword,
 		}),
+		headers: {
+			origin: "https://www.linovelib.com",
+			referer: "https://www.linovelib.com/S6/",
+		},
 		cookies: {
 			haha,
 		},
@@ -113,13 +117,17 @@ export async function searchNovels(
 		});
 		haha = await solveSearchChallenge(a, b, c);
 		await new Promise((r) => setTimeout(r, 3000));
-		response = await fetchClient.text("https://www.linovelib.com/S6", {
+		response = await fetchClient.text("https://www.linovelib.com/S6/", {
 			method: "POST",
 			body: new URLSearchParams({
 				searchkey: keyword,
 			}),
 			cookies: {
 				haha,
+			},
+			headers: {
+				origin: "https://www.linovelib.com",
+				referer: "https://www.linovelib.com/S6/",
 			},
 		});
 		$ = cheerio.load(response.data);
