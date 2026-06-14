@@ -11,6 +11,10 @@ export async function fetchSessionId(
 	fetchClient: BrowserFetchClient,
 	loginConfig: LoginConfig,
 ): Promise<string | undefined> {
+	await fetchClient.request({
+		url: "https://www.linovelib.com/login.php",
+		method: "GET",
+	});
 	const response = await fetchClient.request({
 		url: "https://www.linovelib.com/login.php?do=submit&jumpurl=https%3A%2F%2Fwww.linovelib.com%2F",
 		method: "POST",

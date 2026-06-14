@@ -1,6 +1,7 @@
 import {
 	BrowserFetchClient,
 	type BrowserFetchClientOptions,
+	type BrowserProfileName,
 	type FlareSolverrOptions,
 } from "@acanthis-dec/browser-fetch";
 import type { Novel, NovelSearchResult } from "@acanthis-dec/core";
@@ -22,9 +23,17 @@ export type SessionOptions =
 			password: string;
 	  };
 
+export type ImpersonateOptions = {
+	enabled: true;
+	profile: BrowserProfileName;
+} | {
+	enabled: false;
+};
+
 export type LinovelibClientOptions = {
 	session: SessionOptions;
 	flareSolverr: FlareSolverrOptions;
+	impersonate: ImpersonateOptions;
 	proxy?: string | undefined;
 };
 
@@ -42,18 +51,23 @@ export class LinovelibClient {
 		storage?: StorageService,
 		logger?: Logger,
 	) {
-		this.options = deepmerge(
-			{
-				session: {
-					enabled: false,
-				},
-				flareSolverr: {
-					enabled: true,
-					host: "http://localhost:8191",
-					timeoutMs: 60000,
-					sessionId: "acanthis-linovelib-client",
-				},
+		const defaultOptions: LinovelibClientOptions = {
+			session: {
+				enabled: false,
 			},
+			flareSolverr: {
+				enabled: true,
+				host: "http://localhost:8191",
+				timeoutMs: 60000,
+				sessionId: "acanthis-linovelib-client",
+			},
+			impersonate: {
+				enabled: true,
+				profile: "chrome149-linux",
+			},
+		};
+		this.options = deepmerge(
+			defaultOptions,
 			options ?? {},
 		) as LinovelibClientOptions;
 		this.storage = storage;
@@ -74,6 +88,9 @@ export class LinovelibClient {
 		}
 		if (this.options?.proxy) {
 			browserFetchOptions.proxy = this.options.proxy;
+		}
+		if (this.options?.impersonate.enabled) {
+			browserFetchOptions.profile = this.options.impersonate.profile;
 		}
 		this.fetchClient = new BrowserFetchClient(browserFetchOptions);
 		this.novelChapterQueue = new NovelChapterQueue(

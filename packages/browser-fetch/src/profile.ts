@@ -1,7 +1,10 @@
-export type BrowserProfileName =
-	| "chrome149-linux"
-	| "chrome149-win"
-	| "chrome149-android";
+export const browserProfileNames = [
+	"chrome149-linux",
+	"chrome149-windows",
+	"chrome149-android",
+] as const;
+
+export type BrowserProfileName = typeof browserProfileNames[number];
 
 export type BrowserProfile = {
 	name: BrowserProfileName;
@@ -38,8 +41,8 @@ export const browserProfiles: Record<BrowserProfileName, BrowserProfile> = {
 		},
 		impersonate: "chrome146",
 	},
-	"chrome149-win": {
-		name: "chrome149-win",
+	"chrome149-windows": {
+		name: "chrome149-windows",
 		userAgent:
 			"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
 		headers: {

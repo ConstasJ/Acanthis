@@ -78,6 +78,9 @@ importers:
         specifier: ^4.4.3
         version: 4.4.3
     devDependencies:
+      '@acanthis-dec/browser-fetch':
+        specifier: workspace:*
+        version: link:../../packages/browser-fetch
       '@acanthis-dec/config-typescript':
         specifier: workspace:*
         version: link:../../tools/config-typescript

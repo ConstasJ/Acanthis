@@ -4,6 +4,7 @@ import { deepmerge } from "deepmerge-ts";
 import dotenv from "dotenv";
 import YAML from "js-yaml";
 import { z } from "zod";
+import { browserProfileNames } from "@acanthis-dec/browser-fetch";
 
 export const ConfigSchema = z.object({
 	env: z
@@ -30,7 +31,7 @@ export const ConfigSchema = z.object({
 		.object({
 			enabled: z.boolean().default(true).describe("是否启用浏览器指纹模拟"),
 			profile: z
-				.enum(["chrome149-windows", "chrome149-linux", "chrome149-android"])
+				.enum(browserProfileNames)
 				.default("chrome149-linux")
 				.describe("浏览器指纹配置"),
 		})

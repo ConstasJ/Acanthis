@@ -38,6 +38,7 @@
 	},
 	"devDependencies": {
 		"@acanthis-dec/config-typescript": "workspace:*",
+		"@acanthis-dec/browser-fetch": "workspace:*",
 		"@types/js-yaml": "^4.0.9",
 		"@types/node": "catalog:",
 		"esbuild": "^0.28.0",

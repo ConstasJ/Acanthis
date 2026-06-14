@@ -66,6 +66,16 @@ if (config.credentials?.linovelib) {
 		enabled: false,
 	};
 
+if (config.impersonate?.enabled) {
+	linovelibOptions.impersonate = {
+		enabled: true,
+		profile: config.impersonate.profile,
+	};
+} else
+	linovelibOptions.impersonate = {
+		enabled: false,
+	};
+
 if (config.proxy) {
 	linovelibOptions.proxy = config.proxy;
 }

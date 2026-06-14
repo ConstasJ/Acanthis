@@ -8,6 +8,11 @@ export {
 	NetworkError,
 } from "./errors";
 export type { FlareSolverrOptions } from "./flaresolverr";
+export {
+	type BrowserProfileName,
+	browserProfileNames,
+	browserProfiles,
+} from "./profile";
 export type {
 	TransportHttpOptions,
 	TransportRequest,

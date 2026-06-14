@@ -95,6 +95,9 @@ export class FlareSolverrClient {
 	async get(url: string) {
 		const response = await fetch(`${this.host}/v1`, {
 			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+			},
 			body: JSON.stringify({
 				cmd: "request.get",
 				session: this.sessionId,
