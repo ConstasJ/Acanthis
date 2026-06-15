@@ -5,7 +5,8 @@ import type {
 import type { StorageService } from "@acanthis-dec/storage";
 
 export function novelIdToCoverUrl(novelId: string): string {
-	return `https://www.linovelib.com/files/article/image/${novelId[0]}/${novelId}/${novelId}s.jpg`;
+	const prefix = novelId.length > 3 ? novelId[0] : "0";
+	return `https://www.linovelib.com/files/article/image/${prefix}/${novelId}/${novelId}s.jpg`;
 }
 
 export async function getCover(
