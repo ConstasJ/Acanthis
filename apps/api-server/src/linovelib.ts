@@ -85,6 +85,7 @@ app.get(
 				novelId,
 			);
 			if (cachedNovel && cachedNovel.author !== "" && cachedNovel.status !== "unknown" && cachedNovel.volumes.length > 0) {
+				cachedNovel.coverUrl = `${host}/v1/linovelib/novel/${novelId}/cover`;
 				return c.json({
 					code: 0,
 					message: "Success",
