@@ -8,7 +8,6 @@ export type BrowserProfileName = (typeof browserProfileNames)[number];
 
 export type BrowserProfile = {
 	name: BrowserProfileName;
-	userAgent: string;
 	headers: Record<string, string>;
 	viewport?: {
 		width: number;
@@ -20,8 +19,6 @@ export type BrowserProfile = {
 export const browserProfiles: Record<BrowserProfileName, BrowserProfile> = {
 	"chrome149-linux": {
 		name: "chrome149-linux",
-		userAgent:
-			"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
 		headers: {
 			"User-Agent":
 				"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
@@ -43,8 +40,6 @@ export const browserProfiles: Record<BrowserProfileName, BrowserProfile> = {
 	},
 	"chrome149-windows": {
 		name: "chrome149-windows",
-		userAgent:
-			"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
 		headers: {
 			"User-Agent":
 				"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
@@ -66,11 +61,9 @@ export const browserProfiles: Record<BrowserProfileName, BrowserProfile> = {
 	},
 	"chrome149-android": {
 		name: "chrome149-android",
-		userAgent:
-			"Mozilla/5.0 (Linux; Android 10; SM-G975F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Mobile Safari/537.36",
 		headers: {
 			"User-Agent":
-				"Mozilla/5.0 (Linux; Android 10; SM-G975F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Mobile Safari/537.36",
+				"Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Mobile Safari/537.36",
 			"Sec-Ch-Ua":
 				'"Google Chrome";v="149", "Chromium";v="149", "Not)A;Brand";v="24"',
 			"Sec-Ch-Ua-Mobile": "?1",
