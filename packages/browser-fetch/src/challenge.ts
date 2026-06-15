@@ -1,3 +1,4 @@
+import type { Cookie } from "./cookies";
 import type { FlareSolverrClient } from "./flaresolverr";
 
 export type AutoSolvePolicy = "auto" | "force-refresh" | "never";
@@ -47,7 +48,7 @@ export async function solveCloudflareChallenge(
 	method: "GET" | "POST",
 	client: FlareSolverrClient,
 	body?: Record<string, string>,
-): Promise<string> {
+): Promise<Cookie> {
 	switch (method) {
 		case "GET": {
 			const response = await client.get(url);
@@ -67,7 +68,16 @@ export async function solveCloudflareChallenge(
 					"Failed to find cf_clearance cookie in FlareSolverr response.",
 				);
 			}
-			return clearance.value;
+			return {
+				name: clearance.name,
+				value: clearance.value,
+				domain: clearance.domain,
+				path: clearance.path,
+				expires: new Date(clearance.expiry * 1000),
+				httpOnly: clearance.httpOnly,
+				secure: clearance.secure,
+				sameSite: clearance.sameSite ?? "Lax",
+			};
 		}
 		case "POST": {
 			const response = await client.post(url, body ?? {});
@@ -87,7 +97,16 @@ export async function solveCloudflareChallenge(
 					"Failed to find cf_clearance cookie in FlareSolverr response.",
 				);
 			}
-			return clearance.value;
+			return {
+				name: clearance.name,
+				value: clearance.value,
+				domain: clearance.domain,
+				path: clearance.path,
+				expires: new Date(clearance.expiry * 1000),
+				httpOnly: clearance.httpOnly,
+				secure: clearance.secure,
+				sameSite: clearance.sameSite ?? "Lax",
+			};
 		}
 	}
 }

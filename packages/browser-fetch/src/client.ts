@@ -131,7 +131,7 @@ export class BrowserFetchClient {
 		url: string,
 		method: "GET" | "POST",
 		body?: unknown,
-	): Promise<string> {
+	): Promise<Cookie | null> {
 		if (!this.flareSolverrClient) {
 			throw new Error(
 				"Challenge solver is enabled, but FlareSolverr client is not configured.",
@@ -185,7 +185,8 @@ export class BrowserFetchClient {
 					"Failed to obtain clearance token with 'force-refresh' policy.",
 				);
 			}
-			cookies.cf_clearance = clearance;
+			await this.cookieStore.set("cf_clearance", clearance.value, clearance);
+			cookies.cf_clearance = clearance.value;
 		}
 
 		const transportRequest: TransportRequest = {
@@ -262,12 +263,8 @@ export class BrowserFetchClient {
 							init.body,
 						);
 						if (clearance) {
-							const newInit = init;
-							newInit.cookies = {
-								...newInit.cookies,
-								cf_clearance: clearance,
-							};
-							return await this._request(newInit);
+							await this.cookieStore.set("cf_clearance", clearance.value, clearance);
+							return await this._request(init);
 						} else {
 							throw new FlareSolverrError(
 								this.flareSolverrClient?.host ?? "",
@@ -392,10 +389,7 @@ export class BrowserFetchClient {
 		}
 		const clearance = await this._getClearanceToken(url, method, body);
 		if (clearance) {
-			await this.cookieStore.set("cf_clearance", clearance, {
-				domain: new URL(url).hostname,
-				path: new URL(url).pathname,
-			});
+			await this.cookieStore.set("cf_clearance", clearance.value, clearance);
 		} else {
 			throw new Error("Failed to obtain clearance token.");
 		}
@@ -408,10 +402,7 @@ export class BrowserFetchClient {
 	): Promise<void> {
 		const clearance = await this._getClearanceToken(url, method, body);
 		if (clearance) {
-			await this.cookieStore.set("cf_clearance", clearance, {
-				domain: new URL(url).hostname,
-				path: new URL(url).pathname,
-			});
+			await this.cookieStore.set("cf_clearance", clearance.value, clearance);
 		} else {
 			throw new Error("Failed to obtain clearance token.");
 		}
@@ -426,6 +417,10 @@ export class BrowserFetchClient {
 			await this.cookieStore.set(cookie.name, cookie.value, {
 				domain: cookie.domain,
 				path: cookie.path,
+				expires: cookie.expires,
+				httpOnly: cookie.httpOnly,
+				secure: cookie.secure,
+				sameSite: cookie.sameSite ?? "Lax",
 			});
 		}
 	}

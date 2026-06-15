@@ -14,11 +14,9 @@ export type FlareSolverrCookie = {
 	value: string;
 	domain: string;
 	path: string;
-	expires: number;
-	size: number;
+	expiry: number;
 	httpOnly: boolean;
 	secure: boolean;
-	session: boolean;
 	sameSite: "Strict" | "Lax" | "None";
 };
 
@@ -29,6 +27,7 @@ export type FlareSolverrSolution = {
 	response: string;
 	cookies: FlareSolverrCookie[];
 	turnstile_token?: string;
+	headers: Record<string, string>;
 };
 
 export type FlareSolverrReqResponse = {
