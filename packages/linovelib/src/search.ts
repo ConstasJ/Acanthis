@@ -1,9 +1,7 @@
 import { webcrypto } from "node:crypto";
 import type { BrowserFetchClient } from "@acanthis-dec/browser-fetch";
 import type { NovelSearchResult } from "@acanthis-dec/core";
-import type { StorageService } from "@acanthis-dec/storage";
 import * as cheerio from "cheerio";
-import z from "zod";
 import { extractNovelIdFromUrl } from "./utils";
 
 function k(e: string): Uint8Array<ArrayBuffer> {
@@ -76,16 +74,7 @@ async function solveSearchChallenge(
 export async function searchNovels(
 	keyword: string,
 	fetchClient: BrowserFetchClient,
-	storage?: StorageService,
-	haha?: string,
 ): Promise<NovelSearchResult[]> {
-	if (!haha) haha = "";
-	if (storage) {
-		const cachedHaha = await storage.getCache<string>("haha", z.string());
-		if (cachedHaha) {
-			haha = cachedHaha;
-		}
-	}
 	let response = await fetchClient.text("https://www.linovelib.com/S6/", {
 		method: "POST",
 		body: new URLSearchParams({
@@ -93,10 +82,7 @@ export async function searchNovels(
 		}),
 		headers: {
 			origin: "https://www.linovelib.com",
-			referer: "https://www.linovelib.com/S6/",
-		},
-		cookies: {
-			haha,
+			referer: "https://www.linovelib.com/",
 		},
 	});
 	if (response.mimeType !== "text/html") {
@@ -115,9 +101,9 @@ export async function searchNovels(
 				c = scriptContent.match(/window\.c\s*=\s*'([^']+)'/)?.[1] || "";
 			}
 		});
-		haha = await solveSearchChallenge(a, b, c);
+		const haha = await solveSearchChallenge(a, b, c);
 		await new Promise((r) => setTimeout(r, 3000));
-		response = await fetchClient.text("https://www.linovelib.com/S6/", {
+		response =await fetchClient.text("https://www.linovelib.com/S6/", {
 			method: "POST",
 			body: new URLSearchParams({
 				searchkey: keyword,
@@ -131,9 +117,9 @@ export async function searchNovels(
 			},
 		});
 		$ = cheerio.load(response.data);
-		if ($("#challenge-running").length === 0 && storage) {
-			await storage.setCache("haha", haha);
-		}
+	}
+	if ($("#challenge-running").length !== 0) {
+		throw new Error("Failed to solve search challenge");
 	}
 	if ($("div.book-html-box").length > 0) {
 		return [

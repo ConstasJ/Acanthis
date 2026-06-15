@@ -46,19 +46,16 @@ class SimpleBackoff {
 export class SearchQueue {
 	private queue: PQueue;
 	private client: BrowserFetchClient;
-	private storage?: StorageService | undefined;
 	private logger?: Logger | undefined;
 	private readonly COOLDOWN_MS = 5000;
 	private lastSearchTime = 0;
 
 	constructor(
 		client: BrowserFetchClient,
-		storage?: StorageService,
 		logger?: Logger,
 	) {
 		this.queue = new PQueue({ concurrency: 1 });
 		this.client = client;
-		this.storage = storage;
 		this.logger = logger;
 		this.queue.on("add", () => {
 			this.logger?.debug(
@@ -74,7 +71,6 @@ export class SearchQueue {
 
 	async searchNovels(
 		keyword: string,
-		haha?: string,
 	): Promise<NovelSearchResult[]> {
 		return await this.queue.add(async () => {
 			if (Date.now() - this.lastSearchTime < this.COOLDOWN_MS) {
@@ -88,8 +84,6 @@ export class SearchQueue {
 			const results = await searchNovels(
 				keyword,
 				this.client,
-				this.storage,
-				haha,
 			);
 			this.logger?.debug(
 				`[SearchQueue] 搜索完成，关键词 "${keyword}" 共找到 ${results.length} 条结果`,

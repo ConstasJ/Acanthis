@@ -148,14 +148,13 @@ export class LinovelibClient {
 		);
 		this.searchQueue = new SearchQueue(
 			this.fetchClient,
-			this.storage,
 			this.logger,
 		);
 	}
 
 	async getNovelInfo(id: string): Promise<Novel | undefined> {
 		if (this.options?.session.enabled && this.storage) {
-			await ensureValidSession(this.storage, this.fetchClient, {
+			await ensureValidSession(this.fetchClient, {
 				username: this.options.session.username,
 				password: this.options.session.password,
 			});
@@ -165,15 +164,14 @@ export class LinovelibClient {
 
 	async searchNovels(
 		keyword: string,
-		haha?: string,
 	): Promise<NovelSearchResult[]> {
 		if (this.options?.session.enabled && this.storage) {
-			await ensureValidSession(this.storage, this.fetchClient, {
+			await ensureValidSession(this.fetchClient, {
 				username: this.options.session.username,
 				password: this.options.session.password,
 			});
 		}
-		return await this.searchQueue.searchNovels(keyword, haha);
+		return await this.searchQueue.searchNovels(keyword);
 	}
 
 	async getNovelCover(novelId: string) {
@@ -185,7 +183,7 @@ export class LinovelibClient {
 		chapterId: string,
 	): Promise<string | undefined> {
 		if (this.options?.session.enabled && this.storage) {
-			await ensureValidSession(this.storage, this.fetchClient, {
+			await ensureValidSession(this.fetchClient, {
 				username: this.options.session.username,
 				password: this.options.session.password,
 			});
