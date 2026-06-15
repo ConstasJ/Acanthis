@@ -10,7 +10,7 @@ import {
 	makeKey,
 	matchesDomain,
 	matchesPath,
-} from "./index";
+} from "./basic";
 
 export class InMemoryCookiesStore implements CookiesStore {
 	private cookies: Map<string, CookieStoreItem> = new Map();

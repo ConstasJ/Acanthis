@@ -13,7 +13,7 @@ import {
 	makeKey,
 	matchesDomain,
 	matchesPath,
-} from "./index";
+} from "./basic";
 
 export class FileCookiesStore implements CookiesStore {
 	[cookieStoreSign] = true as const;
