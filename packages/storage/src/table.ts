@@ -112,13 +112,20 @@ export const cookies = sqliteTable(
 		path: text("path").notNull(),
 		name: text("name").notNull(),
 		value: text("value").notNull(),
+		expires: integer("expires"),
+		maxAge: integer("max_age"),
+		secure: integer("secure", { mode: "boolean" }),
+		httpOnly: integer("http_only", { mode: "boolean" }),
+		sameSite: text("same_site", { enum: ["Strict", "Lax", "None"] }),
+		createdAt: integer("created_at").notNull(),
+		lastAccessedAt: integer("last_accessed_at").notNull(),
 	},
 	(table) => [
 		unique("cookie_unique_idx").on(table.domain, table.path, table.name),
 	],
 );
 
-export type Cookie = typeof cookies.$inferSelect;
+export type CookieRow = typeof cookies.$inferSelect;
 
 export const generalCache = sqliteTable("general_cache", {
 	key: text("key").primaryKey(),

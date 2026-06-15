@@ -12,7 +12,7 @@ await build({
 	},
 	external: [
 		"@babel/preset-typescript/package.json",
-		"better-sqlite3",
+		"@libsql/client",
 		"isolated-vm",
 		"koffi",
 	],

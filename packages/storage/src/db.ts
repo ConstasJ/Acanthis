@@ -1,15 +1,12 @@
 import { existsSync, mkdirSync, rmSync, statSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import type { Chapter, Novel, NovelSearchResult } from "@acanthis-dec/core";
-import Database from "better-sqlite3";
-import { and, eq } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/better-sqlite3";
-import { migrate } from "drizzle-orm/better-sqlite3/migrator";
+import { type Client, createClient } from "@libsql/client";
+import { drizzle } from "drizzle-orm/libsql";
+import { migrate } from "drizzle-orm/libsql/migrator";
 import type { z } from "zod";
 import {
-	type Cookie,
 	chapters,
-	cookies,
 	coverMetadata,
 	generalCache,
 	genres,
@@ -36,16 +33,18 @@ export type DatabaseOptions = {
 	migrations?: MigrationOptions;
 };
 
-function getDrizzle(client: Database.Database) {
+function getDrizzle(client: Client) {
 	return drizzle({
 		client,
 		relations,
 	});
 }
 
+export type DrizzleInstance = ReturnType<typeof getDrizzle>;
+
 export class DatabaseService {
-	private client: Database.Database;
-	private db: ReturnType<typeof getDrizzle>;
+	private client: Client;
+	db: DrizzleInstance;
 
 	constructor(options: DatabaseOptions) {
 		const parentDir = dirname(resolve(options.path));
@@ -55,8 +54,10 @@ export class DatabaseService {
 			rmSync(parentDir);
 			mkdirSync(parentDir, { recursive: true });
 		}
-		this.client = new Database(options.path);
-		this.client.pragma("journal_mode = WAL");
+		this.client = createClient({
+			url: `file:${options.path}`,
+		});
+		this.client.execute("PRAGMA journal_mode = WAL;");
 		this.db = getDrizzle(this.client);
 		if (options.migrations?.enabled ?? true) {
 			this._migrate(options.migrations?.directory);
@@ -70,13 +71,14 @@ export class DatabaseService {
 		});
 	}
 
-	addSearchResult(
+	async addSearchResult(
 		keyword: string,
 		platform: string,
 		results: NovelSearchResult[],
 	) {
-		this.db.transaction((tx) => {
-			tx.insert(keywordSearches)
+		await this.db.transaction(async (tx) => {
+			await tx
+				.insert(keywordSearches)
 				.values({
 					keyword,
 					platform,
@@ -93,7 +95,7 @@ export class DatabaseService {
 				.run();
 
 			for (const novel of results) {
-				const inserted = tx
+				const inserted = await tx
 					.insert(novels)
 					.values({
 						platform: novel.platform,
@@ -118,7 +120,8 @@ export class DatabaseService {
 
 				const novelId = inserted.id;
 				if (novelId) {
-					tx.insert(keywordNovels)
+					await tx
+						.insert(keywordNovels)
 						.values({
 							novelId,
 							keyword,
@@ -170,9 +173,9 @@ export class DatabaseService {
 		};
 	}
 
-	addNovelCache(novel: Novel) {
-		this.db.transaction((tx) => {
-			const { id: novelId } = tx
+	async addNovelCache(novel: Novel) {
+		await this.db.transaction(async (tx) => {
+			const { id: novelId } = await tx
 				.insert(novels)
 				.values({
 					platform: novel.platform,
@@ -199,7 +202,7 @@ export class DatabaseService {
 				.get();
 
 			for (const genre of novel.genres) {
-				const { id: genreId } = tx
+				const { id: genreId } = await tx
 					.insert(genres)
 					.values({
 						name: genre,
@@ -207,7 +210,8 @@ export class DatabaseService {
 					.onConflictDoNothing()
 					.returning({ id: genres.id })
 					.get();
-				tx.insert(novelGenres)
+				await tx
+					.insert(novelGenres)
 					.values({
 						novelId,
 						genreId,
@@ -217,7 +221,7 @@ export class DatabaseService {
 			}
 
 			for (const volume of novel.volumes) {
-				const { id: volumeId } = tx
+				const { id: volumeId } = await tx
 					.insert(volumes)
 					.values({
 						novelId,
@@ -233,7 +237,8 @@ export class DatabaseService {
 					.returning({ id: volumes.id })
 					.get();
 				for (const chapter of volume.chapters) {
-					tx.insert(chapters)
+					await tx
+						.insert(chapters)
 						.values({
 							novelId,
 							volumeId,
@@ -399,74 +404,13 @@ export class DatabaseService {
 						.execute()
 				: null;
 
-		this.db
+		await this.db
 			.insert(coverMetadata)
 			.values({
 				hash: metadata.hash,
 				contentType: metadata.contentType,
 				originalUrl: metadata.originalUrl,
 				novelId: novel?.id ?? null,
-			})
-			.run();
-	}
-
-	async getCookies(domain: string, path: string): Promise<Cookie[]> {
-		return await this.db.query.cookies
-			.findMany({
-				where: {
-					domain,
-					path,
-				},
-			})
-			.execute();
-	}
-
-	async setCookies(
-		domain: string,
-		path: string,
-		cookieList: Omit<Cookie, "id">[],
-	): Promise<void> {
-		await this.db
-			.delete(cookies)
-			.where(and(eq(cookies.domain, domain), eq(cookies.path, path)))
-			.run();
-
-		if (cookieList.length > 0) {
-			const insertData = cookieList.map((cookie) => ({
-				domain,
-				path,
-				name: cookie.name,
-				value: cookie.value,
-			}));
-			await this.db.insert(cookies).values(insertData).run();
-		}
-	}
-
-	async getCookie(
-		domain: string,
-		path: string,
-		name: string,
-	): Promise<Cookie | undefined> {
-		return await this.db.query.cookies
-			.findFirst({
-				where: {
-					domain,
-					path,
-					name,
-				},
-			})
-			.execute();
-	}
-
-	async addCookie(cookie: Omit<Cookie, "id">) {
-		this.db
-			.insert(cookies)
-			.values(cookie)
-			.onConflictDoUpdate({
-				target: [cookies.domain, cookies.path, cookies.name],
-				set: {
-					value: cookie.value,
-				},
 			})
 			.run();
 	}
@@ -489,7 +433,7 @@ export class DatabaseService {
 	}
 
 	async setCache<T>(key: string, value: T): Promise<void> {
-		this.db
+		await this.db
 			.insert(generalCache)
 			.values({ key, value })
 			.onConflictDoUpdate({
