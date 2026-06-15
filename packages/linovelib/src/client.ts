@@ -175,7 +175,7 @@ export class LinovelibClient {
 	}
 
 	async getNovelCover(novelId: string) {
-		return await getCover(novelId, this.fetchClient, this.storage);
+		return await getCover(novelId, this.fetchClient);
 	}
 
 	async getChapter(

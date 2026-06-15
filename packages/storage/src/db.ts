@@ -275,8 +275,15 @@ export class DatabaseService {
 				with: {
 					genres: true,
 					volumes: {
+						orderBy: {
+							id: "asc",
+						},
 						with: {
-							chapters: true,
+							chapters: {
+								orderBy: {
+									id: "asc",
+								},
+							},
 						},
 					},
 				},

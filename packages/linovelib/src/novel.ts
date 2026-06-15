@@ -60,8 +60,7 @@ async function parseChapterIdFromNextChapter(
 			if (chapterElIndex !== -1) {
 				const nextChapterEl = chapterEls[chapterElIndex + 1];
 				if (nextChapterEl) {
-					const nextChapterEl$ = cheerio.load(nextChapterEl);
-					const nextChapterPath = nextChapterEl$.root().attr("href") ?? "";
+					const nextChapterPath = nextChapterEl.attribs.href ?? "";
 					const nextChapterContent = await chapterQueue.fetchChapterPart(
 						`https://www.linovelib.com${nextChapterPath}`,
 					);
@@ -104,7 +103,7 @@ async function getNovelVolumes(
 			chapterElements.push(chapterEl);
 			const chapterEl$ = cheerio.load(chapterEl);
 			const chapterName = chapterEl$.text().trim();
-			const chapterPath = chapterEl$.root().attr("href") ?? "";
+			const chapterPath = chapterEl.attribs.href ?? "";
 			const chapterId = parseVolumeOrChapterId(chapterPath);
 			chapters.push({
 				id: chapterId,

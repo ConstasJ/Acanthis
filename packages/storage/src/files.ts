@@ -19,16 +19,16 @@ export class FSStorageService {
 		this.dbService = dbService;
 	}
 
-	private async _initPath(): Promise<void> {
+	private async _initPath(path: string): Promise<void> {
 		if (!this.isPathInitialized) {
-			if (!existsSync(this.basePath)) {
-				await mkdir(this.basePath, { recursive: true });
+			if (!existsSync(path)) {
+				await mkdir(path, { recursive: true });
 			} else if (
-				existsSync(this.basePath) &&
-				!(await stat(this.basePath)).isDirectory()
+				existsSync(path) &&
+				!(await stat(path)).isDirectory()
 			) {
-				await rm(this.basePath);
-				await mkdir(this.basePath, { recursive: true });
+				await rm(path);
+				await mkdir(path, { recursive: true });
 			}
 			this.isPathInitialized = true;
 		}
@@ -38,14 +38,7 @@ export class FSStorageService {
 		novelId: string,
 		chapterId: string,
 	): Promise<string | undefined> {
-		await this._initPath();
 		const novelCacheDir = `${this.basePath}/novels/${novelId}`;
-		if (
-			!existsSync(novelCacheDir) ||
-			(await stat(novelCacheDir)).isDirectory() === false
-		) {
-			return undefined;
-		}
 		const chapterFilePath = `${novelCacheDir}/${chapterId}.zst`;
 		if (!existsSync(chapterFilePath)) {
 			return undefined;
@@ -60,17 +53,8 @@ export class FSStorageService {
 		chapterId: string,
 		content: string,
 	): Promise<void> {
-		await this._initPath();
 		const novelCacheDir = `${this.basePath}/novels/${novelId}`;
-		if (!existsSync(novelCacheDir)) {
-			await mkdir(novelCacheDir, { recursive: true });
-		} else if (
-			existsSync(novelCacheDir) &&
-			!(await stat(novelCacheDir)).isDirectory()
-		) {
-			await rm(novelCacheDir);
-			await mkdir(novelCacheDir, { recursive: true });
-		}
+		await this._initPath(novelCacheDir);
 		const chapterFilePath = `${novelCacheDir}/${chapterId}.zst`;
 		const compressedData = await zstdCompress(Buffer.from(content, "utf-8"));
 		await writeFile(chapterFilePath, compressedData);
@@ -80,7 +64,6 @@ export class FSStorageService {
 		platform: string,
 		novelId: string,
 	): Promise<BinaryResponse | undefined> {
-		await this._initPath();
 		const meta = await this.dbService.getCoverMetadata(platform, novelId);
 		if (!meta) {
 			return undefined;
@@ -100,10 +83,11 @@ export class FSStorageService {
 		data: Buffer,
 		contentType: string,
 	): Promise<void> {
-		await this._initPath();
 		const coverHash = getCoverHash(data);
 		const ext = getExtFromContentType(contentType);
-		const coverPath = `${this.basePath}/covers/${coverHash.slice(0, 2)}/${coverHash}.${ext}`;
+		const coverDir = `${this.basePath}/covers/${coverHash.slice(0, 2)}`;
+		await this._initPath(coverDir);
+		const coverPath = `${coverDir}/${coverHash}.${ext}`;
 		await writeFile(coverPath, data);
 		await this.dbService.addCoverMetadata({
 			platform,

@@ -96,7 +96,7 @@ export const keywordNovels = sqliteTable(
 
 export const coverMetadata = sqliteTable("cover_metadata", {
 	id: integer("id").primaryKey({ autoIncrement: true }),
-	hash: text("hash").notNull().unique(),
+	hash: text("hash").notNull(),
 	contentType: text("content_type").notNull(),
 	originalUrl: text("original_url").notNull(),
 	novelId: integer("novel_id").references(() => novels.id, {
