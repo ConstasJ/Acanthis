@@ -217,19 +217,14 @@ export class DatabaseCookieStore implements CookiesStore {
 		const pathname = parsedUrl.pathname;
 		const now = Date.now();
 		const secure = parsedUrl.protocol === "https:";
-		const candidates = await this.db.query.cookies.findMany({
-			where: {
-				expires: {
-					gt: now,
-				},
-				secure,
-			},
-		});
+		const candidates = await this.db.query.cookies.findMany();
 		return candidates
 			.filter((cookie) => {
+				if (cookie.secure && !secure) return false;
 				if (cookie.domain && !matchesDomain(cookie.domain, hostname))
 					return false;
 				if (cookie.path && !matchesPath(cookie.path, pathname)) return false;
+				if (cookie.expires && cookie.expires < now) return false;
 				if (cookie.maxAge) {
 					const age = (now - cookie.createdAt) / 1000;
 					if (age > cookie.maxAge) return false;

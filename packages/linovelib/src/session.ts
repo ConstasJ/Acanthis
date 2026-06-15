@@ -31,8 +31,7 @@ export async function refreshSessionId(
 export async function hasValidSession(
 	fetchClient: BrowserFetchClient,
 ): Promise<boolean> {
-	const response = await fetchClient.text("https://www.linovelib.com", {
-	});
+	const response = await fetchClient.text("https://www.linovelib.com");
 	if (response.data.includes("用户中心")) return true;
 	else return false;
 }
