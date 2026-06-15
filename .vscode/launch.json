@@ -10,7 +10,7 @@
 			"runtimeArgs": ["run-script", "dev"],
 			"runtimeExecutable": "pnpm",
 			"skipFiles": ["<node_internals>/**"],
-			"console": "integratedTerminal",
+			"outputCapture": "std",
 			"type": "node"
 		}
 	]
