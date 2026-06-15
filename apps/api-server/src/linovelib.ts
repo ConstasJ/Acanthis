@@ -94,7 +94,7 @@ app.get(
 			const novel = await linovelibClient.getNovelInfo(novelId);
 			if (novel) {
 				await storageService.addNovelCache(novel);
-				novel.coverUrl = `${host}/linovelib/novel/${novelId}/cover`;
+				novel.coverUrl = `${host}/v1/linovelib/novel/${novelId}/cover`;
 				return c.json({
 					code: 0,
 					message: "Success",
@@ -158,6 +158,7 @@ app.get(
 
 app.get("/search", zValidator("query", searchQuerySchema), async (c) => {
 	try {
+		const host = config.host ?? c.header("host") ?? "http://localhost:5301";
 		const keyword = c.req.query("keyword") as string;
 		const style = c.req.query("style") as OutputStyle | undefined;
 		const cachedResults = await storageService.searchNovels(
@@ -168,9 +169,10 @@ app.get("/search", zValidator("query", searchQuerySchema), async (c) => {
 			return c.json({
 				code: 0,
 				message: "Success",
-				data: cachedResults.map((novel) =>
-					transformOutputStyleForSearchResult(novel, style),
-				),
+				data: cachedResults.map((novel) => {
+					novel.coverUrl = `${host}/v1/linovelib/novel/${novel.id}/cover`;
+					return transformOutputStyleForSearchResult(novel, style);
+				}),
 			});
 		}
 		const results = await linovelibClient.searchNovels(keyword);
@@ -180,9 +182,10 @@ app.get("/search", zValidator("query", searchQuerySchema), async (c) => {
 		return c.json({
 			code: 0,
 			message: "Success",
-			data: results.map((novel) =>
-				transformOutputStyleForSearchResult(novel, style),
-			),
+			data: results.map((novel) => {
+				novel.coverUrl = `${host}/v1/linovelib/novel/${novel.id}/cover`;
+				return transformOutputStyleForSearchResult(novel, style);
+			}),
 		});
 	} catch (error) {
 		logger.error(`${error instanceof Error ? error.stack : String(error)}`);
