@@ -28,7 +28,7 @@ export async function fetchSessionId(
 		followRedirects: false,
 	});
 
-	return response.cookies.get("PHPSESSID");
+	return response.cookies.find((cookie) => cookie.name === "PHPSESSID")?.value;
 }
 
 export async function isSessionValid(
