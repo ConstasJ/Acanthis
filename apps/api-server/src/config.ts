@@ -98,7 +98,7 @@ export const ConfigSchema = z.object({
 export type Config = z.infer<typeof ConfigSchema>;
 
 export function getConfig(): Config {
-	dotenv.config();
+	dotenv.config({ quiet: true });
 
 	const env = process.env.NODE_ENV ?? "development";
 
