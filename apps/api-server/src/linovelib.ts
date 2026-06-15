@@ -84,7 +84,7 @@ app.get(
 				"linovelib",
 				novelId,
 			);
-			if (cachedNovel) {
+			if (cachedNovel && cachedNovel.author !== "" && cachedNovel.status !== "unknown" && cachedNovel.volumes.length > 0) {
 				return c.json({
 					code: 0,
 					message: "Success",
