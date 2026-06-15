@@ -32,7 +32,8 @@
 		"cheerio": "^1.2.0",
 		"deepmerge-ts": "^7.1.5",
 		"p-queue": "^9.3.0",
-		"zod": "^4.4.3"
+		"zod": "^4.4.3",
+		"winston": "^3.19.0"
 	},
 	"devDependencies": {
 		"@acanthis-dec/config-tsdown": "workspace:*",
@@ -42,8 +43,7 @@
 		"domhandler": "^6.0.1",
 		"tsdown": "catalog:",
 		"tsx": "catalog:",
-		"typescript": "catalog:",
-		"winston": "^3.19.0"
+		"typescript": "catalog:"
 	},
 	"publishConfig": {
 		"exports": {

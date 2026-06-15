@@ -209,6 +209,9 @@ importers:
       p-queue:
         specifier: ^9.3.0
         version: 9.3.0
+      winston:
+        specifier: ^3.19.0
+        version: 3.19.0
       zod:
         specifier: ^4.4.3
         version: 4.4.3
@@ -237,9 +240,6 @@ importers:
       typescript:
         specifier: 'catalog:'
         version: 6.0.3
-      winston:
-        specifier: ^3.19.0
-        version: 3.19.0
 
   packages/storage:
     dependencies:
