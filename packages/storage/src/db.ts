@@ -207,7 +207,12 @@ export class DatabaseService {
 					.values({
 						name: genre,
 					})
-					.onConflictDoNothing()
+					.onConflictDoUpdate({
+						target: genres.name,
+						set: {
+							name: genre,
+						},
+					})
 					.returning({ id: genres.id })
 					.get();
 				await tx
