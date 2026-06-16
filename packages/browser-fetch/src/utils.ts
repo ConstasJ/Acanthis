@@ -152,7 +152,7 @@ export function extractContentType(contetType: string): ContentTypeInfo {
 		.split(";")
 		.map((part) => part.trim());
 	const isText =
-		/^(text\/(html|plain|css|javascript)|application\/(json|xml))(;\s*charset=[a-zA-Z0-9_-]+)?$/.test(
+		/^(text\/(html|plain|css|javascript)|application\/(json|xml|javascript))(;\s*charset=[a-zA-Z0-9_-]+)?$/.test(
 			contetType,
 		);
 	const charsetParam = params.find((param) =>
