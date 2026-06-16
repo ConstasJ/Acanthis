@@ -9,6 +9,10 @@
 			"dependsOn": [],
 			"inputs": ["**/*.test.ts", "**/*.test.tsx", "vitest.config.ts"]
 		},
+		"check-types": {
+			"dependsOn": [],
+			"inputs": ["**/*.ts", "**/*.tsx", "!**/*.test.ts", "!**/*.test.tsx"]
+		},
 		"//#format-and-lint": {},
 		"//#format-and-lint:fix": {
 			"cache": false

@@ -14,6 +14,7 @@
 		"format-and-lint:fix": "biome check . --write",
 		"lint": "turbo run //#format-and-lint",
 		"lint:fix": "turbo run //#format-and-lint:fix",
+		"check-types": "turbo run check-types",
 		"test": "turbo run test"
 	},
 	"repository": {
