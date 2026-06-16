@@ -13,7 +13,6 @@ import {
 const app = new Hono();
 
 const chapterParamSchema = z.object({
-	novelId: z.string().min(1, "Novel ID is required"),
 	chapterId: z.string().min(1, "Chapter ID is required"),
 });
 
@@ -31,18 +30,30 @@ const searchQuerySchema = z.object({
 });
 
 app.get(
-	"/chapter/:novelId/:chapterId",
+	"/chapter/:chapterId",
 	zValidator("param", chapterParamSchema),
 	async (c) => {
 		try {
-			const novelId = c.req.param("novelId");
 			const chapterId = c.req.param("chapterId");
 			const chapterMeta = await storageService.getChapterFromId(
 				"linovelib",
 				chapterId,
 			);
-			if (chapterMeta) {
-				const hash = chapterMeta.contentHash;
+			if (!chapterMeta) {
+				logger.error(`Chapter meta not found for chapterId: ${chapterId}`);
+				return c.json({
+					code: 10000, 
+					message: "Chapter meta not found",
+				}, 404);
+			}
+			if (!chapterMeta.novelId) {
+				logger.error(`Novel ID missing in chapter meta for chapterId: ${chapterId}`);
+				return c.json({
+					code: 10002, 
+					message: "Novel ID missing in chapter meta"
+				}, 404);
+			}
+			const hash = chapterMeta.contentHash;
 				if (hash) {
 					const cachedContent = await storageService.getNovelContent(hash);
 					if (cachedContent) {
@@ -55,8 +66,7 @@ app.get(
 						});
 					}
 				}
-			}
-			const content = await linovelibClient.getChapter(novelId, chapterId);
+			const content = await linovelibClient.getChapter(chapterMeta.novelId, chapterId);
 			if (content) {
 				const contentHash = await storageService.setNovelContent(content);
 				await storageService.addNovelContentHash(
