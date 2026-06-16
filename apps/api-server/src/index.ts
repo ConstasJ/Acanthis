@@ -26,15 +26,17 @@ async function onExit(signal: string) {
 	try {
 		await storageService.close(logger.debug.bind(logger));
 		logger.info("数据库连接已成功关闭。正在关闭服务器...");
-		await new Promise<void>((resolve, reject) => server.close((err) => {
-            if (err) {
-                reject(err);
-            } else {
-                resolve();
-            }
-        }));
-        logger.info("服务器已成功关闭。");
-        process.exit(0);
+		await new Promise<void>((resolve, reject) =>
+			server.close((err) => {
+				if (err) {
+					reject(err);
+				} else {
+					resolve();
+				}
+			}),
+		);
+		logger.info("服务器已成功关闭。");
+		process.exit(0);
 	} catch (error) {
 		logger.error(`关闭服务器时发生错误: ${error}`);
 		process.exit(1);
@@ -43,6 +45,6 @@ async function onExit(signal: string) {
 
 ["SIGINT", "SIGTERM", "SIGQUIT"].forEach((signal) => {
 	process.on(signal, () => {
-        onExit(signal);
-    });
+		onExit(signal);
+	});
 });

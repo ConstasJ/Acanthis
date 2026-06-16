@@ -1,7 +1,6 @@
 import type { Novel, NovelSearchResult } from "@acanthis-dec/core";
-import type { LNReaderNovel, LNReaderNovelItem, OutputStyle } from "./types";
-import type { StorageService } from "@acanthis-dec/storage";
 import type { LinovelibClient } from "@acanthis-dec/linovelib";
+import type { LNReaderNovel, LNReaderNovelItem, OutputStyle } from "./types";
 
 export function transformOutputStyleForNovel(
 	novel: Novel,
@@ -68,6 +67,12 @@ export async function isUpdateNeeded(
 	if (!updateInfo) {
 		return true;
 	}
-	const chapterCount = novel.volumes.reduce((count, volume) => count + volume.chapters.length, 0);
-	return chapterCount !== updateInfo.chapterCount || novel.coverUrl !== updateInfo.coverUrl;
+	const chapterCount = novel.volumes.reduce(
+		(count, volume) => count + volume.chapters.length,
+		0,
+	);
+	return (
+		chapterCount !== updateInfo.chapterCount ||
+		novel.coverUrl !== updateInfo.coverUrl
+	);
 }
