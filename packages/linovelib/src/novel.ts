@@ -107,11 +107,14 @@ async function getNovelVolumes(
 			const chapterId = parseVolumeOrChapterId(chapterPath);
 			chapters.push({
 				id: chapterId,
+				platform: "linovelib",
 				title: chapterName,
+				volumeId,
 			});
 		}
 		volumes.push({
 			id: volumeId,
+			platform: "linovelib",
 			title: volumeName,
 			chapters: chapters,
 		});
@@ -180,13 +183,13 @@ export async function getNovelInfo(
 		genres: genres.split(",").map((g) => g.trim()),
 		volumes: [], // Volumes and chapters will be fetched separately
 	};
-	novel.volumes = await getNovelVolumes(
+	novel.volumes = (await getNovelVolumes(
 		title,
 		`https://www.linovelib.com${$("a.read-btn").attr("href")}`,
 		fetchClient,
 		retry,
 		chapterQueue,
 		storage,
-	);
+	)).map((v) => { v.novelId = novel.id; return v; });
 	return novel;
 }
