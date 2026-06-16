@@ -106,7 +106,9 @@ export function extractChapterLogScriptUrl(html: string): string {
 					return /chapterlog\.js/.test(scriptContent);
 				}),
 		).attr("src") || "";
-	return chapterLogScriptUrl;
+	return chapterLogScriptUrl.startsWith("http")
+		? chapterLogScriptUrl
+		: `https://www.linovelib.com${chapterLogScriptUrl}`;
 }
 
 export async function getCoefficientsFromPage(
