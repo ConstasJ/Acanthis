@@ -168,19 +168,31 @@ app.get(
 				c.header("Cache-Control", "public, max-age=86400");
 				return c.body(new Uint8Array(cachedCover.data));
 			}
-			const coverData = await linovelibClient.getNovelCover(novelId);
-			if (coverData) {
-				await storageService.setCoverData(
-					"novel",
-					novelIdToCoverUrl(novelId),
-					coverData.data,
-					coverData.mimeType,
-					"linovelib",
-					novelId,
+			const novelInfo = await storageService.getNovelCache("linovelib", novelId);
+			if (novelInfo?.coverUrl) {
+				const coverData = await linovelibClient.getCover(novelInfo.coverUrl);
+				if (coverData) {
+					await storageService.setCoverData(
+						"novel",
+						novelInfo.coverUrl,
+						coverData.data,
+						coverData.mimeType,
+						"linovelib",
+						novelId,
+					);
+					c.header("Content-Type", coverData.mimeType);
+					c.header("Cache-Control", "public, max-age=86400");
+					return c.body(new Uint8Array(coverData.data));
+				}
+			} else {
+				logger.error(`Novel ${novelId} not present in database or does not have a cover URL`);
+				return c.json(
+					{
+						code: 10001,
+						message: "Cover not found",
+					},
+					404,
 				);
-				c.header("Content-Type", coverData.mimeType);
-				c.header("Cache-Control", "public, max-age=86400");
-				return c.body(new Uint8Array(coverData.data));
 			}
 		} catch (error) {
 			logger.error(`${error instanceof Error ? error.stack : String(error)}`);
