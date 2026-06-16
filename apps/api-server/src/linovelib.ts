@@ -5,6 +5,7 @@ import { config } from "./config";
 import { linovelibClient, logger, storageService } from "./services";
 import { type OutputStyle, outputStyleSchema } from "./types";
 import {
+	isUpdateNeeded,
 	transformOutputStyleForNovel,
 	transformOutputStyleForSearchResult,
 } from "./utils";
@@ -123,7 +124,8 @@ app.get(
 				cachedNovel &&
 				cachedNovel.author !== "" &&
 				cachedNovel.status !== "unknown" &&
-				cachedNovel.volumes.length > 0
+				cachedNovel.volumes.length > 0 &&
+				!(await isUpdateNeeded(cachedNovel, linovelibClient))
 			) {
 				cachedNovel.coverUrl = `${host}/v1/linovelib/cover/novel/${novelId}`;
 				cachedNovel.volumes.forEach((volume) => {
