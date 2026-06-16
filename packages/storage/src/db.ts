@@ -235,11 +235,13 @@ export class DatabaseService {
 						name: volume.title,
 						platform: novel.platform,
 						platformId: volume.id,
+						coverUrl: volume.coverUrl ?? "",
 					})
 					.onConflictDoUpdate({
 						target: [volumes.novelId, volumes.platformId],
 						set: {
 							name: volume.title,
+							coverUrl: volume.coverUrl ?? "",
 						},
 					})
 					.returning({ id: volumes.id })
