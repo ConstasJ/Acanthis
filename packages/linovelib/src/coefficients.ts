@@ -1,7 +1,6 @@
 import type { BrowserFetchClient } from "@acanthis-dec/browser-fetch";
 import type { DescrambleCoefficients } from "@acanthis-dec/core";
 import { deobfuscate } from "@acanthis-dec/deobfuscator";
-import type { StorageService } from "@acanthis-dec/storage";
 import { parse } from "@babel/parser";
 import traverseModule from "@babel/traverse";
 import * as t from "@babel/types";
@@ -14,7 +13,7 @@ const traverse =
 	(traverseModule as unknown as { default?: TraverseFunction }).default ??
 	traverseModule;
 
-const descrambleCoefficientsSchema = z.object({
+export const descrambleCoefficientsSchema = z.object({
 	modulus: z.number().int(),
 	increment: z.number().int(),
 	multiplier: z.number().int(),
@@ -117,39 +116,31 @@ export function extractChapterLogScriptUrl(html: string): string {
 		: `https://www.linovelib.com${chapterLogScriptUrl}`;
 }
 
+export interface CoefficientResult {
+	coefficients: DescrambleCoefficients;
+	version: string;
+}
+
 export async function getCoefficientsFromPage(
 	html: string,
 	fetchClient: BrowserFetchClient,
-	storage?: StorageService,
-): Promise<DescrambleCoefficients> {
+	cachedVersion?: string,
+): Promise<CoefficientResult | undefined> {
 	const scriptUrl = extractChapterLogScriptUrl(html);
 	if (!scriptUrl) {
 		throw new Error("Chapter log script URL not found");
 	}
 	const version = scriptUrl.match(/chapterlog\.js\?(v.*)/)?.[1] || "";
-	if (storage) {
-		const cachedVersion = await storage.getCache<string>(
-			"chapterlog_js_version",
-			z.string(),
-		);
-		if (version && cachedVersion === version) {
-			const cachedCoefficients = await storage.getCache<DescrambleCoefficients>(
-				"coefficients",
-				descrambleCoefficientsSchema,
-			);
-			if (cachedCoefficients) {
-				return cachedCoefficients;
-			}
-		}
+	if (version === cachedVersion) {
+		return undefined; // No need to fetch and extract again
 	}
 	const scriptContent = await fetchClient.text(scriptUrl);
 	if (!scriptContent.mimeType.includes("javascript")) {
 		throw new Error("Fetched content is not JavaScript");
 	}
 	const coefficients = await extractCoefficients(scriptContent.data);
-	if (storage) {
-		await storage.setCache("chapterlog_js_version", version);
-		await storage.setCache("coefficients", coefficients);
-	}
-	return coefficients;
+	return {
+		coefficients,
+		version: version,
+	};
 }

@@ -4,11 +4,17 @@ import {
 	type BrowserProfileName,
 	type FlareSolverrOptions,
 } from "@acanthis-dec/browser-fetch";
-import type { Novel, NovelSearchResult } from "@acanthis-dec/core";
+import type {
+	DescrambleCoefficients,
+	Novel,
+	NovelSearchResult,
+} from "@acanthis-dec/core";
 import type { StorageService } from "@acanthis-dec/storage";
 import { deepmerge } from "deepmerge-ts";
 import type { Logger } from "winston";
+import z from "zod";
 import { getChapter } from "./chapter";
+import { descrambleCoefficientsSchema } from "./coefficients";
 import { getCover } from "./cover";
 import { NovelChapterQueue, NovelInfoQueue, SearchQueue } from "./queue";
 import { ensureValidSession } from "./session";
@@ -183,12 +189,28 @@ export class LinovelibClient {
 				password: this.options.session.password,
 			});
 		}
-		return await getChapter(
+		const cachedJsVersion = this.storage
+			? ((await this.storage.getCache("chapterlog_js_version", z.string())) ??
+				undefined)
+			: undefined;
+		const cachedCoefficients = this.storage
+			? ((await this.storage.getCache<DescrambleCoefficients>(
+					"coefficients",
+					descrambleCoefficientsSchema,
+				)) ?? undefined)
+			: undefined;
+		const result = await getChapter(
 			chapterId,
 			novelId,
 			this.novelChapterQueue,
 			this.fetchClient,
-			this.storage,
+			cachedJsVersion,
+			cachedCoefficients,
 		);
+		if (this.storage && result) {
+			await this.storage.setCache("chapterlog_js_version", result.version);
+			await this.storage.setCache("coefficients", result.coefficients);
+		}
+		return result?.content;
 	}
 }

@@ -1,6 +1,8 @@
 import type { BrowserFetchClient } from "@acanthis-dec/browser-fetch";
-import { buildDescrambleMapping } from "@acanthis-dec/core";
-import type { StorageService } from "@acanthis-dec/storage";
+import {
+	buildDescrambleMapping,
+	type DescrambleCoefficients,
+} from "@acanthis-dec/core";
 import * as cheerio from "cheerio";
 import type { AnyNode, Element } from "domhandler";
 import { getCoefficientsFromPage } from "./coefficients";
@@ -23,21 +25,40 @@ function extractChapterId($: cheerio.CheerioAPI): string {
 	return chapterId;
 }
 
+export interface DecryptResult {
+	content: string;
+	version: string;
+	coefficients: DescrambleCoefficients;
+}
+
 async function decrypt(
 	html: string,
 	fetchClient: BrowserFetchClient,
-	storage?: StorageService,
-): Promise<string> {
+	cachedJsVersion?: string,
+	cachedCoefficients?: DescrambleCoefficients,
+): Promise<DecryptResult> {
 	const $ = cheerio.load(html);
-	const coefficients = await getCoefficientsFromPage(
+	const coefficientResult = await getCoefficientsFromPage(
 		html,
 		fetchClient,
-		storage,
+		cachedJsVersion,
 	);
+	const version = coefficientResult?.version || cachedJsVersion;
+	const coefficients = coefficientResult?.coefficients || cachedCoefficients;
+	if (!version) {
+		throw new Error("Failed to determine chapterlog.js version");
+	}
+	if (!coefficients) {
+		throw new Error("Failed to obtain descrambling coefficients");
+	}
 	const chapterId = extractChapterId($);
 	const container = $("#TextContent, #acontent");
 	if (!container.length) {
-		return "";
+		return {
+			content: "",
+			version,
+			coefficients: coefficients,
+		};
 	}
 
 	container.find("p").each((_, el) => {
@@ -74,8 +95,8 @@ async function decrypt(
 	});
 
 	const seed =
-		parseInt(chapterId, 10) * coefficients.seedMultiplier +
-		coefficients.seedOffset;
+		parseInt(chapterId, 10) * coefficients?.seedMultiplier +
+		coefficients?.seedOffset;
 
 	const mapping = buildDescrambleMapping(
 		sortableEntries.length,
@@ -100,7 +121,11 @@ async function decrypt(
 		}
 	});
 
-	return newContainer.html() || "";
+	return {
+		content: newContainer.html() || "",
+		version,
+		coefficients: coefficients,
+	};
 }
 
 export async function getChapter(
@@ -108,8 +133,9 @@ export async function getChapter(
 	novelId: string,
 	chapterQueue: NovelChapterQueue,
 	fetchClient: BrowserFetchClient,
-	storage?: StorageService,
-): Promise<string | undefined> {
+	cachedJsVersion?: string,
+	cachedCoefficients?: DescrambleCoefficients,
+): Promise<DecryptResult | undefined> {
 	const firstPageHtml = await chapterQueue.fetchChapterPart(
 		`https://www.linovelib.com/novel/${novelId}/${id}.html`,
 	);
@@ -121,12 +147,26 @@ export async function getChapter(
 			?.match(/\/novel\/(\d+)\/([\d_]+)\.html/)?.[2] ||
 		firstPageHtml.match(/url_next:'\/novel\/(\d+)\/([\d_]+)\.html'/)?.[2] ||
 		"";
-	let content = await decrypt(firstPageHtml, fetchClient, storage);
+	let content = await decrypt(
+		firstPageHtml,
+		fetchClient,
+		cachedJsVersion,
+		cachedCoefficients,
+	);
 	while (nextPageId?.includes(id)) {
 		const nextPageHtml = await chapterQueue.fetchChapterPart(
 			`https://www.linovelib.com/novel/${novelId}/${nextPageId}.html`,
 		);
-		content += await decrypt(nextPageHtml, fetchClient, storage);
+		const nextContent = await decrypt(
+			nextPageHtml,
+			fetchClient,
+			cachedJsVersion,
+			cachedCoefficients,
+		);
+		content = {
+			...content,
+			content: content.content + nextContent.content,
+		};
 		$ = cheerio.load(nextPageHtml);
 		nextPageId =
 			$("div.mlfy_page a:last")
@@ -135,6 +175,10 @@ export async function getChapter(
 			nextPageHtml.match(/url_next:'\/novel\/(\d+)\/([\d_]+)\.html/)?.[2] ||
 			"";
 	}
-	content = `<h2>${chapterName}</h2>\n${transformContent(content)}`;
+	// content = `<h2>${chapterName}</h2>\n${transformContent(content)}`;
+	content = {
+		...content,
+		content: `<h2>${chapterName}</h2>\n${transformContent(content.content)}`,
+	};
 	return content;
 }
