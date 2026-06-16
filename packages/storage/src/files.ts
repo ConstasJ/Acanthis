@@ -43,13 +43,14 @@ export class FSStorageService {
 		return new TextDecoder().decode(decompressedData);
 	}
 
-	async setNovelContent(content: string): Promise<void> {
+	async setNovelContent(content: string): Promise<string> {
 		const hash = getContentHash(content);
 		const novelCacheDir = `${this.basePath}/novels/${hash.slice(0, 2)}`;
 		await this._initPath(novelCacheDir);
 		const chapterFilePath = `${novelCacheDir}/${hash}.zst`;
 		const compressedData = await zstdCompress(Buffer.from(content, "utf-8"));
 		await writeFile(chapterFilePath, compressedData);
+		return hash;
 	}
 
 	async getCoverData(

@@ -54,7 +54,12 @@ app.get(
 			}
 			const content = await linovelibClient.getChapter(novelId, chapterId);
 			if (content) {
-				await storageService.setNovelContent(content);
+				const contentHash = await storageService.setNovelContent(content);
+				await storageService.addNovelContentHash(
+					"linovelib",
+					chapterId,
+					contentHash,
+				);
 				return c.json({
 					code: 0,
 					message: "Success",

@@ -18,6 +18,7 @@ import {
 	volumes,
 } from "./table";
 import type { CoverMetadata, DataWithUpdatedAt } from "./type";
+import { and, eq } from "drizzle-orm";
 
 export type MigrationOptions = {
 	enabled?: boolean;
@@ -372,6 +373,23 @@ export class DatabaseService {
 			volumeId: chapterRecord.volume?.platformId ?? "",
 			contentHash: chapterRecord.contentHash ?? null,
 		};
+	}
+
+	async addNovelContentHash(
+		platform: string,
+		chapterId: string,
+		contentHash: string,
+	) {
+		await this.db
+			.update(chapters)
+			.set({ contentHash })
+			.where(
+				and(
+					eq(chapters.platformId, chapterId),
+					eq(chapters.platform, platform),
+				),
+			)
+			.run();
 	}
 
 	async getCoverMetadata(

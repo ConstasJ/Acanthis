@@ -25,8 +25,8 @@ export class StorageService {
 		return await this.files.getNovelContent(hash);
 	}
 
-	async setNovelContent(content: string): Promise<void> {
-		await this.files.setNovelContent(content);
+	async setNovelContent(content: string): Promise<string> {
+		return await this.files.setNovelContent(content);
 	}
 
 	async getCoverData(
@@ -82,6 +82,14 @@ export class StorageService {
 		platformId: string,
 	): Promise<Chapter | undefined> {
 		return await this.db.getChapterFromId(platform, platformId);
+	}
+
+	async addNovelContentHash(
+		platform: string,
+		chapterId: string,
+		contentHash: string,
+	) {
+		await this.db.addNovelContentHash(platform, chapterId, contentHash);
 	}
 
 	getCookieStore() {
