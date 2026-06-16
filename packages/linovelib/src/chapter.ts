@@ -153,6 +153,8 @@ export async function getChapter(
 		cachedJsVersion,
 		cachedCoefficients,
 	);
+	cachedCoefficients = content.coefficients;
+	cachedJsVersion = content.version;
 	while (nextPageId?.includes(id)) {
 		const nextPageHtml = await chapterQueue.fetchChapterPart(
 			`https://www.linovelib.com/novel/${novelId}/${nextPageId}.html`,
