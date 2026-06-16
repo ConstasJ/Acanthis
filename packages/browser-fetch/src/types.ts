@@ -73,7 +73,7 @@ export interface BrowserFetchResponse {
 	statusText?: string;
 	headers: Map<string, string>;
 	cookies: Cookie[];
-	body: string | Buffer;
+	body: string | Buffer | unknown;
 	contentType?: ContentTypeInfo | undefined;
 	elapsedTime?: number | undefined;
 }

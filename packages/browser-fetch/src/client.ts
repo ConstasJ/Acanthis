@@ -1,5 +1,6 @@
 import { deepmerge } from "deepmerge-ts";
 import pRetry from "p-retry";
+import type z from "zod";
 import {
 	type ChallengeOptions,
 	detectCloudflareBlock,
@@ -16,6 +17,9 @@ import {
 	CloudflareBlockError,
 	FlareSolverrError,
 	HttpStatusError,
+	JSONParseError,
+	SchemaValidationError,
+	TypeNotMatchError,
 } from "./errors";
 import { FlareSolverrClient } from "./flaresolverr";
 import { type BrowserProfile, parseBrowserProfile } from "./profile";
@@ -232,24 +236,87 @@ export class BrowserFetchClient {
 				}
 			}
 
-			let body: string | Buffer;
+			let parsedBody:
+				| string
+				| Buffer
+				| Array<unknown>
+				| Record<string, unknown>;
 
 			if (response.contentType?.isText) {
-				body = response.body.toString(response.contentType.charset);
+				parsedBody = response.body.toString(response.contentType.charset);
 			} else {
-				body = response.body;
+				parsedBody = response.body;
 			}
 
-			return {
+			const browserFetchResponse: BrowserFetchResponse = {
 				url: response.url,
 				status: response.status,
 				statusText: response.statusText,
 				headers: response.headers,
 				cookies: response.cookies,
-				body: body,
+				body: "",
 				contentType: response.contentType,
 				elapsedTime: response.elapsedTime,
 			};
+
+			switch (init.responseType) {
+				case "json": {
+					if (
+						response.contentType?.isText &&
+						response.contentType.mimeType.includes("json")
+					) {
+						try {
+							const jsonText = response.body.toString(
+								response.contentType.charset,
+							);
+							browserFetchResponse.body = JSON.parse(jsonText);
+						} catch (error) {
+							throw new JSONParseError(
+								init.url,
+								response.body.toString(),
+								error instanceof Error ? error : undefined,
+							);
+						}
+					} else {
+						throw new TypeNotMatchError(
+							init.url,
+							"application/json",
+							response.contentType?.mimeType ?? "unknown",
+						);
+					}
+					break;
+				}
+				case "text": {
+					if (response.contentType?.isText) {
+						browserFetchResponse.body = response.body.toString(
+							response.contentType.charset,
+						);
+					} else {
+						throw new TypeNotMatchError(
+							init.url,
+							"text/*",
+							response.contentType?.mimeType ?? "unknown",
+						);
+					}
+					break;
+				}
+				case "buffer": {
+					if (!response.contentType?.isText) {
+						browserFetchResponse.body = response.body;
+					} else {
+						throw new TypeNotMatchError(
+							init.url,
+							"non-text content",
+							response.contentType.mimeType,
+						);
+					}
+					break;
+				}
+				default:
+					browserFetchResponse.body = parsedBody;
+			}
+
+			return browserFetchResponse;
 		} catch (error) {
 			if (error instanceof HttpStatusError) {
 				if (this.challengeSolver && this.challengeSolver.autoSolve === "auto") {
@@ -333,34 +400,37 @@ export class BrowserFetchClient {
 			...options,
 			responseType: "text",
 		});
-		if (typeof response.body === "string") {
-			return {
-				mimeType: response.contentType?.mimeType || "text/plain",
-				data: response.body,
-			};
-		} else {
-			throw new Error("Response body is not a string");
-		}
+		return {
+			data: response.body as string,
+			mimeType: response.contentType?.mimeType || "text/plain",
+		};
 	}
 
-	async json(
+	async json<T>(
 		url: string,
 		options?: Omit<BrowserFetchRequest, "url" | "responseType">,
-	): Promise<unknown> {
+		schema?: z.ZodType<T>,
+	): Promise<T> {
 		const response = await this.request({
 			url,
 			...options,
-			responseType: "text",
+			responseType: "json",
 		});
-		if (typeof response.body === "string") {
-			try {
-				return JSON.parse(response.body);
-			} catch (error) {
-				throw new Error(`Failed to parse JSON response: ${error}`);
+		if (schema) {
+			const parseResult = schema.safeParse(response.body);
+			if (parseResult.success) {
+				return parseResult.data;
+			} else {
+				throw new SchemaValidationError(
+					url,
+					typeof response.body === "string"
+						? response.body
+						: JSON.stringify(response.body),
+					parseResult.error.issues,
+				);
 			}
-		} else {
-			throw new Error("Response body is not a string");
 		}
+		return response.body as T;
 	}
 
 	async binary(
@@ -372,14 +442,10 @@ export class BrowserFetchClient {
 			...options,
 			responseType: "buffer",
 		});
-		if (Buffer.isBuffer(response.body)) {
-			return {
-				mimeType: response.contentType?.mimeType || "application/octet-stream",
-				data: response.body,
-			};
-		} else {
-			throw new Error("Response body is not a buffer");
-		}
+		return {
+			data: response.body as Buffer,
+			mimeType: response.contentType?.mimeType || "application/octet-stream",
+		};
 	}
 
 	async ensureClearance(
