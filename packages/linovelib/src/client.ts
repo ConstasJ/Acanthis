@@ -1,4 +1,5 @@
 import {
+	type BinaryResponse,
 	BrowserFetchClient,
 	type BrowserFetchClientOptions,
 	type BrowserProfileName,
@@ -177,6 +178,10 @@ export class LinovelibClient {
 
 	async getNovelCover(novelId: string) {
 		return await getCover(novelId, this.fetchClient);
+	}
+
+	async getCover(url: string): Promise<BinaryResponse> {
+		return await this.fetchClient.binary(url);
 	}
 
 	async getChapter(

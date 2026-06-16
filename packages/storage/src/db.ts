@@ -326,10 +326,10 @@ export class DatabaseService {
 		};
 	}
 
-	async getVolume(
+	async getVolumeMeta(
 		platform: string,
 		platformId: string,
-	): Promise<Partial<Volume> | undefined> {
+	): Promise<Volume | undefined> {
 		const volumeRecord = await this.db.query.volumes
 			.findFirst({
 				where: {
@@ -338,6 +338,14 @@ export class DatabaseService {
 				},
 				with: {
 					novel: true,
+					chapters: {
+						orderBy: {
+							id: "asc",
+						},
+					},
+				},
+				orderBy: {
+					id: "asc",
 				}
 			})
 			.execute();
@@ -352,6 +360,7 @@ export class DatabaseService {
 			title: volumeRecord.name,
 			novelId: volumeRecord.novel?.platformId ?? "",
 			coverUrl: volumeRecord.coverUrl ?? "",
+			chapters: [],
 		};
 	}
 

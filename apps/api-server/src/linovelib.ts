@@ -21,6 +21,10 @@ const novelParamSchema = z.object({
 	novelId: z.string().min(1, "Novel ID is required"),
 });
 
+const volumeParamSchema = z.object({
+	volumeId: z.string().min(1, "Volume ID is required"),
+});
+
 const searchQuerySchema = z.object({
 	keyword: z.string().min(1, "Keyword is required"),
 	style: outputStyleSchema.optional(),
@@ -133,7 +137,7 @@ app.get(
 );
 
 app.get(
-	"/novel/:novelId/cover",
+	"/cover/novel/:novelId",
 	zValidator("param", novelParamSchema),
 	async (c) => {
 		try {
@@ -173,6 +177,61 @@ app.get(
 			);
 		}
 	},
+);
+
+app.get(
+	"/cover/volume/:volumeId",
+	zValidator("param", volumeParamSchema),
+	async (c) => {
+		try {
+			const volumeId = c.req.param("volumeId");
+			const cachedCover = await storageService.getCoverData(
+				"volume",
+				"linovelib",
+				volumeId,
+			);
+			if (cachedCover) {
+				c.header("Content-Type", cachedCover.mimeType);
+				c.header("Cache-Control", "public, max-age=86400");
+				return c.body(new Uint8Array(cachedCover.data));
+			}
+			const volumeInfo = await storageService.getVolumeMeta("linovelib", volumeId);
+			if (volumeInfo?.coverUrl) {
+				const coverData = await linovelibClient.getCover(volumeId);
+				if (coverData) {
+					await storageService.setCoverData(
+						"volume",
+						volumeInfo.coverUrl,
+						coverData.data,
+						coverData.mimeType,
+						"linovelib",
+						volumeId,
+					);
+					c.header("Content-Type", coverData.mimeType);
+					c.header("Cache-Control", "public, max-age=86400");
+					return c.body(new Uint8Array(coverData.data));
+				}
+			} else {
+				logger.error(`Volume ${volumeId} not present in database or does not have a cover URL`);
+				return c.json(
+					{
+						code: 10001,
+						message: "Cover not found",
+					},
+					404,
+				);
+			}
+		} catch (error) {
+			logger.error(`${error instanceof Error ? error.stack : String(error)}`);
+			return c.json(
+				{
+					code: 20000,
+					message: "Internal Server Error",
+				},
+				500,
+			);
+		}
+	}
 );
 
 app.get("/search", zValidator("query", searchQuerySchema), async (c) => {

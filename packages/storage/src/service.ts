@@ -80,6 +80,10 @@ export class StorageService {
 		await this.db.addNovelCache(novel);
 	}
 
+	async getVolumeMeta(platform: string, platformId: string) {
+		return await this.db.getVolumeMeta(platform, platformId);
+	}
+
 	async getChapterFromTitle(
 		title: string,
 	): Promise<Partial<Chapter> | undefined> {
