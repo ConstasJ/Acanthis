@@ -213,7 +213,7 @@ app.get(
 			}
 			const volumeInfo = await storageService.getVolumeMeta("linovelib", volumeId);
 			if (volumeInfo?.coverUrl) {
-				const coverData = await linovelibClient.getCover(volumeId);
+				const coverData = await linovelibClient.getCover(volumeInfo.coverUrl);
 				if (coverData) {
 					await storageService.setCoverData(
 						"volume",

@@ -181,7 +181,11 @@ export class LinovelibClient {
 	}
 
 	async getCover(url: string): Promise<BinaryResponse> {
-		return await this.fetchClient.binary(url);
+		return await this.fetchClient.binary(url, {
+			headers: {
+				"Referer": "https://www.linovelib.com/",
+			}
+		});
 	}
 
 	async getChapter(
