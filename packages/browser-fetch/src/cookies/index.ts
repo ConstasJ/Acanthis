@@ -4,6 +4,7 @@ export {
 	type CookieStoreItem,
 	type CookiesInit,
 	type CookiesStore,
+	type CookiesStoreOptions,
 	cookieItemToCookie,
 	cookieStoreSign,
 	isCookiesStore,
