@@ -3,7 +3,7 @@ import { Hono } from "hono";
 import { config } from "./config";
 import LinovelibRoutes from "./linovelib";
 import { loggerMiddleware } from "./middleware";
-import { logger } from "./services";
+import { logger, storageService } from "./services";
 
 const app = new Hono().basePath("/v1");
 
@@ -24,6 +24,7 @@ const server = serve(
 process.on("SIGINT", () => {
 	logger.info("Received SIGINT, shutting down server...");
 	server.close();
+	storageService.close();
 	process.exit(0);
 });
 process.on("SIGTERM", () => {
@@ -33,6 +34,7 @@ process.on("SIGTERM", () => {
 			console.error(err);
 			process.exit(1);
 		}
+		storageService.close();
 		process.exit(0);
 	});
 });
