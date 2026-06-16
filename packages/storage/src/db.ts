@@ -18,7 +18,6 @@ import {
 	volumes,
 } from "./table";
 import type {
-	ChapterWithNovelId,
 	CoverMetadata,
 	DataWithUpdatedAt,
 } from "./type";
@@ -231,6 +230,7 @@ export class DatabaseService {
 					.values({
 						novelId,
 						name: volume.title,
+						platform: novel.platform,
 						platformId: volume.id,
 					})
 					.onConflictDoUpdate({
@@ -248,6 +248,7 @@ export class DatabaseService {
 							novelId,
 							volumeId,
 							name: chapter.title,
+							platform: novel.platform,
 							platformId: chapter.id,
 						})
 						.onConflictDoUpdate({
@@ -309,9 +310,11 @@ export class DatabaseService {
 				genres: novelRecord.genres.map((g) => g.name),
 				volumes: novelRecord.volumes.map((v) => ({
 					id: v.platformId,
+					platform: novelRecord.platform,
 					title: v.name,
 					chapters: v.chapters.map((c) => ({
 						id: c.platformId,
+						platform: novelRecord.platform,
 						title: c.name,
 					})),
 				})),
@@ -344,7 +347,7 @@ export class DatabaseService {
 	async getChapterFromId(
 		platform: string,
 		platformId: string,
-	): Promise<ChapterWithNovelId | undefined> {
+	): Promise<Chapter | undefined> {
 		const chapterRecord = await this.db.query.chapters
 			.findFirst({
 				where: {
@@ -366,9 +369,11 @@ export class DatabaseService {
 
 		return {
 			id: chapterRecord.platformId,
-			name: chapterRecord.name,
+			platform: chapterRecord.platform,
+			title: chapterRecord.name,
 			novelId: chapterRecord.novel?.platformId ?? "",
 			volumeId: chapterRecord.volume?.platformId ?? "",
+			contentHash: chapterRecord.contentHash ?? null,
 		};
 	}
 

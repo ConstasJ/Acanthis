@@ -53,6 +53,7 @@ export const volumes = sqliteTable(
 			.notNull()
 			.references(() => novels.id, { onDelete: "cascade" }),
 		name: text("name").notNull(),
+		platform: text("platform").notNull(),
 		platformId: text("platform_id").notNull(),
 	},
 	(table) => [unique("novel_and_pid_idx").on(table.novelId, table.platformId)],
@@ -68,7 +69,9 @@ export const chapters = sqliteTable(
 		volumeId: integer("volume_id")
 			.notNull()
 			.references(() => volumes.id, { onDelete: "cascade" }),
+		platform: text("platform").notNull(),
 		platformId: text("platform_id").notNull(),
+		contentHash: text("content_hash"),
 		name: text("name").notNull(),
 	},
 	(table) => [unique("novel_and_pid_idx").on(table.novelId, table.platformId)],
