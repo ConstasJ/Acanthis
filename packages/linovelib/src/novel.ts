@@ -89,6 +89,7 @@ async function getNovelVolumes(
 		const volumeId = parseVolumeOrChapterId(
 			volumeEl$("h2 a").attr("href") ?? "",
 		);
+		const volumeCover: string = volumeEl$("a.volume-cover img").attr("data-original") ?? "";
 		const chapterEls = volumeEl$("ul.chapter-list li a").toArray();
 		const chapters: Chapter[] = [];
 		for (const chapterEl of chapterEls) {
@@ -108,6 +109,7 @@ async function getNovelVolumes(
 			id: volumeId,
 			platform: "linovelib",
 			title: volumeName,
+			coverUrl: volumeCover,
 			chapters: chapters,
 		});
 	}
