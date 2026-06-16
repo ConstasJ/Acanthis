@@ -3,10 +3,16 @@ import type { DescrambleCoefficients } from "@acanthis-dec/core";
 import { deobfuscate } from "@acanthis-dec/deobfuscator";
 import type { StorageService } from "@acanthis-dec/storage";
 import { parse } from "@babel/parser";
-import traverse from "@babel/traverse";
+import traverseModule from "@babel/traverse";
 import * as t from "@babel/types";
 import * as cheerio from "cheerio";
 import { z } from "zod";
+
+type TraverseFunction = typeof traverseModule;
+
+const traverse =
+	(traverseModule as unknown as { default?: TraverseFunction }).default ??
+	traverseModule;
 
 const descrambleCoefficientsSchema = z.object({
 	modulus: z.number().int(),
