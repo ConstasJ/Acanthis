@@ -25,7 +25,9 @@ export async function refreshSessionId(
 		}),
 		followRedirects: false,
 	});
-	return response.cookies.findIndex((cookie) => cookie.name === "PHPSESSID") !== -1
+	return (
+		response.cookies.findIndex((cookie) => cookie.name === "PHPSESSID") !== -1
+	);
 }
 
 export async function hasValidSession(

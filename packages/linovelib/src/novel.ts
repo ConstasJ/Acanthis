@@ -115,11 +115,7 @@ async function getNovelVolumes(
 		v.chapters.some((c) => c.id === "TOBEDETERMINED"),
 	);
 	if (parseNeeded && chapterQueue) {
-		await parseChapterIdFromNextChapter(
-			volumes,
-			chapterElements,
-			chapterQueue,
-		);
+		await parseChapterIdFromNextChapter(volumes, chapterElements, chapterQueue);
 	}
 	return volumes;
 }
@@ -173,12 +169,17 @@ export async function getNovelInfo(
 		genres: genres.split(",").map((g) => g.trim()),
 		volumes: [], // Volumes and chapters will be fetched separately
 	};
-	novel.volumes = (await getNovelVolumes(
-		title,
-		`https://www.linovelib.com${$("a.read-btn").attr("href")}`,
-		fetchClient,
-		retry,
-		chapterQueue,
-	)).map((v) => { v.novelId = novel.id; return v; });
+	novel.volumes = (
+		await getNovelVolumes(
+			title,
+			`https://www.linovelib.com${$("a.read-btn").attr("href")}`,
+			fetchClient,
+			retry,
+			chapterQueue,
+		)
+	).map((v) => {
+		v.novelId = novel.id;
+		return v;
+	});
 	return novel;
 }

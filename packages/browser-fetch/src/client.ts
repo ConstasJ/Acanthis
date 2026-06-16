@@ -263,7 +263,11 @@ export class BrowserFetchClient {
 							init.body,
 						);
 						if (clearance) {
-							await this.cookieStore.set("cf_clearance", clearance.value, clearance);
+							await this.cookieStore.set(
+								"cf_clearance",
+								clearance.value,
+								clearance,
+							);
 							return await this._request(init);
 						} else {
 							throw new FlareSolverrError(

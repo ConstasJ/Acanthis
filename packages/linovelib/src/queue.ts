@@ -49,10 +49,7 @@ export class SearchQueue {
 	private readonly COOLDOWN_MS = 5000;
 	private lastSearchTime = 0;
 
-	constructor(
-		client: BrowserFetchClient,
-		logger?: Logger,
-	) {
+	constructor(client: BrowserFetchClient, logger?: Logger) {
 		this.queue = new PQueue({ concurrency: 1 });
 		this.client = client;
 		this.logger = logger;
@@ -68,9 +65,7 @@ export class SearchQueue {
 		});
 	}
 
-	async searchNovels(
-		keyword: string,
-	): Promise<NovelSearchResult[]> {
+	async searchNovels(keyword: string): Promise<NovelSearchResult[]> {
 		return await this.queue.add(async () => {
 			if (Date.now() - this.lastSearchTime < this.COOLDOWN_MS) {
 				const waitTime = this.COOLDOWN_MS - (Date.now() - this.lastSearchTime);
@@ -80,10 +75,7 @@ export class SearchQueue {
 				await new Promise((resolve) => setTimeout(resolve, waitTime));
 			}
 			this.logger?.debug(`[SearchQueue] 开始搜索关键词 "${keyword}"`);
-			const results = await searchNovels(
-				keyword,
-				this.client,
-			);
+			const results = await searchNovels(keyword, this.client);
 			this.logger?.debug(
 				`[SearchQueue] 搜索完成，关键词 "${keyword}" 共找到 ${results.length} 条结果`,
 			);

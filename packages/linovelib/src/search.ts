@@ -103,7 +103,7 @@ export async function searchNovels(
 		});
 		const haha = await solveSearchChallenge(a, b, c);
 		await new Promise((r) => setTimeout(r, 3000));
-		response =await fetchClient.text("https://www.linovelib.com/S6/", {
+		response = await fetchClient.text("https://www.linovelib.com/S6/", {
 			method: "POST",
 			body: new URLSearchParams({
 				searchkey: keyword,

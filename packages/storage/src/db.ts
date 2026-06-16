@@ -17,10 +17,7 @@ import {
 	relations,
 	volumes,
 } from "./table";
-import type {
-	CoverMetadata,
-	DataWithUpdatedAt,
-} from "./type";
+import type { CoverMetadata, DataWithUpdatedAt } from "./type";
 
 export type MigrationOptions = {
 	enabled?: boolean;

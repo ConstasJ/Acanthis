@@ -36,7 +36,7 @@ app.get(
 			const chapterMeta = await storageService.getChapterFromId(
 				"linovelib",
 				chapterId,
-			)
+			);
 			if (chapterMeta) {
 				const hash = chapterMeta.contentHash;
 				if (hash) {
@@ -90,7 +90,12 @@ app.get(
 				"linovelib",
 				novelId,
 			);
-			if (cachedNovel && cachedNovel.author !== "" && cachedNovel.status !== "unknown" && cachedNovel.volumes.length > 0) {
+			if (
+				cachedNovel &&
+				cachedNovel.author !== "" &&
+				cachedNovel.status !== "unknown" &&
+				cachedNovel.volumes.length > 0
+			) {
 				cachedNovel.coverUrl = `${host}/v1/linovelib/novel/${novelId}/cover`;
 				return c.json({
 					code: 0,

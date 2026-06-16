@@ -21,15 +21,11 @@ export class StorageService {
 		this.cookieStore = new DatabaseCookieStore(this.db);
 	}
 
-	async getNovelContent(
-		hash: string,
-	): Promise<string | undefined> {
+	async getNovelContent(hash: string): Promise<string | undefined> {
 		return await this.files.getNovelContent(hash);
 	}
 
-	async setNovelContent(
-		content: string,
-	): Promise<void> {
+	async setNovelContent(content: string): Promise<void> {
 		await this.files.setNovelContent(content);
 	}
 

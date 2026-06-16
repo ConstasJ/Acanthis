@@ -24,10 +24,7 @@ export class FSStorageService {
 		if (!this.isPathInitialized) {
 			if (!existsSync(path)) {
 				await mkdir(path, { recursive: true });
-			} else if (
-				existsSync(path) &&
-				!(await stat(path)).isDirectory()
-			) {
+			} else if (existsSync(path) && !(await stat(path)).isDirectory()) {
 				await rm(path);
 				await mkdir(path, { recursive: true });
 			}
@@ -35,9 +32,7 @@ export class FSStorageService {
 		}
 	}
 
-	async getNovelContent(
-		hash: string,
-	): Promise<string | undefined> {
+	async getNovelContent(hash: string): Promise<string | undefined> {
 		const novelCacheDir = `${this.basePath}/novels/${hash.slice(0, 2)}`;
 		const chapterFilePath = `${novelCacheDir}/${hash}.zst`;
 		if (!existsSync(chapterFilePath)) {
@@ -48,9 +43,7 @@ export class FSStorageService {
 		return new TextDecoder().decode(decompressedData);
 	}
 
-	async setNovelContent(
-		content: string,
-	): Promise<void> {
+	async setNovelContent(content: string): Promise<void> {
 		const hash = getContentHash(content);
 		const novelCacheDir = `${this.basePath}/novels/${hash.slice(0, 2)}`;
 		await this._initPath(novelCacheDir);

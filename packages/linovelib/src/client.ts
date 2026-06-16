@@ -145,10 +145,7 @@ export class LinovelibClient {
 			this.novelChapterQueue,
 			this.logger,
 		);
-		this.searchQueue = new SearchQueue(
-			this.fetchClient,
-			this.logger,
-		);
+		this.searchQueue = new SearchQueue(this.fetchClient, this.logger);
 	}
 
 	async getNovelInfo(id: string): Promise<Novel | undefined> {
@@ -161,9 +158,7 @@ export class LinovelibClient {
 		return await this.novelInfoQueue.fetchNovelInfo(id);
 	}
 
-	async searchNovels(
-		keyword: string,
-	): Promise<NovelSearchResult[]> {
+	async searchNovels(keyword: string): Promise<NovelSearchResult[]> {
 		if (this.options?.session.enabled && this.storage) {
 			await ensureValidSession(this.fetchClient, {
 				username: this.options.session.username,
