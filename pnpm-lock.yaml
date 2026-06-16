@@ -27,8 +27,8 @@ importers:
         specifier: ^2.4.16
         version: 2.4.16
       turbo:
-        specifier: ^2.9.19-canary.4
-        version: 2.9.19-canary.4
+        specifier: ^2.9.19-canary.5
+        version: 2.9.19-canary.5
 
   apps/api-server:
     dependencies:
@@ -1057,33 +1057,33 @@ packages:
   '@so-ric/colorspace@1.1.6':
     resolution: {integrity: sha512-/KiKkpHNOBgkFJwu9sh48LkHSMYGyuTcSFK/qMBdnOAlrRJzRSXAOFB5qwzaVQuDl8wAvHVMkaASQDReTahxuw==}
 
-  '@turbo/darwin-64@2.9.19-canary.4':
-    resolution: {integrity: sha512-H6kNj7AqoG1tadfgRirnN7g6S1nXoHn5d6EcR6oMuf1SgAcz6qoMDtsmn4TKvsSMvl5glszujSkTn++0K1lA1Q==}
+  '@turbo/darwin-64@2.9.19-canary.5':
+    resolution: {integrity: sha512-fH8p2HbSOxALWXip8E8uNHVsn8e/kDBmDCFT0k+IGk45W097UGbPJNLWsI40a/REdTCwfR+vT1IYZB5jXmiexg==}
     cpu: [x64]
     os: [darwin]
 
-  '@turbo/darwin-arm64@2.9.19-canary.4':
-    resolution: {integrity: sha512-EdvxLqxg+Kfom3Y4ggXOzRZeI81PlHJ19BeX0jdismAiZUUt8XSqSaIIeY9E7W/NnF19tZLaoQ2ZegZbixgWuw==}
+  '@turbo/darwin-arm64@2.9.19-canary.5':
+    resolution: {integrity: sha512-P7GQ+v6NX2CS19VRghjxgBg6yrkclqCt8px6yevGcSkrimrAVOMvx/QavIFQlcXDT/XjWLIJbGHjtgZlmYO53A==}
     cpu: [arm64]
     os: [darwin]
 
-  '@turbo/linux-64@2.9.19-canary.4':
-    resolution: {integrity: sha512-9dDaLc7H2iu+Ni9Xf2odhR4drwgCELyhzIYPDOg3gySRhOj7EJ2qeiycg3psZDWOGmNqx7kxsBE+MTnBOX4dLw==}
+  '@turbo/linux-64@2.9.19-canary.5':
+    resolution: {integrity: sha512-A66LgAVVZusO/QnUIUOpy7yMRD5NddptkmVMXJj967EOknP5PwFY7n+/klDmCQm/wUXWeD7FKuyOXM3odZ6VwQ==}
     cpu: [x64]
     os: [linux]
 
-  '@turbo/linux-arm64@2.9.19-canary.4':
-    resolution: {integrity: sha512-20g7FiaNEHYhoZ4M0yuaUg44FUMZsh/Rxw27oapsYAFgNZ1AgETuXC2y8TVG+4uCiO/gxGLT9Hr7twgl3+cHLg==}
+  '@turbo/linux-arm64@2.9.19-canary.5':
+    resolution: {integrity: sha512-7E1rwtdZdRViBhpAtBLVZVmhGsDNjlQVo2zaJ+RNJoJFlgtgOJ7uSawDIjbgiex91ElMvFpwXDMMvsP+FYl6Bw==}
     cpu: [arm64]
     os: [linux]
 
-  '@turbo/windows-64@2.9.19-canary.4':
-    resolution: {integrity: sha512-tlz8ik7GxLU7c/3p1h+6ELJ6hU+wcds0drwY/8QV9TAGvYMFYK/HGPLCiMHH9EezxuvixoEVHssYKFy0rOXxjA==}
+  '@turbo/windows-64@2.9.19-canary.5':
+    resolution: {integrity: sha512-qf5FEGB/14N2KAYdfTN5BrDO8enaNly5Ccdc2hy9a/ttgZCHlznNyUIgeqQDmL8zHhKOjduAhREtMQ24ukLKHQ==}
     cpu: [x64]
     os: [win32]
 
-  '@turbo/windows-arm64@2.9.19-canary.4':
-    resolution: {integrity: sha512-Gwb3wD9NPFPecLcijfDnk5Sfs5xu6ADpDSeP4PCmgQ+3/trcLDQVf1We1sOxEzWBpPOWcUiefuhu1hXiEU+PfQ==}
+  '@turbo/windows-arm64@2.9.19-canary.5':
+    resolution: {integrity: sha512-9YXMC+qAAI5ctc3LESu1N1D8DpOFPS+5bYwmwPf2xe1ftJWNIZpq21YQNQTVi1BLrTw6x19ZQHzuLIPl4CiIsQ==}
     cpu: [arm64]
     os: [win32]
 
@@ -1820,8 +1820,8 @@ packages:
   tunnel-agent@0.6.0:
     resolution: {integrity: sha512-McnNiV1l8RYeY8tBgEpuodCC1mLUdbSN+CYBL7kJsJNInOP8UjDDEwdk6Mw60vdLLrr5NHKZhMAOSrR2NZuQ+w==}
 
-  turbo@2.9.19-canary.4:
-    resolution: {integrity: sha512-H2NQ+3CPpK4hvxCkxpgDd7vf+R3+H8YBSm85vbGGOUXfcXLDLQF9VGwsSsWk7OrOmHsnDHMhAXdax3nfcv20Pw==}
+  turbo@2.9.19-canary.5:
+    resolution: {integrity: sha512-i5oEhzF7q3O04eafIPS61FpIEp8Ni3RzDo/04tWwywBIrVTXivNbth+6PZ26BA3OincUPVLfLcrEAH1/x+JH5w==}
     hasBin: true
 
   typescript@6.0.3:
@@ -2460,22 +2460,22 @@ snapshots:
       color: 5.0.3
       text-hex: 1.0.0
 
-  '@turbo/darwin-64@2.9.19-canary.4':
+  '@turbo/darwin-64@2.9.19-canary.5':
     optional: true
 
-  '@turbo/darwin-arm64@2.9.19-canary.4':
+  '@turbo/darwin-arm64@2.9.19-canary.5':
     optional: true
 
-  '@turbo/linux-64@2.9.19-canary.4':
+  '@turbo/linux-64@2.9.19-canary.5':
     optional: true
 
-  '@turbo/linux-arm64@2.9.19-canary.4':
+  '@turbo/linux-arm64@2.9.19-canary.5':
     optional: true
 
-  '@turbo/windows-64@2.9.19-canary.4':
+  '@turbo/windows-64@2.9.19-canary.5':
     optional: true
 
-  '@turbo/windows-arm64@2.9.19-canary.4':
+  '@turbo/windows-arm64@2.9.19-canary.5':
     optional: true
 
   '@tybys/wasm-util@0.10.2':
@@ -3142,14 +3142,14 @@ snapshots:
     dependencies:
       safe-buffer: 5.2.1
 
-  turbo@2.9.19-canary.4:
+  turbo@2.9.19-canary.5:
     optionalDependencies:
-      '@turbo/darwin-64': 2.9.19-canary.4
-      '@turbo/darwin-arm64': 2.9.19-canary.4
-      '@turbo/linux-64': 2.9.19-canary.4
-      '@turbo/linux-arm64': 2.9.19-canary.4
-      '@turbo/windows-64': 2.9.19-canary.4
-      '@turbo/windows-arm64': 2.9.19-canary.4
+      '@turbo/darwin-64': 2.9.19-canary.5
+      '@turbo/darwin-arm64': 2.9.19-canary.5
+      '@turbo/linux-64': 2.9.19-canary.5
+      '@turbo/linux-arm64': 2.9.19-canary.5
+      '@turbo/windows-64': 2.9.19-canary.5
+      '@turbo/windows-arm64': 2.9.19-canary.5
 
   typescript@6.0.3: {}
 
