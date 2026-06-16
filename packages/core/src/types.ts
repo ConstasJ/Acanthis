@@ -16,20 +16,20 @@ export interface Novel extends NovelInfo {
 }
 
 export type Volume = {
-	platform: string;
 	id: string;
+	platform?: string | null | undefined;
 	title: string;
-	novelId?: string | null;
+	novelId?: string | null | undefined;
 	chapters: Chapter[];
 };
 
 export type Chapter = {
-	platform: string;
 	id: string;
+	platform?: string | null | undefined;
 	title: string;
-	novelId?: string | null;
-	volumeId?: string | null;
-	contentHash?: string | null;
+	novelId?: string | null | undefined;
+	volumeId?: string | null | undefined;
+	contentHash?: string | null | undefined;
 };
 
 export type ChapterContent = {

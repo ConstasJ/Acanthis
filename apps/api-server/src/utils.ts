@@ -25,8 +25,18 @@ export function transformOutputStyleForNovel(
 			};
 			return lnReaderNovel;
 		}
-		default:
-			return novel;
+		default: 
+			return {
+				...novel,
+				volumes: novel.volumes.map((volume) => {
+					volume.platform = undefined;
+					volume.chapters = volume.chapters.map((chapter) => {
+						chapter.platform = undefined;
+						return chapter;
+					});
+					return volume;
+				}),
+			};
 	}
 }
 
