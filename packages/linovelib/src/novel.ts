@@ -38,38 +38,21 @@ function parseVolumeOrChapterId(url: string): string {
 }
 
 async function parseChapterIdFromNextChapter(
-	volumes: Volume[],
-	chapterEls: Element[],
+	nextChapterEl: Element,
 	chapterQueue: NovelChapterQueue,
-): Promise<Volume[]> {
-	const chapters = volumes.flatMap((v) => v.chapters);
-	const promises = chapters
-		.filter((c) => c.id === "TOBEDETERMINED")
-		.map(async (chapter) => {
-			const chapterElIndex = chapterEls.findIndex((el) => {
-				const el$ = cheerio.load(el);
-				return el$.text().trim() === chapter.title;
-			});
-			if (chapterElIndex !== -1) {
-				const nextChapterEl = chapterEls[chapterElIndex + 1];
-				if (nextChapterEl) {
-					const nextChapterPath = nextChapterEl.attribs.href ?? "";
-					const nextChapterContent = await chapterQueue.fetchChapterPart(
-						`https://www.linovelib.com${nextChapterPath}`,
-					);
-					const $temp = cheerio.load(nextChapterContent);
-					const chapterPath =
-						$temp("div.mlfy_page a:first").attr("href") ??
-						nextChapterContent.match(
-							/url_previous:'(\/novel\/\d+\/[\d_]+\.html)'/,
-						)?.[1] ??
-						"";
-					chapter.id = parseVolumeOrChapterId(chapterPath);
-				}
-			}
-		});
-	await Promise.all(promises);
-	return volumes;
+): Promise<string> {
+	const nextChapterPath = nextChapterEl.attribs.href ?? "";
+	const nextChapterContent = await chapterQueue.fetchChapterPart(
+		`https://www.linovelib.com${nextChapterPath}`,
+	);
+	const $temp = cheerio.load(nextChapterContent);
+	const chapterPath =
+		$temp("div.mlfy_page a:first").attr("href") ??
+		nextChapterContent.match(
+			/url_previous:'(\/novel\/\d+\/[\d_]+\.html)'/,
+		)?.[1] ??
+		"";
+	return parseVolumeOrChapterId(chapterPath);
 }
 
 async function getNovelVolumes(
@@ -93,12 +76,18 @@ async function getNovelVolumes(
 			volumeEl$("a.volume-cover img").attr("data-original") ?? "";
 		const chapterEls = volumeEl$("ul.chapter-list li a").toArray();
 		const chapters: Chapter[] = [];
-		for (const chapterEl of chapterEls) {
+		for (const [index, chapterEl] of chapterEls.entries()) {
 			chapterElements.push(chapterEl);
 			const chapterEl$ = cheerio.load(chapterEl);
 			const chapterName = chapterEl$.text().trim();
 			const chapterPath = chapterEl.attribs.href ?? "";
-			const chapterId = parseVolumeOrChapterId(chapterPath);
+			let chapterId = parseVolumeOrChapterId(chapterPath);
+			if (chapterId === "TOBEDETERMINED" && chapterQueue) {
+				const nextChapterEl = chapterEls[index + 1];
+				if (nextChapterEl) {
+					chapterId = await parseChapterIdFromNextChapter(nextChapterEl, chapterQueue);
+				}
+			}
 			chapters.push({
 				id: chapterId,
 				platform: "linovelib",
@@ -113,12 +102,6 @@ async function getNovelVolumes(
 			coverUrl: volumeCover,
 			chapters: chapters,
 		});
-	}
-	const parseNeeded = volumes.some((v) =>
-		v.chapters.some((c) => c.id === "TOBEDETERMINED"),
-	);
-	if (parseNeeded && chapterQueue) {
-		await parseChapterIdFromNextChapter(volumes, chapterElements, chapterQueue);
 	}
 	return volumes;
 }
