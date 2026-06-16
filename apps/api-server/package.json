@@ -10,7 +10,7 @@
 	"scripts": {
 		"dev": "tsx watch src/index.ts",
 		"build": "tsx build.ts",
-		"check-types": "tsc -f tsconfig.json --noEmit"
+		"check-types": "tsc --noEmit"
 	},
 	"repository": {
 		"type": "git",
