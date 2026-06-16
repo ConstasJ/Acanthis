@@ -12,6 +12,9 @@ export async function refreshSessionId(
 	await fetchClient.request({
 		url: "https://www.linovelib.com/login.php",
 		method: "GET",
+		headers: {
+			referer: "https://www.linovelib.com/",
+		}
 	});
 	const response = await fetchClient.request({
 		url: "https://www.linovelib.com/login.php?do=submit&jumpurl=https%3A%2F%2Fwww.linovelib.com%2F",
