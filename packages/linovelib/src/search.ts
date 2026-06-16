@@ -102,17 +102,20 @@ export async function searchNovels(
 			}
 		});
 		const haha = await solveSearchChallenge(a, b, c);
+		await fetchClient.setCookies([{
+			domain: "www.linovelib.com",
+			path: "/",
+			name: "haha",
+			value: haha,
+			maxAge: 900,
+		}]);
 		await new Promise((r) => setTimeout(r, 3000));
 		response = await fetchClient.text("https://www.linovelib.com/S6/", {
 			method: "POST",
 			body: new URLSearchParams({
 				searchkey: keyword,
 			}),
-			cookies: {
-				haha,
-			},
 			headers: {
-				origin: "https://www.linovelib.com",
 				referer: "https://www.linovelib.com/S6/",
 			},
 		});
@@ -162,6 +165,12 @@ export async function searchNovels(
 				currentPageHtml = (
 					await fetchClient.text(
 						`https://www.linovelib.com${$2("a.next").attr("href")}`,
+						{
+							headers: {
+								host: "www.linovelib.com",
+								referer: "https://www.linovelib.com/S6/",
+							}
+						}
 					)
 				).data;
 			}
