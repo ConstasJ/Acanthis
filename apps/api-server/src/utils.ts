@@ -25,7 +25,7 @@ export function transformOutputStyleForNovel(
 			};
 			return lnReaderNovel;
 		}
-		default: 
+		default:
 			return {
 				...novel,
 				volumes: novel.volumes.map((volume) => {

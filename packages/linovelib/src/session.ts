@@ -43,9 +43,11 @@ export async function ensureValidSession(
 	loginConfig: LoginConfig,
 ): Promise<boolean> {
 	if (!(await hasValidSession(fetchClient))) {
-		const isValid = await refreshSessionId(fetchClient, loginConfig) && (await hasValidSession(fetchClient));
+		const isValid =
+			(await refreshSessionId(fetchClient, loginConfig)) &&
+			(await hasValidSession(fetchClient));
 		if (!isValid) {
-			return false
+			return false;
 		}
 	}
 	return true;
