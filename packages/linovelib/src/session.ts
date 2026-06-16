@@ -41,11 +41,12 @@ export async function hasValidSession(
 export async function ensureValidSession(
 	fetchClient: BrowserFetchClient,
 	loginConfig: LoginConfig,
-): Promise<void> {
+): Promise<boolean> {
 	if (!(await hasValidSession(fetchClient))) {
-		const isValid = await refreshSessionId(fetchClient, loginConfig);
+		const isValid = await refreshSessionId(fetchClient, loginConfig) && (await hasValidSession(fetchClient));
 		if (!isValid) {
-			throw new Error("Failed to obtain valid session");
+			return false
 		}
 	}
+	return true;
 }
