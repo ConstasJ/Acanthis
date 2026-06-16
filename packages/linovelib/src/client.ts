@@ -17,6 +17,7 @@ import z from "zod";
 import { getChapter } from "./chapter";
 import { descrambleCoefficientsSchema } from "./coefficients";
 import { getCover } from "./cover";
+import type { NovelUpdateInfo } from "./novel";
 import { NovelChapterQueue, NovelInfoQueue, SearchQueue } from "./queue";
 import { ensureValidSession } from "./session";
 
@@ -166,6 +167,16 @@ export class LinovelibClient {
 		return await this.novelInfoQueue.fetchNovelInfo(id);
 	}
 
+	async getNovelUpdateInfo(id: string): Promise<NovelUpdateInfo | null> {
+		if (this.options?.session.enabled && !this.isSessionValid) {
+			this.isSessionValid = await ensureValidSession(this.fetchClient, {
+				username: this.options.session.username,
+				password: this.options.session.password,
+			});
+		}
+		return await this.novelInfoQueue.fetchNovelUpdateInfo(id);
+	}
+
 	async searchNovels(keyword: string): Promise<NovelSearchResult[]> {
 		if (this.options?.session.enabled && !this.isSessionValid) {
 			this.isSessionValid = await ensureValidSession(this.fetchClient, {
@@ -183,8 +194,8 @@ export class LinovelibClient {
 	async getCover(url: string): Promise<BinaryResponse> {
 		return await this.fetchClient.binary(url, {
 			headers: {
-				"Referer": "https://www.linovelib.com/",
-			}
+				Referer: "https://www.linovelib.com/",
+			},
 		});
 	}
 

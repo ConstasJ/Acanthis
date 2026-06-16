@@ -7,7 +7,7 @@ import {
 import type { Novel, NovelSearchResult } from "@acanthis-dec/core";
 import PQueue from "p-queue";
 import type { Logger } from "winston";
-import { getNovelInfo } from "./novel";
+import { getNovelInfo, getUpdateInfo, type NovelUpdateInfo } from "./novel";
 import { searchNovels } from "./search";
 
 /**
@@ -257,6 +257,52 @@ export class NovelInfoQueue {
 			);
 			await this._sleep(delay);
 			return novel;
+		});
+	}
+
+	async fetchNovelUpdateInfo(id: string): Promise<NovelUpdateInfo | null> {
+		return await this.queue.add(async () => {
+			this.logger?.debug(
+				`[NovelInfoQueue] 开始获取小说${id}的更新信息（封面和章节数）`,
+			);
+			const retry: RetryOptions = {
+				retries: 10,
+				factor: 2,
+				minRetryDelayMs: 0,
+				maxRetryDelayMs: 0,
+				randomize: false,
+				onFailedAttempt: async (ctx) => {
+					if (ctx.error instanceof CloudflareBlockError) {
+						this.logger?.warn(
+							`[NovelInfoQueue] 请求被 Cloudflare 阻挡，错误信息: ${ctx.error.message}。正在等待 ${this.backoff.FAILURE_DELAY / 1000}s 后重试...`,
+						);
+						await this._sleep(this.backoff.FAILURE_DELAY);
+					}
+					if (ctx.attemptNumber >= (retry.retries ?? 3)) {
+						this.logger?.error(
+							`[NovelInfoQueue] 请求重试次数已达上限 (${ctx.attemptNumber} 次)，错误信息: ${ctx.error.message}`,
+						);
+					}
+				},
+				shouldRetry: async (ctx) => {
+					return (
+						defaultRetryPolicy(ctx) || ctx.error instanceof CloudflareBlockError
+					);
+				},
+			};
+
+			const updateInfo = await getUpdateInfo(id, this.client, retry);
+			if (!updateInfo) {
+				this.logger?.warn(
+					`[NovelInfoQueue] 无法获取小说${id}的更新信息，可能是因为小说不存在或已被删除`,
+				);
+			} else {
+				this.logger?.debug(
+					`[NovelInfoQueue] 小说${id} 更新信息获取成功。下一次请求将在 ${this.backoff.getDelayForSuccess().toFixed(0)}ms 后进行`,
+				);
+			}
+			await this._sleep(this.backoff.getDelayForSuccess());
+			return updateInfo;
 		});
 	}
 }

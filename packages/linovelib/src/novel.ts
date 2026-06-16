@@ -89,7 +89,8 @@ async function getNovelVolumes(
 		const volumeId = parseVolumeOrChapterId(
 			volumeEl$("h2 a").attr("href") ?? "",
 		);
-		const volumeCover: string = volumeEl$("a.volume-cover img").attr("data-original") ?? "";
+		const volumeCover: string =
+			volumeEl$("a.volume-cover img").attr("data-original") ?? "";
 		const chapterEls = volumeEl$("ul.chapter-list li a").toArray();
 		const chapters: Chapter[] = [];
 		for (const chapterEl of chapterEls) {
@@ -184,4 +185,41 @@ export async function getNovelInfo(
 		return v;
 	});
 	return novel;
+}
+
+export interface NovelUpdateInfo {
+	coverUrl: string;
+	chapterCount: number;
+}
+
+export async function getUpdateInfo(
+	id: string,
+	fetchClient: BrowserFetchClient,
+	retry: RetryOptions,
+): Promise<NovelUpdateInfo | null> {
+	const url = `https://www.linovelib.com/novel/${id}.html`;
+	const html = (
+		await fetchClient.text(url, {
+			retry,
+		})
+	).data;
+	const $ = cheerio.load(html);
+	if ($("h1.book-name").length === 0) {
+		return null;
+	}
+	const catalogUrl = `https://www.linovelib.com${$("a.read-btn").attr("href")}`;
+	const catalogHtml = (
+		await fetchClient.text(catalogUrl, {
+			retry,
+		})
+	).data;
+	const $catalog = cheerio.load(catalogHtml);
+	const chapterCount = $catalog(
+		"#volume-list div.volume ul.chapter-list li a",
+	).length;
+	const coverUrl = $("div.book-img img").attr("src") || novelIdToCoverUrl(id);
+	return {
+		coverUrl,
+		chapterCount,
+	};
 }
