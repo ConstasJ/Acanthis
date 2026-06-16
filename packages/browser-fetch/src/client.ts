@@ -172,6 +172,7 @@ export class BrowserFetchClient {
 			...this.profile.headers,
 			...this.requestDefaults.headers,
 			...init.headers,
+			host: new URL(init.url).host,
 		};
 
 		if (
