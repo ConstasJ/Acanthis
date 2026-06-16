@@ -139,6 +139,7 @@ app.get(
 		try {
 			const novelId = c.req.param("novelId");
 			const cachedCover = await storageService.getCoverData(
+				"novel",
 				"linovelib",
 				novelId,
 			);
@@ -150,6 +151,7 @@ app.get(
 			const coverData = await linovelibClient.getNovelCover(novelId);
 			if (coverData) {
 				await storageService.setCoverData(
+					"novel",
 					novelIdToCoverUrl(novelId),
 					coverData.data,
 					coverData.mimeType,

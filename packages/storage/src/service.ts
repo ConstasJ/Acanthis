@@ -30,20 +30,29 @@ export class StorageService {
 	}
 
 	async getCoverData(
+		type: "novel" | "volume",
 		platform: string,
-		novelId: string,
+		platformId: string,
 	): Promise<BinaryResponse | undefined> {
-		return await this.files.getCoverData(platform, novelId);
+		return await this.files.getCoverData(type, platform, platformId);
 	}
 
 	async setCoverData(
+		type: "novel" | "volume",
 		url: string,
 		data: Buffer,
 		contentType: string,
 		platform: string,
 		platformId: string,
 	): Promise<void> {
-		await this.files.setCoverData(url, platform, platformId, data, contentType);
+		await this.files.setCoverData(
+			type,
+			url,
+			platform,
+			platformId,
+			data,
+			contentType,
+		);
 	}
 
 	async addSearchResult(

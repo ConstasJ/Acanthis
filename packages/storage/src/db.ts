@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, rmSync, statSync } from "node:fs";
 import { dirname, resolve } from "node:path";
-import type { Chapter, Novel, NovelSearchResult } from "@acanthis-dec/core";
+import type { Chapter, Novel, NovelSearchResult, Volume } from "@acanthis-dec/core";
 import { type Client, createClient } from "@libsql/client";
 import { and, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/libsql";
@@ -8,17 +8,22 @@ import { migrate } from "drizzle-orm/libsql/migrator";
 import type { z } from "zod";
 import {
 	chapters,
-	coverMetadata,
 	generalCache,
 	genres,
 	keywordNovels,
 	keywordSearches,
+	novelCoverMetadata,
 	novelGenres,
 	novels,
 	relations,
+	volumeCoverMetadata,
 	volumes,
 } from "./table";
-import type { CoverMetadata, DataWithUpdatedAt } from "./type";
+import type {
+	DataWithUpdatedAt,
+	NovelCoverMetadata,
+	VolumeCoverMetadata,
+} from "./type";
 
 export type MigrationOptions = {
 	enabled?: boolean;
@@ -321,6 +326,35 @@ export class DatabaseService {
 		};
 	}
 
+	async getVolume(
+		platform: string,
+		platformId: string,
+	): Promise<Partial<Volume> | undefined> {
+		const volumeRecord = await this.db.query.volumes
+			.findFirst({
+				where: {
+					platform,
+					platformId,
+				},
+				with: {
+					novel: true,
+				}
+			})
+			.execute();
+
+		if (!volumeRecord) {
+			return undefined;
+		}
+
+		return {
+			id: volumeRecord.platformId,
+			platform: volumeRecord.platform,
+			title: volumeRecord.name,
+			novelId: volumeRecord.novel?.platformId ?? "",
+			coverUrl: volumeRecord.coverUrl ?? "",
+		};
+	}
+
 	async getChapterFromTitle(
 		title: string,
 	): Promise<Partial<Chapter> | undefined> {
@@ -392,11 +426,11 @@ export class DatabaseService {
 			.run();
 	}
 
-	async getCoverMetadata(
+	async getNovelCoverMetadata(
 		platform: string,
 		novelId: string,
-	): Promise<CoverMetadata | undefined> {
-		const queryResult = await this.db.query.coverMetadata
+	): Promise<NovelCoverMetadata | undefined> {
+		const queryResult = await this.db.query.novelCoverMetadata
 			.findFirst({
 				where: {
 					novel: {
@@ -423,7 +457,7 @@ export class DatabaseService {
 		};
 	}
 
-	async addCoverMetadata(metadata: CoverMetadata) {
+	async addNovelCoverMetadata(metadata: NovelCoverMetadata) {
 		const novel =
 			metadata.novelId && metadata.platform
 				? await this.db.query.novels
@@ -437,12 +471,71 @@ export class DatabaseService {
 				: null;
 
 		await this.db
-			.insert(coverMetadata)
+			.insert(novelCoverMetadata)
 			.values({
 				hash: metadata.hash,
 				contentType: metadata.contentType,
 				originalUrl: metadata.originalUrl,
 				novelId: novel?.id ?? null,
+			})
+			.run();
+	}
+
+	async getVolumeCoverMetadata(
+		platform: string,
+		volumeId: string,
+	): Promise<VolumeCoverMetadata | undefined> {
+		const queryResult = await this.db.query.volumeCoverMetadata
+			.findFirst({
+				where: {
+					volume: {
+						platform: platform,
+						platformId: volumeId,
+					},
+				},
+				with: {
+					volume: {
+						with: {
+							novel: true,
+						},
+					},
+				},
+			})
+			.execute();
+
+		if (!queryResult) {
+			return undefined;
+		}
+
+		return {
+			platform: queryResult.volume?.platform ?? null,
+			volumeId: queryResult.volume?.platformId ?? null,
+			hash: queryResult.hash ?? "",
+			contentType: queryResult.contentType ?? "",
+			originalUrl: queryResult.originalUrl ?? "",
+		};
+	}
+
+	async addVolumeCoverMetadata(metadata: VolumeCoverMetadata) {
+		const volume =
+			metadata.volumeId && metadata.platform
+				? await this.db.query.volumes
+						.findFirst({
+							where: {
+								platform: metadata.platform,
+								platformId: metadata.volumeId,
+							},
+						})
+						.execute()
+				: null;
+
+		await this.db
+			.insert(volumeCoverMetadata)
+			.values({
+				hash: metadata.hash,
+				contentType: metadata.contentType,
+				originalUrl: metadata.originalUrl,
+				volumeId: volume?.id ?? null,
 			})
 			.run();
 	}

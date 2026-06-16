@@ -2,6 +2,7 @@ import { existsSync } from "node:fs";
 import { mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import type { BinaryResponse } from "@acanthis-dec/browser-fetch";
 import type { DatabaseService } from "./db";
+import type { NovelCoverMetadata, VolumeCoverMetadata } from "./type";
 import {
 	getContentHash,
 	getCoverHash,
@@ -54,10 +55,16 @@ export class FSStorageService {
 	}
 
 	async getCoverData(
+		type: "novel" | "volume",
 		platform: string,
-		novelId: string,
+		platformId: string,
 	): Promise<BinaryResponse | undefined> {
-		const meta = await this.dbService.getCoverMetadata(platform, novelId);
+		let meta: NovelCoverMetadata | VolumeCoverMetadata | undefined;
+		if (type === "novel") {
+			meta = await this.dbService.getNovelCoverMetadata(platform, platformId);
+		} else if (type === "volume") {
+			meta = await this.dbService.getVolumeCoverMetadata(platform, platformId);
+		}
 		if (!meta) {
 			return undefined;
 		}
@@ -70,6 +77,7 @@ export class FSStorageService {
 	}
 
 	async setCoverData(
+		type: "novel" | "volume",
 		url: string,
 		platform: string,
 		platformId: string,
@@ -82,12 +90,22 @@ export class FSStorageService {
 		await this._initPath(coverDir);
 		const coverPath = `${coverDir}/${coverHash}.${ext}`;
 		await writeFile(coverPath, data);
-		await this.dbService.addCoverMetadata({
-			platform,
-			novelId: platformId,
-			hash: coverHash,
-			contentType,
-			originalUrl: url,
-		});
+		if (type === "novel") {
+			await this.dbService.addNovelCoverMetadata({
+				platform,
+				novelId: platformId,
+				hash: coverHash,
+				contentType,
+				originalUrl: url,
+			});
+		} else if (type === "volume") {
+			await this.dbService.addVolumeCoverMetadata({
+				platform,
+				volumeId: platformId,
+				hash: coverHash,
+				contentType,
+				originalUrl: url,
+			});
+		}
 	}
 }

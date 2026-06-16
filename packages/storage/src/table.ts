@@ -55,6 +55,7 @@ export const volumes = sqliteTable(
 		name: text("name").notNull(),
 		platform: text("platform").notNull(),
 		platformId: text("platform_id").notNull(),
+		coverUrl: text("cover_url"),
 	},
 	(table) => [unique("novel_and_pid_idx").on(table.novelId, table.platformId)],
 );
@@ -97,12 +98,22 @@ export const keywordNovels = sqliteTable(
 	(table) => [primaryKey({ columns: [table.keyword, table.novelId] })],
 );
 
-export const coverMetadata = sqliteTable("cover_metadata", {
+export const novelCoverMetadata = sqliteTable("novel_cover_metadata", {
 	id: integer("id").primaryKey({ autoIncrement: true }),
 	hash: text("hash").notNull(),
 	contentType: text("content_type").notNull(),
 	originalUrl: text("original_url").notNull().unique(),
 	novelId: integer("novel_id").references(() => novels.id, {
+		onDelete: "set null",
+	}),
+});
+
+export const volumeCoverMetadata = sqliteTable("volume_cover_metadata", {
+	id: integer("id").primaryKey({ autoIncrement: true }),
+	hash: text("hash").notNull(),
+	contentType: text("content_type").notNull(),
+	originalUrl: text("original_url").notNull().unique(),
+	volumeId: integer("volume_id").references(() => volumes.id, {
 		onDelete: "set null",
 	}),
 });
@@ -144,7 +155,8 @@ export const relations = defineRelations(
 		chapters,
 		keywordSearches,
 		keywordNovels,
-		coverMetadata,
+		novelCoverMetadata,
+		volumeCoverMetadata,
 		cookies,
 		generalCache,
 	},
@@ -158,9 +170,9 @@ export const relations = defineRelations(
 				from: r.novels.id,
 				to: r.volumes.novelId,
 			}),
-			cover: r.one.coverMetadata({
+			cover: r.one.novelCoverMetadata({
 				from: r.novels.id,
-				to: r.coverMetadata.novelId,
+				to: r.novelCoverMetadata.novelId,
 			}),
 		},
 		genres: {
@@ -172,11 +184,21 @@ export const relations = defineRelations(
 				from: r.volumes.id,
 				to: r.chapters.volumeId,
 			}),
+			cover: r.one.volumeCoverMetadata({
+				from: r.volumes.id,
+				to: r.volumeCoverMetadata.volumeId,
+			}),
 		},
-		coverMetadata: {
+		novelCoverMetadata: {
 			novel: r.one.novels({
-				from: r.coverMetadata.novelId,
+				from: r.novelCoverMetadata.novelId,
 				to: r.novels.id,
+			}),
+		},
+		volumeCoverMetadata: {
+			volume: r.one.volumes({
+				from: r.volumeCoverMetadata.volumeId,
+				to: r.volumes.id,
 			}),
 		},
 		chapters: {

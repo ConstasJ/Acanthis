@@ -19,6 +19,7 @@ export type Volume = {
 	id: string;
 	platform?: string | null | undefined;
 	title: string;
+	coverUrl?: string | null | undefined;
 	novelId?: string | null | undefined;
 	chapters: Chapter[];
 };
