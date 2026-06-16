@@ -117,7 +117,7 @@ export class StorageService {
 		await this.db.setCache(key, value);
 	}
 
-	close() {
-		this.db.close();
+	async close(logger?: (message: string) => void) {
+		await this.db.close(logger);
 	}
 }

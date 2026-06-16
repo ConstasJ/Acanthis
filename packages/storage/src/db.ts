@@ -586,7 +586,15 @@ export class DatabaseService {
 			.run();
 	}
 
-	close() {
-		this.client.close();
+	async close(logger?: (message: string) => void) {
+		try {
+			await this.client.execute("PRAGMA journal_mode = DELETE;");
+			logger?.("WAL写入盘完成，正在关闭数据库连接...");
+		} catch (error) {
+			logger?.(`执行WAL检查点时发生错误: ${error}`);
+		} finally {
+			this.client.close();
+			logger?.("数据库连接已关闭");
+		}
 	}
 }
