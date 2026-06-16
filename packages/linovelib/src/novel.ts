@@ -136,7 +136,7 @@ export async function getNovelInfo(
 	).data;
 	const $ = cheerio.load(html);
 	const title = $("h1.book-name").text().trim();
-	const coverUrl = novelIdToCoverUrl(id);
+	const coverUrl = $("div.book-img img").attr("src") || novelIdToCoverUrl(id);
 	const summary = (() => {
 		const $container = $(".book-dec.Jbook-dec").clone();
 		$container.find(".notice").remove();
