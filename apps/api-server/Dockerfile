@@ -9,8 +9,9 @@ WORKDIR /app
 
 COPY . .
 
-RUN pnpm install --frozen-lockfile && \
-    pnpm --filter=@acanthis/api-server build
+RUN pnpm install --frozen-lockfile
+
+RUN pnpm --filter=@acanthis-dec/api-server run build
 
 FROM base AS pre-final
 
