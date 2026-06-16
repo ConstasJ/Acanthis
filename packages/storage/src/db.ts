@@ -317,6 +317,8 @@ export class DatabaseService {
 					id: v.platformId,
 					platform: novelRecord.platform,
 					title: v.name,
+					coverUrl: v.coverUrl ?? "",
+					novelId: novelRecord.platformId,
 					chapters: v.chapters.map((c) => ({
 						id: c.platformId,
 						platform: novelRecord.platform,
