@@ -115,7 +115,10 @@ app.get(
 				cachedNovel.status !== "unknown" &&
 				cachedNovel.volumes.length > 0
 			) {
-				cachedNovel.coverUrl = `${host}/v1/linovelib/novel/${novelId}/cover`;
+				cachedNovel.coverUrl = `${host}/v1/linovelib/cover/novel/${novelId}`;
+				cachedNovel.volumes.forEach((volume) => {
+					volume.coverUrl = `${host}/v1/linovelib/cover/volume/${volume.id}`;
+				});
 				return c.json({
 					code: 0,
 					message: "Success",
@@ -125,7 +128,10 @@ app.get(
 			const novel = await linovelibClient.getNovelInfo(novelId);
 			if (novel) {
 				await storageService.addNovelCache(novel);
-				novel.coverUrl = `${host}/v1/linovelib/novel/${novelId}/cover`;
+				novel.coverUrl = `${host}/v1/linovelib/cover/novel/${novelId}`;
+				novel.volumes.forEach((volume) => {
+					volume.coverUrl = `${host}/v1/linovelib/cover/volume/${volume.id}`;
+				});
 				return c.json({
 					code: 0,
 					message: "Success",
@@ -258,7 +264,7 @@ app.get("/search", zValidator("query", searchQuerySchema), async (c) => {
 				code: 0,
 				message: "Success",
 				data: cachedResults.map((novel) => {
-					novel.coverUrl = `${host}/v1/linovelib/novel/${novel.id}/cover`;
+					novel.coverUrl = `${host}/v1/linovelib/cover/novel/${novel.id}`;
 					return transformOutputStyleForSearchResult(novel, style);
 				}),
 			});
@@ -271,7 +277,7 @@ app.get("/search", zValidator("query", searchQuerySchema), async (c) => {
 			code: 0,
 			message: "Success",
 			data: results.map((novel) => {
-				novel.coverUrl = `${host}/v1/linovelib/novel/${novel.id}/cover`;
+				novel.coverUrl = `${host}/v1/linovelib/cover/novel/${novel.id}`;
 				return transformOutputStyleForSearchResult(novel, style);
 			}),
 		});
