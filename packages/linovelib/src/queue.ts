@@ -5,7 +5,6 @@ import {
 	type RetryOptions,
 } from "@acanthis-dec/browser-fetch";
 import type { Novel, NovelSearchResult } from "@acanthis-dec/core";
-import type { StorageService } from "@acanthis-dec/storage";
 import PQueue from "p-queue";
 import type { Logger } from "winston";
 import { getNovelInfo } from "./novel";
@@ -194,20 +193,17 @@ export class NovelInfoQueue {
 	private client: BrowserFetchClient;
 	private backoff: SimpleBackoff;
 	private chapterQueue: NovelChapterQueue;
-	private storage?: StorageService | undefined;
 	private logger?: Logger | undefined;
 
 	constructor(
 		client: BrowserFetchClient,
 		chapterQueue: NovelChapterQueue,
-		storage?: StorageService,
 		logger?: Logger,
 	) {
 		this.queue = new PQueue({ concurrency: 1 });
 		this.client = client;
 		this.backoff = new SimpleBackoff();
 		this.chapterQueue = chapterQueue;
-		this.storage = storage;
 		this.logger = logger;
 		this.queue.on("add", () => {
 			this.logger?.debug(
@@ -259,7 +255,6 @@ export class NovelInfoQueue {
 				this.client,
 				retry,
 				this.chapterQueue,
-				this.storage,
 			);
 			if (!novel) {
 				throw new Error(`无法获取小说信息: ${id}`);

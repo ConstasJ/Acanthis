@@ -3,7 +3,6 @@ import type {
 	RetryOptions,
 } from "@acanthis-dec/browser-fetch";
 import type { Chapter, Novel, NovelStatus, Volume } from "@acanthis-dec/core";
-import type { StorageService } from "@acanthis-dec/storage";
 import * as cheerio from "cheerio";
 import type { Element } from "domhandler";
 import { novelIdToCoverUrl } from "./cover";
@@ -42,17 +41,11 @@ async function parseChapterIdFromNextChapter(
 	volumes: Volume[],
 	chapterEls: Element[],
 	chapterQueue: NovelChapterQueue,
-	storage?: StorageService,
 ): Promise<Volume[]> {
 	const chapters = volumes.flatMap((v) => v.chapters);
 	const promises = chapters
 		.filter((c) => c.id === "TOBEDETERMINED")
 		.map(async (chapter) => {
-			const cachedChapter = await storage?.getChapterFromTitle(chapter.title);
-			if (cachedChapter?.id) {
-				chapter.id = cachedChapter.id;
-				return;
-			}
 			const chapterElIndex = chapterEls.findIndex((el) => {
 				const el$ = cheerio.load(el);
 				return el$.text().trim() === chapter.title;
@@ -85,7 +78,6 @@ async function getNovelVolumes(
 	fetchClient: BrowserFetchClient,
 	retry: RetryOptions,
 	chapterQueue?: NovelChapterQueue,
-	storage?: StorageService,
 ): Promise<Volume[]> {
 	const catalogHtml = await fetchClient.text(url, { retry });
 	const volumeEls = extractVolumesArray(catalogHtml.data);
@@ -127,7 +119,6 @@ async function getNovelVolumes(
 			volumes,
 			chapterElements,
 			chapterQueue,
-			storage,
 		);
 	}
 	return volumes;
@@ -138,7 +129,6 @@ export async function getNovelInfo(
 	fetchClient: BrowserFetchClient,
 	retry: RetryOptions,
 	chapterQueue?: NovelChapterQueue,
-	storage?: StorageService,
 ): Promise<Novel | undefined> {
 	const url = `https://www.linovelib.com/novel/${id}.html`;
 	const html = (
@@ -189,7 +179,6 @@ export async function getNovelInfo(
 		fetchClient,
 		retry,
 		chapterQueue,
-		storage,
 	)).map((v) => { v.novelId = novel.id; return v; });
 	return novel;
 }

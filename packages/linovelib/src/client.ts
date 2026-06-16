@@ -143,7 +143,6 @@ export class LinovelibClient {
 		this.novelInfoQueue = new NovelInfoQueue(
 			this.fetchClient,
 			this.novelChapterQueue,
-			this.storage,
 			this.logger,
 		);
 		this.searchQueue = new SearchQueue(
