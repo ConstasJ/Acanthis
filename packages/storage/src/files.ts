@@ -3,6 +3,7 @@ import { mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import type { BinaryResponse } from "@acanthis-dec/browser-fetch";
 import type { DatabaseService } from "./db";
 import {
+	getContentHash,
 	getCoverHash,
 	getExtFromContentType,
 	zstdCompress,
@@ -35,11 +36,10 @@ export class FSStorageService {
 	}
 
 	async getNovelContent(
-		novelId: string,
-		chapterId: string,
+		hash: string,
 	): Promise<string | undefined> {
-		const novelCacheDir = `${this.basePath}/novels/${novelId}`;
-		const chapterFilePath = `${novelCacheDir}/${chapterId}.zst`;
+		const novelCacheDir = `${this.basePath}/novels/${hash.slice(0, 2)}`;
+		const chapterFilePath = `${novelCacheDir}/${hash}.zst`;
 		if (!existsSync(chapterFilePath)) {
 			return undefined;
 		}
@@ -49,13 +49,12 @@ export class FSStorageService {
 	}
 
 	async setNovelContent(
-		novelId: string,
-		chapterId: string,
 		content: string,
 	): Promise<void> {
-		const novelCacheDir = `${this.basePath}/novels/${novelId}`;
+		const hash = getContentHash(content);
+		const novelCacheDir = `${this.basePath}/novels/${hash.slice(0, 2)}`;
 		await this._initPath(novelCacheDir);
-		const chapterFilePath = `${novelCacheDir}/${chapterId}.zst`;
+		const chapterFilePath = `${novelCacheDir}/${hash}.zst`;
 		const compressedData = await zstdCompress(Buffer.from(content, "utf-8"));
 		await writeFile(chapterFilePath, compressedData);
 	}

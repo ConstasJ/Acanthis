@@ -22,18 +22,15 @@ export class StorageService {
 	}
 
 	async getNovelContent(
-		novelId: string,
-		chapterId: string,
+		hash: string,
 	): Promise<string | undefined> {
-		return await this.files.getNovelContent(novelId, chapterId);
+		return await this.files.getNovelContent(hash);
 	}
 
 	async setNovelContent(
-		novelId: string,
-		chapterId: string,
 		content: string,
 	): Promise<void> {
-		await this.files.setNovelContent(novelId, chapterId, content);
+		await this.files.setNovelContent(content);
 	}
 
 	async getCoverData(

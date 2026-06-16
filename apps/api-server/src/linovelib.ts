@@ -33,22 +33,28 @@ app.get(
 		try {
 			const novelId = c.req.param("novelId");
 			const chapterId = c.req.param("chapterId");
-			const cachedChapter = await storageService.getNovelContent(
-				novelId,
+			const chapterMeta = await storageService.getChapterFromId(
+				"linovelib",
 				chapterId,
-			);
-			if (cachedChapter) {
-				return c.json({
-					code: 0,
-					message: "Success",
-					data: {
-						content: cachedChapter,
-					},
-				});
+			)
+			if (chapterMeta) {
+				const hash = chapterMeta.contentHash;
+				if (hash) {
+					const cachedContent = await storageService.getNovelContent(hash);
+					if (cachedContent) {
+						return c.json({
+							code: 0,
+							message: "Success",
+							data: {
+								content: cachedContent,
+							},
+						});
+					}
+				}
 			}
 			const content = await linovelibClient.getChapter(novelId, chapterId);
 			if (content) {
-				await storageService.setNovelContent(novelId, chapterId, content);
+				await storageService.setNovelContent(content);
 				return c.json({
 					code: 0,
 					message: "Success",

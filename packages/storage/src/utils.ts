@@ -29,6 +29,10 @@ export function getCoverHash(data: Buffer): string {
 	return createHash("md5").update(data).digest("hex");
 }
 
+export function getContentHash(content: string): string {
+	return createHash("md5").update(content).digest("hex");
+}
+
 export function getExtFromContentType(contentType: string): string {
 	if (contentType.includes("jpeg") || contentType.includes("jpg")) return "jpg";
 	if (contentType.includes("png")) return "png";
