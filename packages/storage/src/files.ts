@@ -13,7 +13,6 @@ import {
 
 export class FSStorageService {
 	private basePath: string;
-	private isPathInitialized: boolean = false;
 	private dbService: DatabaseService;
 
 	constructor(basePath: string, dbService: DatabaseService) {
@@ -22,14 +21,11 @@ export class FSStorageService {
 	}
 
 	private async _initPath(path: string): Promise<void> {
-		if (!this.isPathInitialized) {
-			if (!existsSync(path)) {
-				await mkdir(path, { recursive: true });
-			} else if (existsSync(path) && !(await stat(path)).isDirectory()) {
-				await rm(path);
-				await mkdir(path, { recursive: true });
-			}
-			this.isPathInitialized = true;
+		if (!existsSync(path)) {
+			await mkdir(path, { recursive: true });
+		} else if (existsSync(path) && !(await stat(path)).isDirectory()) {
+			await rm(path);
+			await mkdir(path, { recursive: true });
 		}
 	}
 
