@@ -40,32 +40,43 @@ app.get(
 			);
 			if (!chapterMeta) {
 				logger.error(`Chapter meta not found for chapterId: ${chapterId}`);
-				return c.json({
-					code: 10000, 
-					message: "Chapter meta not found",
-				}, 404);
+				return c.json(
+					{
+						code: 10000,
+						message: "Chapter meta not found",
+					},
+					404,
+				);
 			}
 			if (!chapterMeta.novelId) {
-				logger.error(`Novel ID missing in chapter meta for chapterId: ${chapterId}`);
-				return c.json({
-					code: 10002, 
-					message: "Novel ID missing in chapter meta"
-				}, 404);
+				logger.error(
+					`Novel ID missing in chapter meta for chapterId: ${chapterId}`,
+				);
+				return c.json(
+					{
+						code: 10002,
+						message: "Novel ID missing in chapter meta",
+					},
+					404,
+				);
 			}
 			const hash = chapterMeta.contentHash;
-				if (hash) {
-					const cachedContent = await storageService.getNovelContent(hash);
-					if (cachedContent) {
-						return c.json({
-							code: 0,
-							message: "Success",
-							data: {
-								content: cachedContent,
-							},
-						});
-					}
+			if (hash) {
+				const cachedContent = await storageService.getNovelContent(hash);
+				if (cachedContent) {
+					return c.json({
+						code: 0,
+						message: "Success",
+						data: {
+							content: cachedContent,
+						},
+					});
 				}
-			const content = await linovelibClient.getChapter(chapterMeta.novelId, chapterId);
+			}
+			const content = await linovelibClient.getChapter(
+				chapterMeta.novelId,
+				chapterId,
+			);
 			if (content) {
 				const contentHash = await storageService.setNovelContent(content);
 				await storageService.addNovelContentHash(
@@ -167,7 +178,10 @@ app.get(
 				c.header("Cache-Control", "public, max-age=86400");
 				return c.body(new Uint8Array(cachedCover.data));
 			}
-			const novelInfo = await storageService.getNovelCache("linovelib", novelId);
+			const novelInfo = await storageService.getNovelCache(
+				"linovelib",
+				novelId,
+			);
 			if (novelInfo?.coverUrl) {
 				const coverData = await linovelibClient.getCover(novelInfo.coverUrl);
 				if (coverData) {
@@ -184,7 +198,9 @@ app.get(
 					return c.body(new Uint8Array(coverData.data));
 				}
 			} else {
-				logger.error(`Novel ${novelId} not present in database or does not have a cover URL`);
+				logger.error(
+					`Novel ${novelId} not present in database or does not have a cover URL`,
+				);
 				return c.json(
 					{
 						code: 10001,
@@ -222,7 +238,10 @@ app.get(
 				c.header("Cache-Control", "public, max-age=86400");
 				return c.body(new Uint8Array(cachedCover.data));
 			}
-			const volumeInfo = await storageService.getVolumeMeta("linovelib", volumeId);
+			const volumeInfo = await storageService.getVolumeMeta(
+				"linovelib",
+				volumeId,
+			);
 			if (volumeInfo?.coverUrl) {
 				const coverData = await linovelibClient.getCover(volumeInfo.coverUrl);
 				if (coverData) {
@@ -239,7 +258,9 @@ app.get(
 					return c.body(new Uint8Array(coverData.data));
 				}
 			} else {
-				logger.error(`Volume ${volumeId} not present in database or does not have a cover URL`);
+				logger.error(
+					`Volume ${volumeId} not present in database or does not have a cover URL`,
+				);
 				return c.json(
 					{
 						code: 10001,
@@ -258,7 +279,7 @@ app.get(
 				500,
 			);
 		}
-	}
+	},
 );
 
 app.get("/search", zValidator("query", searchQuerySchema), async (c) => {

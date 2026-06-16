@@ -102,13 +102,15 @@ export async function searchNovels(
 			}
 		});
 		const haha = await solveSearchChallenge(a, b, c);
-		await fetchClient.setCookies([{
-			domain: "www.linovelib.com",
-			path: "/",
-			name: "haha",
-			value: haha,
-			maxAge: 900,
-		}]);
+		await fetchClient.setCookies([
+			{
+				domain: "www.linovelib.com",
+				path: "/",
+				name: "haha",
+				value: haha,
+				maxAge: 900,
+			},
+		]);
 		await new Promise((r) => setTimeout(r, 3000));
 		response = await fetchClient.text("https://www.linovelib.com/S6/", {
 			method: "POST",
@@ -169,8 +171,8 @@ export async function searchNovels(
 							headers: {
 								host: "www.linovelib.com",
 								referer: "https://www.linovelib.com/S6/",
-							}
-						}
+							},
+						},
 					)
 				).data;
 			}

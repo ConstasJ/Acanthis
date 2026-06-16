@@ -1,6 +1,11 @@
 import { existsSync, mkdirSync, rmSync, statSync } from "node:fs";
 import { dirname, resolve } from "node:path";
-import type { Chapter, Novel, NovelSearchResult, Volume } from "@acanthis-dec/core";
+import type {
+	Chapter,
+	Novel,
+	NovelSearchResult,
+	Volume,
+} from "@acanthis-dec/core";
 import { type Client, createClient } from "@libsql/client";
 import { and, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/libsql";
@@ -350,7 +355,7 @@ export class DatabaseService {
 				},
 				orderBy: {
 					id: "asc",
-				}
+				},
 			})
 			.execute();
 
