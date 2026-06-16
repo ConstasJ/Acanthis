@@ -190,10 +190,10 @@ export class LinovelibClient {
 		}
 		return await getChapter(
 			chapterId,
+			novelId,
 			this.novelChapterQueue,
 			this.fetchClient,
 			this.storage,
-			novelId,
 		);
 	}
 }

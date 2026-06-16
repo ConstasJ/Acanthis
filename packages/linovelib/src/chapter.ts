@@ -105,34 +105,13 @@ async function decrypt(
 
 export async function getChapter(
 	id: string,
+	novelId: string,
 	chapterQueue: NovelChapterQueue,
 	fetchClient: BrowserFetchClient,
 	storage?: StorageService,
-	novelId?: string,
 ): Promise<string | undefined> {
-	let novelID: string = novelId ?? "";
-	if (!storage && !novelID) {
-		throw new Error(
-			"Storage service is not provided, novelId must be provided to fetch chapter from website",
-		);
-	}
-	if (storage) {
-		const chapter = await storage.getChapterFromId("linovelib", id);
-		if (!chapter && !novelID) {
-			throw new Error(
-				`Chapter with id ${id} not found in storage, and novelId is not provided`,
-			);
-		}
-		novelID = novelID || chapter?.novelId || "";
-		if (chapter) {
-			const cachedContent = await storage.getNovelContent(novelID, chapter.id);
-			if (cachedContent) {
-				return cachedContent;
-			}
-		}
-	}
 	const firstPageHtml = await chapterQueue.fetchChapterPart(
-		`https://www.linovelib.com/novel/${novelID}/${id}.html`,
+		`https://www.linovelib.com/novel/${novelId}/${id}.html`,
 	);
 	let $ = cheerio.load(firstPageHtml);
 	const chapterName = $("h1").text().trim();
@@ -145,7 +124,7 @@ export async function getChapter(
 	let content = await decrypt(firstPageHtml, fetchClient, storage);
 	while (nextPageId?.includes(id)) {
 		const nextPageHtml = await chapterQueue.fetchChapterPart(
-			`https://www.linovelib.com/novel/${novelID}/${nextPageId}.html`,
+			`https://www.linovelib.com/novel/${novelId}/${nextPageId}.html`,
 		);
 		content += await decrypt(nextPageHtml, fetchClient, storage);
 		$ = cheerio.load(nextPageHtml);
@@ -157,8 +136,5 @@ export async function getChapter(
 			"";
 	}
 	content = `<h2>${chapterName}</h2>\n${transformContent(content)}`;
-	if (storage) {
-		await storage.setNovelContent(novelID, id, content);
-	}
 	return content;
 }
