@@ -164,6 +164,9 @@ export async function searchNovels(
 		while (true) {
 			const $2 = cheerio.load(currentPageHtml);
 			if ($2("a.next").length > 0) {
+				await new Promise((r) =>
+					setTimeout(r, Math.random() * (1000 - 500) + 500),
+				); // 避免请求过快
 				currentPageHtml = (
 					await fetchClient.text(
 						`https://www.linovelib.com${$2("a.next").attr("href")}`,
