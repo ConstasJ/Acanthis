@@ -85,7 +85,10 @@ async function getNovelVolumes(
 			if (chapterId === "TOBEDETERMINED" && chapterQueue) {
 				const nextChapterEl = chapterEls[index + 1];
 				if (nextChapterEl) {
-					chapterId = await parseChapterIdFromNextChapter(nextChapterEl, chapterQueue);
+					chapterId = await parseChapterIdFromNextChapter(
+						nextChapterEl,
+						chapterQueue,
+					);
 				}
 			}
 			chapters.push({
