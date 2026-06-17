@@ -2,5 +2,11 @@
 	"name": "@acanthis-dec/config-typescript",
 	"private": true,
 	"version": "1.0.0",
-	"description": "A shared config package of TypeScript compiler"
+	"description": "A shared config package of TypeScript compiler",
+	"devEngines": {
+		"packageManager": {
+			"name": "pnpm",
+			"onFail": "download"
+		}
+	}
 }

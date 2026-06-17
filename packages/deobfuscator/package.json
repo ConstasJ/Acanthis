@@ -5,7 +5,12 @@
 	"author": "ConstasJ <constasj@qq.com>",
 	"license": "MIT",
 	"type": "module",
-	"packageManager": "pnpm@11.6.0",
+	"devEngines": {
+		"packageManager": {
+			"name": "pnpm",
+			"onFail": "download"
+		}
+	},
 	"exports": {
 		".": "./src/index.ts"
 	},
