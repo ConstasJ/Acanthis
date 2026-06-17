@@ -42,10 +42,15 @@ jobs:
         run: pnpm run build
 
       - name: Publish packages
-        run: npx @changesets/cli publish
+        run: pnpm changeset publish
 
-      - name: Push back changeset tags
+      - name: Setup Git for pushing tags
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git push --tags
+
+      - name: Push tags
+        uses: ad-m/github-push-action@master
+        with:
+          force: true
+          tags: true
