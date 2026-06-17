@@ -39,7 +39,7 @@ jobs:
         with:
           repository: lexiforest/curl-impersonate
           latest: true
-          fileName: libcurl-impersonate-*-x86_64-linux-gnu.tar.gz
+          fileName: libcurl-impersonate-*.x86_64-linux-gnu.tar.gz
           out-file-path: libcurl-impersonate.tar.gz
 
       - name: Log in to GHCR
