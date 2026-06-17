@@ -30,7 +30,7 @@ jobs:
         with:
           repository: lexiforest/curl-impersonate
           latest: true
-          fileName: libcurl-impersonate-*-x86_64-linux-gnu.tar.gz
+          fileName: libcurl-impersonate-*.x86_64-linux-gnu.tar.gz
 
       - name: Log in to GHCR
         uses: docker/login-action@v4
