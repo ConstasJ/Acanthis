@@ -10,12 +10,15 @@
 	"scripts": {
 		"build": "turbo run build",
 		"dev": "turbo run dev",
+		"check-types": "turbo run check-types",
+		"test": "turbo run test",
+		"build:affected": "turbo run build --affected",
+		"check-types:affected": "turbo run check-types --affected",
+		"test:affected": "turbo run test --affected",
 		"format-and-lint": "biome check .",
 		"format-and-lint:fix": "biome check . --write",
 		"lint": "turbo run //#format-and-lint",
-		"lint:fix": "turbo run //#format-and-lint:fix",
-		"check-types": "turbo run check-types",
-		"test": "turbo run test"
+		"lint:fix": "turbo run //#format-and-lint:fix"
 	},
 	"repository": {
 		"type": "git",
