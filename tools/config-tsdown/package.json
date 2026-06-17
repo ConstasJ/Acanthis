@@ -4,12 +4,7 @@
 	"version": "1.0.0",
 	"description": "A shared config package of tsdown, using by libraries",
 	"type": "module",
-	"devEngines": {
-		"packageManager": {
-			"name": "pnpm",
-			"onFail": "download"
-		}
-	},
+	"packageManager": "pnpm@11.7.0",
 	"exports": {
 		".": {
 			"import": "./index.ts",
