@@ -16,6 +16,7 @@ import type { Logger } from "winston";
 import z from "zod";
 import { getChapter } from "./chapter";
 import { descrambleCoefficientsSchema } from "./coefficients";
+import { getNovelCoverUrl, getVolumeCoverUrl } from "./cover";
 import type { NovelUpdateInfo } from "./novel";
 import { NovelChapterQueue, NovelInfoQueue, SearchQueue } from "./queue";
 import { ensureValidSession } from "./session";
@@ -186,10 +187,45 @@ export class LinovelibClient {
 		return await this.searchQueue.searchNovels(keyword);
 	}
 
-	async getCover(url: string): Promise<BinaryResponse> {
+	async getNovelCover(id: string): Promise<BinaryResponse> {
+		if (this.options?.session.enabled && !this.isSessionValid) {
+			this.isSessionValid = await ensureValidSession(this.fetchClient, {
+				username: this.options.session.username,
+				password: this.options.session.password,
+			});
+		}
+		const coverUrl = await getNovelCoverUrl(id, this.fetchClient);
+		return await this.getCover(
+			coverUrl,
+			`https://www.linovelib.com/novel/${id}.html`,
+		);
+	}
+
+	async getVolumeCover(
+		novelId: string,
+		volumeId: string,
+	): Promise<BinaryResponse> {
+		if (this.options?.session.enabled && !this.isSessionValid) {
+			this.isSessionValid = await ensureValidSession(this.fetchClient, {
+				username: this.options.session.username,
+				password: this.options.session.password,
+			});
+		}
+		const coverUrl = await getVolumeCoverUrl(
+			volumeId,
+			novelId,
+			this.fetchClient,
+		);
+		return await this.getCover(
+			coverUrl,
+			`https://www.linovelib.com/novel/${novelId}/catalog`,
+		);
+	}
+
+	async getCover(url: string, referer?: string): Promise<BinaryResponse> {
 		return await this.fetchClient.binary(url, {
 			headers: {
-				Referer: "https://www.linovelib.com/",
+				Referer: referer || "https://www.linovelib.com/",
 			},
 		});
 	}

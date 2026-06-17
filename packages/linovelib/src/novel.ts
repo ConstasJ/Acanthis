@@ -8,7 +8,7 @@ import type { Element } from "domhandler";
 import { novelIdToCoverUrl } from "./cover";
 import type { NovelChapterQueue } from "./queue";
 
-function extractVolumesArray(catalog: string): Element[] {
+export function extractVolumesArray(catalog: string): Element[] {
 	const $ = cheerio.load(catalog);
 	const results: Element[] = [];
 	$("#volume-list div.volume").each((_, elem) => {
@@ -29,7 +29,7 @@ function processVolumeName(novelTitle: string, volumeName: string): string {
 	return volumeName.trim();
 }
 
-function parseVolumeOrChapterId(url: string): string {
+export function parseVolumeOrChapterId(url: string): string {
 	if (url.includes("javascript:cid(0)")) {
 		return "TOBEDETERMINED";
 	}
