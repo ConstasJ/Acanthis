@@ -16,7 +16,6 @@ import type { Logger } from "winston";
 import z from "zod";
 import { getChapter } from "./chapter";
 import { descrambleCoefficientsSchema } from "./coefficients";
-import { getCover } from "./cover";
 import type { NovelUpdateInfo } from "./novel";
 import { NovelChapterQueue, NovelInfoQueue, SearchQueue } from "./queue";
 import { ensureValidSession } from "./session";
@@ -185,10 +184,6 @@ export class LinovelibClient {
 			});
 		}
 		return await this.searchQueue.searchNovels(keyword);
-	}
-
-	async getNovelCover(novelId: string) {
-		return await getCover(novelId, this.fetchClient);
 	}
 
 	async getCover(url: string): Promise<BinaryResponse> {
