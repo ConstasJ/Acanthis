@@ -200,8 +200,22 @@ app.get(
 					return c.body(new Uint8Array(coverData.data));
 				}
 			} else {
+				const { data: coverData, url: coverUrl } = await linovelibClient.getNovelCover(novelId);
+				if (coverData) {
+					await storageService.setCoverData(
+						"novel",
+						coverUrl,
+						coverData.data,
+						coverData.mimeType,
+						"linovelib",
+						novelId,
+					);
+					c.header("Content-Type", coverData.mimeType);
+					c.header("Cache-Control", "public, max-age=86400");
+					return c.body(new Uint8Array(coverData.data));
+				}
 				logger.error(
-					`Novel ${novelId} not present in database or does not have a cover URL`,
+					`Novel ${novelId} not present in database or does not have a cover URL, and failed to fetch cover from source`,
 				);
 				return c.json(
 					{

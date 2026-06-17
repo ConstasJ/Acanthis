@@ -187,7 +187,7 @@ export class LinovelibClient {
 		return await this.searchQueue.searchNovels(keyword);
 	}
 
-	async getNovelCover(id: string): Promise<BinaryResponse> {
+	async getNovelCover(id: string): Promise<{ data: BinaryResponse; url: string }> {
 		if (this.options?.session.enabled && !this.isSessionValid) {
 			this.isSessionValid = await ensureValidSession(this.fetchClient, {
 				username: this.options.session.username,
@@ -195,16 +195,17 @@ export class LinovelibClient {
 			});
 		}
 		const coverUrl = await getNovelCoverUrl(id, this.fetchClient);
-		return await this.getCover(
+		const coverData = await this.getCover(
 			coverUrl,
 			`https://www.linovelib.com/novel/${id}.html`,
 		);
+		return { data: coverData, url: coverUrl };
 	}
 
 	async getVolumeCover(
 		novelId: string,
 		volumeId: string,
-	): Promise<BinaryResponse> {
+	): Promise<{ data: BinaryResponse; url: string }> {
 		if (this.options?.session.enabled && !this.isSessionValid) {
 			this.isSessionValid = await ensureValidSession(this.fetchClient, {
 				username: this.options.session.username,
@@ -216,10 +217,11 @@ export class LinovelibClient {
 			novelId,
 			this.fetchClient,
 		);
-		return await this.getCover(
+		const coverData = await this.getCover(
 			coverUrl,
 			`https://www.linovelib.com/novel/${novelId}/catalog`,
 		);
+		return { data: coverData, url: coverUrl };
 	}
 
 	async getCover(url: string, referer?: string): Promise<BinaryResponse> {
