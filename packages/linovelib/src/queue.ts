@@ -12,29 +12,19 @@ import { searchNovels } from "./search";
 
 /**
  * Simple backoff strategy for request rate limiting
- * - Normal desktop delay: 500-1000ms random
- * - Normal mobile delay: 2000-5000ms random
+ * - Normal delay: 500-1000ms random
  * - Failure delay: 8000ms (8 seconds)
  */
 class SimpleBackoff {
 	readonly NORMAL_DELAY_MIN = 500;
 	readonly NORMAL_DELAY_MAX = 1000;
-	readonly NORMAL_MOBILE_DELAY_MIN = 2000;
-	readonly NORMAL_MOBILE_DELAY_MAX = 5000;
 	readonly FAILURE_DELAY = 15000;
 
 	/**
 	 * Get delay for normal (successful) operation
 	 * @returns Random delay in range [500, 1000]ms. If isMobile is true, returns random delay in range [2000, 5000]ms
 	 */
-	getDelayForSuccess(isMobile: boolean = false): number {
-		if (isMobile) {
-			return (
-				this.NORMAL_MOBILE_DELAY_MIN +
-				Math.random() *
-					(this.NORMAL_MOBILE_DELAY_MAX - this.NORMAL_MOBILE_DELAY_MIN)
-			);
-		}
+	getDelayForSuccess(): number {
 		return (
 			this.NORMAL_DELAY_MIN +
 			Math.random() * (this.NORMAL_DELAY_MAX - this.NORMAL_DELAY_MIN)
@@ -65,6 +55,10 @@ export class SearchQueue {
 		});
 	}
 
+	private async _sleep(ms: number) {
+		return new Promise((resolve) => setTimeout(resolve, ms));
+	}
+
 	async searchNovels(keyword: string): Promise<NovelSearchResult[]> {
 		return await this.queue.add(async () => {
 			if (Date.now() - this.lastSearchTime < this.COOLDOWN_MS) {
@@ -72,7 +66,7 @@ export class SearchQueue {
 				this.logger?.debug(
 					`[SearchQueue] 搜索请求过快，等待 ${waitTime}ms 后重试`,
 				);
-				await new Promise((resolve) => setTimeout(resolve, waitTime));
+				await this._sleep(waitTime);
 			}
 			this.logger?.debug(`[SearchQueue] 开始搜索关键词 "${keyword}"`);
 			const results = await searchNovels(keyword, this.client);
@@ -90,6 +84,7 @@ export class NovelChapterQueue {
 	private client: BrowserFetchClient;
 	private backoff: SimpleBackoff;
 	private logger?: Logger | undefined;
+	private lastFetchTime = 0;
 
 	constructor(client: BrowserFetchClient, logger?: Logger) {
 		this.queue = new PQueue({ concurrency: 1 });
@@ -114,6 +109,12 @@ export class NovelChapterQueue {
 
 	async fetchChapterPart(url: string): Promise<string> {
 		return await this.queue.add(async () => {
+			const delay = this.backoff.getDelayForSuccess();
+			if (Date.now() - this.lastFetchTime < delay) {
+				const waitTime = delay - (Date.now() - this.lastFetchTime);
+				this.logger?.debug(`[NovelChapterQueue] 请求过快，等待 ${waitTime}ms`);
+				await this._sleep(waitTime);
+			}
 			const match = url.match(/\/novel\/(\d+)\/(\d+)(?:_(\d+))?\.html/);
 			if (!match) {
 				throw new Error(`Invalid chapter URL: ${url}`);
@@ -151,30 +152,11 @@ export class NovelChapterQueue {
 				},
 			};
 
-			let content = (await this.client.text(url, { retry })).data ?? "";
-			if (content.match(/沒有可閱讀的章節|没有可阅读的章节/i)) {
-				content = (
-					await this.client.text(url, {
-						profile: "chrome149-android",
-						retry: {
-							...retry,
-							minRetryDelayMs: this.backoff.NORMAL_MOBILE_DELAY_MIN,
-							maxRetryDelayMs: this.backoff.NORMAL_MOBILE_DELAY_MAX,
-						},
-					})
-				).data;
-				const delay = this.backoff.getDelayForSuccess(true);
-				this.logger?.debug(
-					`[NovelChapterQueue] 小说${novelId}-章节${chapterId}_${partId} 获取成功。下一次请求将在 ${delay.toFixed(0)}ms 后进行`,
-				);
-				await this._sleep(delay);
-				return content;
-			}
-			const delay = this.backoff.getDelayForSuccess();
+			const content = (await this.client.text(url, { retry })).data ?? "";
+			this.lastFetchTime = Date.now();
 			this.logger?.debug(
-				`[NovelChapterQueue] 小说${novelId}-章节${chapterId}_${partId} 获取成功。下一次请求将在 ${delay.toFixed(0)}ms 后进行`,
+				`[NovelChapterQueue] 小说${novelId}-章节${chapterId}_${partId} 获取成功。`,
 			);
-			await this._sleep(delay);
 			return content;
 		});
 	}
@@ -186,6 +168,7 @@ export class NovelInfoQueue {
 	private backoff: SimpleBackoff;
 	private chapterQueue: NovelChapterQueue;
 	private logger?: Logger | undefined;
+	private lastFetchTime = 0;
 
 	constructor(
 		client: BrowserFetchClient,
@@ -215,6 +198,12 @@ export class NovelInfoQueue {
 
 	async fetchNovelInfo(id: string): Promise<Novel> {
 		return await this.queue.add(async () => {
+			const delay = this.backoff.getDelayForSuccess();
+			if (Date.now() - this.lastFetchTime < delay) {
+				const waitTime = delay - (Date.now() - this.lastFetchTime);
+				this.logger?.debug(`[NovelInfoQueue] 请求过快，等待 ${waitTime}ms`);
+				await this._sleep(waitTime);
+			}
 			this.logger?.debug(`[NovelInfoQueue] 开始获取小说${id}的信息`);
 			const retry: RetryOptions = {
 				retries: 10,
@@ -251,17 +240,20 @@ export class NovelInfoQueue {
 			if (!novel) {
 				throw new Error(`无法获取小说信息: ${id}`);
 			}
-			const delay = this.backoff.getDelayForSuccess();
-			this.logger?.debug(
-				`[NovelInfoQueue] 小说${id} 信息获取成功。下一次请求将在 ${delay.toFixed(0)}ms 后进行`,
-			);
-			await this._sleep(delay);
+			this.logger?.debug(`[NovelInfoQueue] 小说${id} 信息获取成功。`);
+			this.lastFetchTime = Date.now();
 			return novel;
 		});
 	}
 
 	async fetchNovelUpdateInfo(id: string): Promise<NovelUpdateInfo | null> {
 		return await this.queue.add(async () => {
+			const delay = this.backoff.getDelayForSuccess();
+			if (Date.now() - this.lastFetchTime < delay) {
+				const waitTime = delay - (Date.now() - this.lastFetchTime);
+				this.logger?.debug(`[NovelInfoQueue] 请求过快，等待 ${waitTime}ms`);
+				await this._sleep(waitTime);
+			}
 			this.logger?.debug(
 				`[NovelInfoQueue] 开始获取小说${id}的更新信息（封面和章节数）`,
 			);
@@ -298,10 +290,10 @@ export class NovelInfoQueue {
 				);
 			} else {
 				this.logger?.debug(
-					`[NovelInfoQueue] 小说${id} 更新信息获取成功。下一次请求将在 ${this.backoff.getDelayForSuccess().toFixed(0)}ms 后进行`,
+					`[NovelInfoQueue] 小说${id} 更新信息获取成功。 封面: ${updateInfo.coverUrl}, 章节数: ${updateInfo.chapterCount}`,
 				);
 			}
-			await this._sleep(this.backoff.getDelayForSuccess());
+			this.lastFetchTime = Date.now();
 			return updateInfo;
 		});
 	}
