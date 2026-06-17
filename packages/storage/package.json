@@ -49,6 +49,7 @@
 		"typescript": "catalog:"
 	},
 	"publishConfig": {
+		"types": "./src/index.d.mts",
 		"exports": {
 			".": {
 				"import": "./dist/index.mjs",
