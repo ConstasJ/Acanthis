@@ -23,7 +23,7 @@ RUN apt update && apt install -y --no-install-recommends \
 RUN npm init -y && npm pkg set type=module && \
     npm install @libsql/client koffi isolated-vm
 
-COPY libcurl-impersonate*.tar.gz /
+COPY libcurl-impersonate*.tar.gz /libcurl-impersonate.tar.gz
 
 RUN mkdir -p /usr/local/lib/libcurl-impersonate && \
     tar -xzf /libcurl-impersonate.tar.gz -C /usr/local/lib/libcurl-impersonate && \
