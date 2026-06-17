@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - v*.*.*
+  workflow_dispatch:
 
 concurrency:
   group: npm-publish-${{ github.ref }}
@@ -32,8 +33,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Build packages
+        run: pnpm run build
+
       - name: Publish packages
-        run: pnpm changeset publish
+        run: pnpm exec changeset publish
 
       - name: Push back changeset tags
         run: |

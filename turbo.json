@@ -3,6 +3,7 @@
 	"tasks": {
 		"build": {
 			"dependsOn": ["^build"],
+			"inputs": ["src/**", "package.json", "tsconfig.json", "tsconfig.*.json", "build.ts", "tsdown.config.ts", "biome.json"],
 			"outputs": ["dist/**"]
 		},
 		"test": {
