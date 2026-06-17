@@ -1,6 +1,6 @@
 {
 	"name": "@acanthis-dec/storage",
-	"version": "0.0.1",
+	"version": "1.0.0",
 	"description": "The storage module of Athanthis project, providing abilities of local cache and persistent configs.",
 	"author": "ConstasJ <constasj@qq.com>",
 	"license": "MIT",
@@ -9,6 +9,12 @@
 	"exports": {
 		".": "./src/index.ts"
 	},
+	"files": [
+		"dist",
+		"package.json",
+		"README.md",
+		"README.zh-CN.md"
+	],
 	"scripts": {
 		"build": "tsdown",
 		"check-types": "tsc --noEmit"

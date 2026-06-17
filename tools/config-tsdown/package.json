@@ -1,7 +1,7 @@
 {
 	"name": "@acanthis-dec/config-tsdown",
 	"private": true,
-	"version": "0.0.1",
+	"version": "1.0.0",
 	"description": "A shared config package of tsdown, using by libraries",
 	"type": "module",
 	"exports": {
