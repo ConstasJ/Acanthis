@@ -1,5 +1,14 @@
 # @acanthis-dec/api-server
 
+## 1.0.1
+
+### Patch Changes
+
+- Updated dependencies
+  - @acanthis-dec/core@1.0.1
+  - @acanthis-dec/linovelib@1.0.1
+  - @acanthis-dec/storage@1.0.1
+
 ## 1.0.0
 
 ### Major Changes

@@ -1,6 +1,6 @@
 {
 	"name": "@acanthis-dec/browser-fetch",
-	"version": "1.0.0",
+	"version": "1.0.1",
 	"description": "A package of Acanthis project that provide ability to fake fetch as a browser, bypassing Cloudflare Turnstile with FlareSolverr, etc.",
 	"author": "ConstasJ <constasj@qq.com>",
 	"license": "MIT",
