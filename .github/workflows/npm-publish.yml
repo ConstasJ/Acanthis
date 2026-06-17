@@ -26,6 +26,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
+      - name: Setup Git for pushing tags
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
       - name: Set up pnpm
         uses: pnpm/action-setup@v6
 
@@ -43,11 +48,6 @@ jobs:
 
       - name: Publish packages
         run: pnpm changeset publish
-
-      - name: Setup Git for pushing tags
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Push tags
         uses: ad-m/github-push-action@master
