@@ -37,7 +37,7 @@ jobs:
         run: pnpm run build
 
       - name: Publish packages
-        run: pnpm exec changeset publish
+        run: npx @changesets/cli publish
 
       - name: Push back changeset tags
         run: |
