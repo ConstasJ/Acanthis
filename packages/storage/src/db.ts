@@ -488,13 +488,33 @@ export class DatabaseService {
 						.execute()
 				: null;
 
+		let novelId: number | null = null;
+		if (!novel) {
+			const result = await this.db
+				.insert(novels)
+				.values({
+					platform: metadata.platform ?? "",
+					platformId: metadata.novelId ?? "",
+					name: "",
+					coverUrl: metadata.originalUrl ?? "",
+					author: "",
+					summary: "",
+					status: "unknown",
+					updateAt: Date.now(),
+				})
+				.onConflictDoNothing()
+				.returning({ id: novels.id })
+				.get();
+			novelId = result?.id ?? null;
+		}
+
 		await this.db
 			.insert(novelCoverMetadata)
 			.values({
 				hash: metadata.hash,
 				contentType: metadata.contentType,
 				originalUrl: metadata.originalUrl,
-				novelId: novel?.id ?? null,
+				novelId: novel?.id ?? novelId ?? null,
 			})
 			.onConflictDoNothing()
 			.run();
