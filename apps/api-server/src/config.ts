@@ -113,7 +113,7 @@ export function getConfig(): Config {
 		}
 		const envConfig: Record<string, unknown> = {
 			env,
-			host: process.env.HOST ?? `http://localhost:${process.env.PORT ?? 5301}`,
+			host: process.env.HOST,
 			listenHost: process.env.LISTEN_HOST,
 			port: process.env.PORT ? parseInt(process.env.PORT, 10) : undefined,
 			data: {
