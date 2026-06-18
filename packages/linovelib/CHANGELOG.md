@@ -1,5 +1,15 @@
 # @acanthis-dec/linovelib
 
+## 1.0.4
+
+### Patch Changes
+
+- 07ff2b5: 重构 getNovelVolumes，引入并行机制以充分利用队列能力
+- 1e4b6f1: 将 getNovelCover 的 URL 获取改为直接根据规则拼接
+- Updated dependencies [10ea62d]
+  - @acanthis-dec/browser-fetch@1.0.3
+  - @acanthis-dec/storage@1.0.4
+
 ## 1.0.3
 
 ### Patch Changes

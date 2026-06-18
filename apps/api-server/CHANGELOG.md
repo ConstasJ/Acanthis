@@ -1,5 +1,15 @@
 # @acanthis-dec/api-server
 
+## 1.0.4
+
+### Patch Changes
+
+- 3dfabee: 针对 api-server 的设置和输出格式进行调整，确保正常工作
+- Updated dependencies [07ff2b5]
+- Updated dependencies [1e4b6f1]
+  - @acanthis-dec/linovelib@1.0.4
+  - @acanthis-dec/storage@1.0.4
+
 ## 1.0.3
 
 ### Patch Changes

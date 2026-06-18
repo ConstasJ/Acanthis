@@ -1,6 +1,6 @@
 {
 	"name": "@acanthis-dec/api-server",
-	"version": "1.0.3",
+	"version": "1.0.4",
 	"private": true,
 	"description": "An API server for Acanthis, providing API endpoints for interacting with all supported sites.",
 	"author": "ConstasJ <constasj@qq.com>",
