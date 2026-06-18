@@ -187,7 +187,9 @@ export class LinovelibClient {
 		return await this.searchQueue.searchNovels(keyword);
 	}
 
-	async getNovelCover(id: string): Promise<{ data: BinaryResponse; url: string }> {
+	async getNovelCover(
+		id: string,
+	): Promise<{ data: BinaryResponse; url: string }> {
 		if (this.options?.session.enabled && !this.isSessionValid) {
 			this.isSessionValid = await ensureValidSession(this.fetchClient, {
 				username: this.options.session.username,

@@ -200,7 +200,8 @@ app.get(
 					return c.body(new Uint8Array(coverData.data));
 				}
 			} else {
-				const { data: coverData, url: coverUrl } = await linovelibClient.getNovelCover(novelId);
+				const { data: coverData, url: coverUrl } =
+					await linovelibClient.getNovelCover(novelId);
 				if (coverData) {
 					await storageService.setCoverData(
 						"novel",
