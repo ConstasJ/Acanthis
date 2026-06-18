@@ -1,4 +1,4 @@
-import type { Novel, NovelSearchResult } from "@acanthis-dec/core";
+import type { Novel, NovelSearchResult, NovelStatus } from "@acanthis-dec/core";
 import type { LinovelibClient } from "@acanthis-dec/linovelib";
 import type { LNReaderNovel, LNReaderNovelItem, OutputStyle } from "./types";
 
@@ -14,6 +14,16 @@ export function transformOutputStyleForNovel(
 					path: chapter.id,
 				})),
 			);
+			const novelStatusTransformer = (status: NovelStatus) => {
+				switch (status) {
+					case "ongoing":
+						return "Ongoing";
+					case "completed":
+						return "Completed";
+					default:
+						return "Unknown";
+				}
+			};
 			const lnReaderNovel: LNReaderNovel = {
 				name: novel.title,
 				path: novel.id,
@@ -21,7 +31,7 @@ export function transformOutputStyleForNovel(
 				genres: novel.genres?.join(","),
 				summary: novel.summary,
 				author: novel.author,
-				status: novel.status,
+				status: novelStatusTransformer(novel.status),
 				chapters,
 			};
 			return lnReaderNovel;
