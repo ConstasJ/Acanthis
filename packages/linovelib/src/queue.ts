@@ -64,7 +64,7 @@ export class SearchQueue {
 			if (Date.now() - this.lastSearchTime < this.COOLDOWN_MS) {
 				const waitTime = this.COOLDOWN_MS - (Date.now() - this.lastSearchTime);
 				this.logger?.debug(
-					`[SearchQueue] 搜索请求过快，等待 ${waitTime}ms 后重试`,
+					`[SearchQueue] 搜索请求过快，等待 ${Math.floor(waitTime)}ms 后重试`,
 				);
 				await this._sleep(waitTime);
 			}
@@ -112,7 +112,9 @@ export class NovelChapterQueue {
 			const delay = this.backoff.getDelayForSuccess();
 			if (Date.now() - this.lastFetchTime < delay) {
 				const waitTime = delay - (Date.now() - this.lastFetchTime);
-				this.logger?.debug(`[NovelChapterQueue] 请求过快，等待 ${waitTime}ms`);
+				this.logger?.debug(
+					`[NovelChapterQueue] 请求过快，等待 ${Math.floor(waitTime)}ms`,
+				);
 				await this._sleep(waitTime);
 			}
 			const match = url.match(/\/novel\/(\d+)\/(\d+)(?:_(\d+))?\.html/);
@@ -135,7 +137,7 @@ export class NovelChapterQueue {
 				onFailedAttempt: async (ctx) => {
 					if (ctx.error instanceof CloudflareBlockError) {
 						this.logger?.warn(
-							`[NovelChapterQueue] 请求被 Cloudflare 阻挡，错误信息: ${ctx.error.message}。正在等待 ${this.backoff.FAILURE_DELAY / 1000}s 后重试...`,
+							`[NovelChapterQueue] 请求被 Cloudflare 阻挡，错误信息: ${ctx.error.message}。正在等待 ${Math.floor(this.backoff.FAILURE_DELAY / 1000)}s 后重试...`,
 						);
 						await this._sleep(this.backoff.FAILURE_DELAY);
 					}
@@ -201,7 +203,9 @@ export class NovelInfoQueue {
 			const delay = this.backoff.getDelayForSuccess();
 			if (Date.now() - this.lastFetchTime < delay) {
 				const waitTime = delay - (Date.now() - this.lastFetchTime);
-				this.logger?.debug(`[NovelInfoQueue] 请求过快，等待 ${waitTime}ms`);
+				this.logger?.debug(
+					`[NovelInfoQueue] 请求过快，等待 ${Math.floor(waitTime)}ms`,
+				);
 				await this._sleep(waitTime);
 			}
 			this.logger?.debug(`[NovelInfoQueue] 开始获取小说${id}的信息`);
@@ -214,7 +218,7 @@ export class NovelInfoQueue {
 				onFailedAttempt: async (ctx) => {
 					if (ctx.error instanceof CloudflareBlockError) {
 						this.logger?.warn(
-							`[NovelInfoQueue] 请求被 Cloudflare 阻挡，错误信息: ${ctx.error.message}。正在等待 ${this.backoff.FAILURE_DELAY / 1000}s 后重试...`,
+							`[NovelInfoQueue] 请求被 Cloudflare 阻挡，错误信息: ${ctx.error.message}。正在等待 ${Math.floor(this.backoff.FAILURE_DELAY / 1000)}s 后重试...`,
 						);
 						await this._sleep(this.backoff.FAILURE_DELAY);
 					}
@@ -251,7 +255,9 @@ export class NovelInfoQueue {
 			const delay = this.backoff.getDelayForSuccess();
 			if (Date.now() - this.lastFetchTime < delay) {
 				const waitTime = delay - (Date.now() - this.lastFetchTime);
-				this.logger?.debug(`[NovelInfoQueue] 请求过快，等待 ${waitTime}ms`);
+				this.logger?.debug(
+					`[NovelInfoQueue] 请求过快，等待 ${Math.floor(waitTime)}ms`,
+				);
 				await this._sleep(waitTime);
 			}
 			this.logger?.debug(
@@ -266,7 +272,7 @@ export class NovelInfoQueue {
 				onFailedAttempt: async (ctx) => {
 					if (ctx.error instanceof CloudflareBlockError) {
 						this.logger?.warn(
-							`[NovelInfoQueue] 请求被 Cloudflare 阻挡，错误信息: ${ctx.error.message}。正在等待 ${this.backoff.FAILURE_DELAY / 1000}s 后重试...`,
+							`[NovelInfoQueue] 请求被 Cloudflare 阻挡，错误信息: ${ctx.error.message}。正在等待 ${Math.floor(this.backoff.FAILURE_DELAY / 1000)}s 后重试...`,
 						);
 						await this._sleep(this.backoff.FAILURE_DELAY);
 					}
