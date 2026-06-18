@@ -12,6 +12,7 @@
 		"dev": "turbo run dev",
 		"check-types": "turbo run check-types",
 		"test": "turbo run test",
+		"release": "pnpm run build && changeset publish",
 		"build:affected": "turbo run build --affected",
 		"check-types:affected": "turbo run check-types --affected",
 		"test:affected": "turbo run test --affected",

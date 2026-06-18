@@ -2,13 +2,12 @@ name: Publish npm packages
 
 on:
   push:
-    tags:
-      - v*.*.*
+    branches:
+      - master
   workflow_dispatch:
 
 concurrency:
-  group: npm-publish-${{ github.ref }}
-  cancel-in-progress: false
+  group: release-${{ github.ref }}
 
 permissions:
   id-token: write  # Required for OIDC
@@ -43,14 +42,7 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build packages
-        run: pnpm run build
-
-      - name: Publish packages
-        run: pnpm changeset publish
-
-      - name: Push tags
-        uses: ad-m/github-push-action@master
+      - name: Create release
+        uses: changesets/action@v1
         with:
-          force: true
-          tags: true
+          publish: pnpm release

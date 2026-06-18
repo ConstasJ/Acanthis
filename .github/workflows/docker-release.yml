@@ -3,7 +3,7 @@ name: Docker Release
 on:
   push:
     tags:
-      - v*.*.*
+      - '@acanthis-dec/api-server@*.*.*'
 
 concurrency:
   group: docker-release-${{ github.ref }}
@@ -21,7 +21,11 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-
+      
+      - name: Get Version from packages.json
+        id: version
+        run: echo "VERSION=v$(jq -r '.version' apps/api-server/package.json)" >> $GITHUB_OUTPUT
+  
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
 
@@ -53,9 +57,9 @@ jobs:
             ghcr.io/constasj/acanthis-api-server
             constasj0721/acanthis-api-server
           tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
+            type=semver,pattern={{version}},value=${{ steps.version.outputs.VERSION }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ steps.version.outputs.VERSION }}
+            type=semver,pattern={{major}},value=${{ steps.version.outputs.VERSION }}
             type=raw,value=latest
 
       - name: Build and push Docker image
