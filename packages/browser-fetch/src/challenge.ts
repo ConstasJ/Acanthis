@@ -40,7 +40,10 @@ export function detectCloudflareBlock(
 	statusCode: number,
 	body: string,
 ): boolean {
-	return statusCode === 403 && body.includes("Attention Required!");
+	return (
+		(statusCode === 403 && body.includes("Attention Required!")) ||
+		statusCode === 429
+	);
 }
 
 export async function solveCloudflareChallenge(
