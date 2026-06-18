@@ -372,19 +372,19 @@ export class BrowserFetchClient {
 			maxTimeout: retries.maxRetryDelayMs ?? 10000,
 			randomize: retries.randomize ?? true,
 			factor: retries.factor ?? 2,
-			onFailedAttempt: (ctx) => {
+			onFailedAttempt: async (ctx) => {
 				if (retries.onFailedAttempt) {
-					retries.onFailedAttempt(ctx);
+					await retries.onFailedAttempt(ctx);
 				}
 			},
-			shouldConsumeRetry: (ctx) => {
+			shouldConsumeRetry: async (ctx) => {
 				if (retries.shouldConsumeRetry) {
-					return retries.shouldConsumeRetry(ctx);
+					return await retries.shouldConsumeRetry(ctx);
 				} else return true;
 			},
-			shouldRetry: (ctx) => {
+			shouldRetry: async (ctx) => {
 				if (retries.shouldRetry) {
-					return retries.shouldRetry(ctx);
+					return await retries.shouldRetry(ctx);
 				} else {
 					return defaultRetryPolicy(ctx);
 				}
