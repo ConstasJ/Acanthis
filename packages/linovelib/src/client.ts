@@ -16,7 +16,7 @@ import type { Logger } from "winston";
 import z from "zod";
 import { getChapter } from "./chapter";
 import { descrambleCoefficientsSchema } from "./coefficients";
-import { getNovelCoverUrl, getVolumeCoverUrl } from "./cover";
+import { getVolumeCoverUrl, novelIdToCoverUrl } from "./cover";
 import type { NovelUpdateInfo } from "./novel";
 import { NovelChapterQueue, NovelInfoQueue, SearchQueue } from "./queue";
 import { ensureValidSession } from "./session";
@@ -196,7 +196,7 @@ export class LinovelibClient {
 				password: this.options.session.password,
 			});
 		}
-		const coverUrl = await getNovelCoverUrl(id, this.fetchClient);
+		const coverUrl = await novelIdToCoverUrl(id);
 		const coverData = await this.getCover(
 			coverUrl,
 			`https://www.linovelib.com/novel/${id}.html`,
