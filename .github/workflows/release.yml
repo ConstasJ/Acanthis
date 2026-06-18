@@ -1,10 +1,9 @@
-name: Publish npm packages
+name: Release packages
 
 on:
   push:
     branches:
       - master
-  workflow_dispatch:
 
 concurrency:
   group: release-${{ github.ref }}
@@ -15,16 +14,25 @@ permissions:
   pull-requests: write
 
 jobs:
-  publish:
-    name: Publish npm packages
+  release:
+    name: Release packages
     runs-on: ubuntu-latest
     env:
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
       TURBO_TEAM: ${{ vars.TURBO_TEAM }}
     
     steps:
+      - name: Create GitHub App token
+        uses: actions/create-github-app-token@v3
+        id: app-token
+        with:
+          client-id: ${{ vars.BOT_CLIENT_ID }}
+          private-key: ${{ secrets.BOT_PRIVATE_KEY }}
+      
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          token: ${{ steps.app-token.outputs.token }}
 
       - name: Setup Git for pushing tags
         run: |

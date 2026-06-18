@@ -3,7 +3,8 @@ name: Docker Release
 on:
   push:
     tags:
-      - '@acanthis-dec/api-server@*.*.*'
+      - '@acanthis-dec/api-server@*'
+  workflow_dispatch:
 
 concurrency:
   group: docker-release-${{ github.ref }}
