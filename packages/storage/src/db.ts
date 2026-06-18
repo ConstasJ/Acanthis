@@ -496,6 +496,7 @@ export class DatabaseService {
 				originalUrl: metadata.originalUrl,
 				novelId: novel?.id ?? null,
 			})
+			.onConflictDoNothing()
 			.run();
 	}
 
@@ -555,6 +556,7 @@ export class DatabaseService {
 				originalUrl: metadata.originalUrl,
 				volumeId: volume?.id ?? null,
 			})
+			.onConflictDoNothing()
 			.run();
 	}
 
