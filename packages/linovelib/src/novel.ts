@@ -29,6 +29,11 @@ function processVolumeName(novelTitle: string, volumeName: string): string {
 	return volumeName.trim();
 }
 
+interface FixTask {
+	chapter: Chapter; // 引用待修改的章节对象
+	nextChapterEl: Element; // 依赖的下一个章节 DOM 节点
+}
+
 export function parseVolumeOrChapterId(url: string): string {
 	if (url.includes("javascript:cid(0)")) {
 		return "TOBEDETERMINED";
@@ -64,48 +69,111 @@ async function getNovelVolumes(
 ): Promise<Volume[]> {
 	const catalogHtml = await fetchClient.text(url, { retry });
 	const volumeEls = extractVolumesArray(catalogHtml.data);
+
 	const volumes: Volume[] = [];
-	const chapterElements: Element[] = [];
-	for (const volumeEl of volumeEls) {
-		const volumeEl$ = cheerio.load(volumeEl);
-		const volumeName = processVolumeName(title, volumeEl$("h2").text());
-		const volumeId = parseVolumeOrChapterId(
-			volumeEl$("h2 a").attr("href") ?? "",
-		);
-		const volumeCover: string =
-			volumeEl$("a.volume-cover img").attr("data-original") ?? "";
-		const chapterEls = volumeEl$("ul.chapter-list li a").toArray();
+	const fixTasks: FixTask[] = [];
+
+	// --- 第一步：同步解析整个 DOM 树，建立完整的目录结构 ---
+	// 预先将所有的 volumeEl 加载好，方便跨卷时能够安全地索引
+	const parsedVolumes = volumeEls.map((el) => {
+		const $ = cheerio.load(el);
+		return {
+			$,
+			volumeName: processVolumeName(title, $("h2").text()),
+			volumeId: parseVolumeOrChapterId($("h2 a").attr("href") ?? ""),
+			volumeCover: $("a.volume-cover img").attr("data-original") ?? "",
+			chapterEls: $("ul.chapter-list li a").toArray(),
+		};
+	});
+
+	for (let vIndex = 0; vIndex < parsedVolumes.length; vIndex++) {
+		const vData = parsedVolumes[vIndex] as {
+			$: cheerio.CheerioAPI;
+			volumeName: string;
+			volumeId: string;
+			volumeCover: string;
+			chapterEls: Element[];
+		};
 		const chapters: Chapter[] = [];
-		for (const [index, chapterEl] of chapterEls.entries()) {
-			chapterElements.push(chapterEl);
-			const chapterEl$ = cheerio.load(chapterEl);
-			const chapterName = chapterEl$.text().trim();
-			const chapterPath = chapterEl.attribs.href ?? "";
-			let chapterId = parseVolumeOrChapterId(chapterPath);
-			if (chapterId === "TOBEDETERMINED" && chapterQueue) {
-				const nextChapterEl = chapterEls[index + 1];
-				if (nextChapterEl) {
-					chapterId = await parseChapterIdFromNextChapter(
-						nextChapterEl,
-						chapterQueue,
-					);
-				}
+
+		for (let cIndex = 0; cIndex < vData.chapterEls.length; cIndex++) {
+			const chapterEl = vData.chapterEls[cIndex];
+			if (!chapterEl) {
+				continue; // 这个章节节点不存在，跳过
 			}
-			chapters.push({
+			const $chapter = cheerio.load(chapterEl);
+
+			const chapterName = $chapter.text().trim();
+			const chapterPath = chapterEl.attribs.href ?? "";
+			const chapterId = parseVolumeOrChapterId(chapterPath);
+
+			const chapterObj: Chapter = {
 				id: chapterId,
 				platform: "linovelib",
 				title: chapterName,
-				volumeId,
-			});
+				volumeId: vData.volumeId,
+			};
+			chapters.push(chapterObj);
+
+			// 如果需要后续修复，寻找它的下一个章节节点
+			if (chapterId === "TOBEDETERMINED" && chapterQueue) {
+				let nextChapterEl: Element | null = null;
+
+				if (cIndex < vData.chapterEls.length - 1) {
+					// 情况 A：本卷还有下一章
+					const potentialNextEl = vData.chapterEls[cIndex + 1];
+					if (potentialNextEl) {
+						nextChapterEl = potentialNextEl;
+					}
+				} else if (vIndex < parsedVolumes.length - 1) {
+					// 情况 B：本卷结束了，去找下一卷的第一章
+					const nextVolData = parsedVolumes[vIndex + 1];
+					if (nextVolData) {
+						if (nextVolData.chapterEls.length > 0) {
+							const potentialNextEl = nextVolData.chapterEls[0];
+							if (potentialNextEl) {
+								nextChapterEl = potentialNextEl;
+							}
+						}
+					}
+				}
+
+				// 如果找到了合法的下一章，扔进任务清单
+				if (nextChapterEl) {
+					fixTasks.push({
+						chapter: chapterObj, // JS 对象引用，后续直接修改 id
+						nextChapterEl,
+					});
+				}
+			}
 		}
+
 		volumes.push({
-			id: volumeId,
+			id: vData.volumeId,
 			platform: "linovelib",
-			title: volumeName,
-			coverUrl: volumeCover,
+			title: vData.volumeName,
+			coverUrl: vData.volumeCover,
 			chapters: chapters,
 		});
 	}
+
+	// --- 第二步：集中并发/队列处理，回填数据 ---
+	if (fixTasks.length > 0 && chapterQueue) {
+		// 使用 Promise.all 配合你的 p-queue (concurrency=1)
+		await Promise.all(
+			fixTasks.map(async (task) => {
+				// 此时推入 MQ，由 MQ 内部控制并发率和流控
+				const realId = await parseChapterIdFromNextChapter(
+					task.nextChapterEl,
+					chapterQueue,
+				);
+				if (realId) {
+					task.chapter.id = realId; // 利用引用直接修改 volumes 数组内部的值
+				}
+			}),
+		);
+	}
+
 	return volumes;
 }
 
