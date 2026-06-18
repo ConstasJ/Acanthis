@@ -1,6 +1,6 @@
 {
 	"name": "@acanthis-dec/linovelib",
-	"version": "1.0.1",
+	"version": "1.0.2",
 	"description": "An Acanthis adapter for Linovelib site.",
 	"author": "ConstasJ <constasj@qq.com>",
 	"license": "MIT",

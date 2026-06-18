@@ -1,6 +1,6 @@
 {
 	"name": "@acanthis-dec/deobfuscator",
-	"version": "1.0.1",
+	"version": "1.0.2",
 	"description": "A package of Acanthis project that provide ability to detect obfuscated JavaScript code and deobfuscate it.",
 	"author": "ConstasJ <constasj@qq.com>",
 	"license": "MIT",

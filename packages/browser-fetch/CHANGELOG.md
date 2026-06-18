@@ -1,5 +1,11 @@
 # @acanthis-dec/browser-fetch
 
+## 1.0.2
+
+### Patch Changes
+
+- 51130dc: Fix published `types` metadata to point at generated declaration files.
+
 ## 1.0.1
 
 ### Patch Changes

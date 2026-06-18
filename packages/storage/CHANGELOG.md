@@ -1,5 +1,14 @@
 # @acanthis-dec/storage
 
+## 1.0.2
+
+### Patch Changes
+
+- 51130dc: Fix published `types` metadata to point at generated declaration files.
+- Updated dependencies [51130dc]
+  - @acanthis-dec/browser-fetch@1.0.2
+  - @acanthis-dec/core@1.0.2
+
 ## 1.0.1
 
 ### Patch Changes

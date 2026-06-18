@@ -1,5 +1,20 @@
 # @acanthis-dec/linovelib
 
+## 1.0.2
+
+### Patch Changes
+
+- 3901772: 就封面获取相关功能进行了一轮重构
+  - 删去了无用的 LinovelibClient.getNovelCover 方法和 getCover 函数
+  - 新增了 getNovelCoverUrl 和 getVolumeCoverUrl 函数，直接从小说页面获取小说封面 URL，从小说目录获取卷封面 URL
+  - 为 LinovelibClient 新增了 getNovelCover 和 getVolumeCover 两个方法，基于上面两个函数封装成可以一次性获取 URL 和数据的方法
+- 51130dc: Fix published `types` metadata to point at generated declaration files.
+- Updated dependencies [51130dc]
+  - @acanthis-dec/browser-fetch@1.0.2
+  - @acanthis-dec/core@1.0.2
+  - @acanthis-dec/deobfuscator@1.0.2
+  - @acanthis-dec/storage@1.0.2
+
 ## 1.0.1
 
 ### Patch Changes
