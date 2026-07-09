@@ -42,7 +42,7 @@ const client = new LinovelibClient(
 			timeoutMs: 60_000,
 			sessionId: "acanthis-linovelib-client",
 		},
-		impersonate: { enabled: true, profile: "chrome149-linux" },
+		impersonate: { enabled: true, profile: "chrome-latest-linux" },
 		cookies: { type: "database" },
 	},
 	storage,
@@ -69,7 +69,7 @@ const chapterHtml = await client.getChapter("example-novel-id", "example-chapter
 
 - `session`：默认关闭；启用时提供用户名与密码，用于需要已知会话的流程。
 - `flareSolverr`：默认启用，默认地址为 `http://localhost:8191`。
-- `impersonate`：默认启用，默认画像为 `chrome149-linux`。
+- `impersonate`：默认启用，默认画像为 `chrome-latest-linux`。
 - `cookies`：支持 `memory`、`file`、`database`；database Cookie 需要 `StorageService`。
 - `proxy`：可选 HTTP(S) 代理地址。
 

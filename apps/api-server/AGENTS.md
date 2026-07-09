@@ -13,7 +13,7 @@ This directory is the deployable HTTP service for Acanthis. It wires configurati
 
 ## Configuration and services
 
-- Defaults include port `5301`, localhost listen host, data/log/cookie paths under local data directories, impersonation profile `chrome149-linux`, and FlareSolverr enabled with a default local endpoint.
+- Defaults include port `5301`, localhost listen host, data/log/cookie paths under local data directories, impersonation profile `chrome-latest-linux`, and FlareSolverr enabled with a default local endpoint.
 - Cookie storage supports memory, file, and database modes. Database cookie mode requires the shared `StorageService` passed into linovelib.
 - Logger behavior is centralized in `src/services.ts`; route code should log through the configured logger, not ad-hoc console calls.
 - Keep Hono route schemas close to route definitions so request surface changes remain visible.

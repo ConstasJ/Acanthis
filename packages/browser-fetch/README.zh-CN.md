@@ -31,7 +31,7 @@ import { BrowserFetchClient } from "@acanthis-dec/browser-fetch";
 import { BrowserFetchClient, FileCookiesStore } from "@acanthis-dec/browser-fetch";
 
 const client = new BrowserFetchClient({
-	profile: "chrome149-linux",
+	profile: "chrome-latest-linux",
 	cookieStore: { type: "file", path: "cookies.json" },
 	flareSolverr: {
 		enabled: true,

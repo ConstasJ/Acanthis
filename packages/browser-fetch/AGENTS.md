@@ -9,7 +9,7 @@ This package provides the browser-like HTTP layer used by linovelib. It handles 
 - `src/client.ts` contains `BrowserFetchClient` and most request/challenge orchestration.
 - `src/transport/` contains the impersonation transport integration around `@constasj/impers`.
 - `src/cookies/` contains memory, file, and database cookie store implementations plus shared cookie types.
-- `src/profiles.ts` defines browser profile choices such as the default `chrome149-linux`.
+- `src/profiles.ts` defines browser profile choices such as the default `chrome-latest-linux`.
 - `src/errors.ts`, `src/schema.ts`, and `src/types.ts` define the public typed surface.
 - `src/index.ts` is the package export surface.
 

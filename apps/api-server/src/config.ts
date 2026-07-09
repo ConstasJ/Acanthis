@@ -32,7 +32,7 @@ export const ConfigSchema = z.object({
 			enabled: z.boolean().default(true).describe("是否启用浏览器指纹模拟"),
 			profile: z
 				.enum(browserProfileNames)
-				.default("chrome149-linux")
+				.default("chrome-latest-linux")
 				.describe("浏览器指纹配置"),
 		})
 		.describe("浏览器指纹模拟配置"),

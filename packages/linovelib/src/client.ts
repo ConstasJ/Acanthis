@@ -84,7 +84,7 @@ export class LinovelibClient {
 			},
 			impersonate: {
 				enabled: true,
-				profile: "chrome149-linux",
+				profile: "chrome-latest-linux",
 			},
 			cookies: {
 				type: "memory",

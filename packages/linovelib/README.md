@@ -42,7 +42,7 @@ const client = new LinovelibClient(
 			timeoutMs: 60_000,
 			sessionId: "acanthis-linovelib-client",
 		},
-		impersonate: { enabled: true, profile: "chrome149-linux" },
+		impersonate: { enabled: true, profile: "chrome-latest-linux" },
 		cookies: { type: "database" },
 	},
 	storage,
@@ -69,7 +69,7 @@ const chapterHtml = await client.getChapter("example-novel-id", "example-chapter
 
 - `session`: disabled by default; when enabled, provide username and password for flows that need a known session.
 - `flareSolverr`: enabled by default with `http://localhost:8191`.
-- `impersonate`: enabled by default with `chrome149-linux`.
+- `impersonate`: enabled by default with `chrome-latest-linux`.
 - `cookies`: `memory`, `file`, or `database`; database cookies require `StorageService`.
 - `proxy`: optional HTTP(S) proxy URL.
 

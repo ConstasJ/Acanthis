@@ -40,7 +40,7 @@ import {
 } from "./utils";
 
 const defaultOptions: BrowserFetchClientOptions = {
-	profile: "chrome149-linux",
+	profile: "chrome-latest-linux",
 	cookieStore: {
 		type: "memory",
 	},
@@ -90,7 +90,7 @@ export class BrowserFetchClient {
 					? parseBrowserProfile(options.profile)
 					: options.profile;
 		} else {
-			this.profile = parseBrowserProfile("chrome149-linux");
+			this.profile = parseBrowserProfile("chrome-latest-linux");
 		}
 		// Initialize cookie store based on options
 		switch (options.cookieStore?.type) {
