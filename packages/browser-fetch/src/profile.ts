@@ -49,32 +49,42 @@ const platformCommonHeaders = {
 		"Sec-Ch-Ua-Platform": '"Android"',
 		"Sec-Ch-Ua-Mobile": "?1",
 		...commonHeaders,
-	}
+	},
 };
 
 const platformUASpecific = {
 	linux: "X11; Linux x86_64",
 	windows: "Windows NT 10.0; Win64; x64",
 	android: "Linux; Android 10; K",
-}
+};
 
 const versionUATemplate = {
 	"149": {
-		"User-Agent": "Mozilla/5.0 ({platform}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
-		"Sec-Ch-Ua": '"Google Chrome";v="149", "Chromium";v="149", "Not)A;Brand";v="24"',
+		"User-Agent":
+			"Mozilla/5.0 ({platform}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+		"Sec-Ch-Ua":
+			'"Google Chrome";v="149", "Chromium";v="149", "Not)A;Brand";v="24"',
 	},
 	"150": {
-		"User-Agent": "Mozilla/5.0 ({platform}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36",
-		"Sec-Ch-Ua": '"Google Chrome";v="150", "Chromium";v="150", "Not)A;Brand";v="24"',
-	}
-}
+		"User-Agent":
+			"Mozilla/5.0 ({platform}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36",
+		"Sec-Ch-Ua":
+			'"Google Chrome";v="150", "Chromium";v="150", "Not)A;Brand";v="24"',
+	},
+};
 
-function generateUA(version: keyof typeof versionUATemplate, platform: "linux" | "windows" | "android") {
+function generateUA(
+	version: keyof typeof versionUATemplate,
+	platform: "linux" | "windows" | "android",
+) {
 	const uaTemplate = versionUATemplate[version];
 	if (!uaTemplate) {
 		throw new Error(`Unknown user agent template for version: ${version}`);
 	}
-	return uaTemplate["User-Agent"].replace("{platform}", platformUASpecific[platform]);
+	return uaTemplate["User-Agent"].replace(
+		"{platform}",
+		platformUASpecific[platform],
+	);
 }
 
 export const browserProfiles: Record<BrowserProfileName, BrowserProfile> = {
