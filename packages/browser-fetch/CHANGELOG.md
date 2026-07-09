@@ -1,5 +1,11 @@
 # @acanthis-dec/browser-fetch
 
+## 1.0.4
+
+### Patch Changes
+
+- 7c60833: 新增了 Chrome 150 的 porfile，同时重构了 profile 体系
+
 ## 1.0.3
 
 ### Patch Changes
