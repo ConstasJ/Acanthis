@@ -14,3 +14,4 @@ export type {
 	NovelStatus,
 	Volume,
 } from "./types";
+export { runTimeout } from "./utils";
