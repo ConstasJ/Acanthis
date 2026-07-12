@@ -72,7 +72,7 @@ const defaultOptions: BrowserFetchClientOptions = {
 
 export class BrowserFetchClient {
 	private profile: BrowserProfile;
-	private cookieStore: CookiesStore;
+	cookieStore: CookiesStore;
 	private flareSolverrClient: FlareSolverrClient | null = null;
 	private proxy: string | undefined = undefined;
 	private challengeSolver: ChallengeOptions | null = null;
