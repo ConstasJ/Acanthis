@@ -2,7 +2,7 @@ import { webcrypto } from "node:crypto";
 import type { BrowserFetchClient } from "@acanthis-dec/browser-fetch";
 import type { NovelSearchResult } from "@acanthis-dec/core";
 import * as cheerio from "cheerio";
-import { extractNovelIdFromUrl } from "../utils";
+import { parseBookHtml, parseSearchHtml } from "./common";
 
 function k(e: string): Uint8Array<ArrayBuffer> {
 	// 标准 Base64 映射表
@@ -127,16 +127,7 @@ export async function searchNovelsV1(
 		throw new Error("Failed to solve search challenge");
 	}
 	if ($("div.book-html-box").length > 0) {
-		return [
-			{
-				title: $("h1.book-name").text().trim(),
-				platform: "linovelib",
-				id:
-					extractNovelIdFromUrl($("meta[name=url]").attr("content") ?? "") ||
-					"",
-				coverUrl: $("div.book-img img").attr("src") || "",
-			},
-		];
+		return [parseBookHtml($)];
 	}
 	if (!response.data.includes("有关")) {
 		throw new Error("Unexpected search result format, keyword not found");
@@ -146,19 +137,7 @@ export async function searchNovelsV1(
 			.text()
 			.match(/1\/(\d+)/)?.[1] || "1";
 	const results: NovelSearchResult[] = [];
-	$("div.search-html-box div.search-result-list").each((_, el) => {
-		const $el = $(el);
-		const title = $el.find("h2").text().trim();
-		const url = $el.find("h2 a").attr("href") || "";
-		const id = extractNovelIdFromUrl(url) ?? "";
-		const coverUrl = $el.find("img").attr("src") || "";
-		results.push({
-			title,
-			platform: "linovelib",
-			id,
-			coverUrl,
-		});
-	});
+	results.push(...parseSearchHtml($));
 	if (Number(pages) > 1) {
 		let currentPageHtml = response.data;
 		while (true) {
@@ -180,19 +159,7 @@ export async function searchNovelsV1(
 				).data;
 			}
 			const $3 = cheerio.load(currentPageHtml);
-			$3("div.search-html-box div.search-result-list").each((_, el) => {
-				const $el = $3(el);
-				const title = $el.find("h2").text().trim();
-				const url = $el.find("h2 a").attr("href") || "";
-				const id = extractNovelIdFromUrl(url) ?? "";
-				const coverUrl = $el.find("img").attr("src") || "";
-				results.push({
-					title,
-					platform: "linovelib",
-					id,
-					coverUrl,
-				});
-			});
+			results.push(...parseSearchHtml($3));
 			if ($3("a.next").length === 0) break;
 		}
 	}
