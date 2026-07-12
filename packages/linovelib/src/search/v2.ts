@@ -30,26 +30,26 @@ export async function refreshSearchTicket(
 			"Failed to extract jieqiSearchJs token from guard JS response",
 		);
 	}
-	await fetchClient.setCookies([
-		{
-			name: "jieqiSearchJs",
-			value: guardJsToken,
-			domain: "www.linovelib.com",
-			path: "/",
-			maxAge: 3600,
-			sameSite: "Lax",
-			secure: true,
-			httpOnly: true,
-		},
-	]);
-    const request = async () => fetchClient.text(`https://www.linovelib.com/S6/?search_guard=redeem&r=${Date.now()}`, {
-        headers: {
-            origin: "https://www.linovelib.com",
-            referer: "https://www.linovelib.com/",
-            "Sec-Fetch-Site": "same-origin",
-        },
-    });
-    await runTimeout(request, 120);
-    await runTimeout(request, 800);
-    await runTimeout(request, 2000);
+	await fetchClient.cookieStore.set("jieqiSearchJs", guardJsToken, {
+		domain: "www.linovelib.com",
+		path: "/",
+		maxAge: 3600,
+		sameSite: "Lax",
+		secure: true,
+		httpOnly: true,
+	});
+	const request = async () =>
+		fetchClient.text(
+			`https://www.linovelib.com/S6/?search_guard=redeem&r=${Date.now()}`,
+			{
+				headers: {
+					origin: "https://www.linovelib.com",
+					referer: "https://www.linovelib.com/",
+					"Sec-Fetch-Site": "same-origin",
+				},
+			},
+		);
+	await runTimeout(request, 120);
+	await runTimeout(request, 800);
+	await runTimeout(request, 2000);
 }
