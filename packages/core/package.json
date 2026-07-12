@@ -1,6 +1,6 @@
 {
 	"name": "@acanthis-dec/core",
-	"version": "1.0.2",
+	"version": "1.1.0",
 	"description": "The core package of Acanthis project, including some platform-independent utils and type definitions.",
 	"author": "ConstasJ <constasj@qq.com>",
 	"license": "MIT",

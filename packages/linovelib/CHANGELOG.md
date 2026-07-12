@@ -1,5 +1,19 @@
 # @acanthis-dec/linovelib
 
+## 1.1.0
+
+### Minor Changes
+
+- 31e0ddb: 适配新的搜索请求模式
+
+### Patch Changes
+
+- Updated dependencies [8949718]
+- Updated dependencies [2c8596b]
+  - @acanthis-dec/browser-fetch@1.1.0
+  - @acanthis-dec/core@1.1.0
+  - @acanthis-dec/storage@1.0.6
+
 ## 1.0.5
 
 ### Patch Changes

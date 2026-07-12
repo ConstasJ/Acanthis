@@ -1,5 +1,15 @@
 # @acanthis-dec/browser-fetch
 
+## 1.1.0
+
+### Minor Changes
+
+- 8949718: 实现了若干个实用工具
+
+### Patch Changes
+
+- 2c8596b: 修正了 Chrome 150 不正确的 Sec-Ch-Ua 标头
+
 ## 1.0.4
 
 ### Patch Changes
