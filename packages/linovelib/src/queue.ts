@@ -4,11 +4,10 @@ import {
 	defaultRetryPolicy,
 	type RetryOptions,
 } from "@acanthis-dec/browser-fetch";
-import type { Novel, NovelSearchResult } from "@acanthis-dec/core";
+import type { Novel } from "@acanthis-dec/core";
 import PQueue from "p-queue";
 import type { Logger } from "winston";
 import { getNovelInfo, getUpdateInfo, type NovelUpdateInfo } from "./novel";
-import { searchNovels } from "./search";
 
 /**
  * Simple backoff strategy for request rate limiting
@@ -29,53 +28,6 @@ class SimpleBackoff {
 			this.NORMAL_DELAY_MIN +
 			Math.random() * (this.NORMAL_DELAY_MAX - this.NORMAL_DELAY_MIN)
 		);
-	}
-}
-
-export class SearchQueue {
-	private queue: PQueue;
-	private client: BrowserFetchClient;
-	private logger?: Logger | undefined;
-	private readonly COOLDOWN_MS = 5000;
-	private lastSearchTime = 0;
-
-	constructor(client: BrowserFetchClient, logger?: Logger) {
-		this.queue = new PQueue({ concurrency: 1 });
-		this.client = client;
-		this.logger = logger;
-		this.queue.on("add", () => {
-			this.logger?.debug(
-				`[SearchQueue] 任务已添加，当前排队数: ${this.queue.size} (等待中任务数: ${this.queue.pending})`,
-			);
-		});
-		this.queue.on("next", () => {
-			this.logger?.debug(
-				`[SearchQueue] 任务完成或超时，开始下一个任务。剩余：${this.queue.size} `,
-			);
-		});
-	}
-
-	private async _sleep(ms: number) {
-		return new Promise((resolve) => setTimeout(resolve, ms));
-	}
-
-	async searchNovels(keyword: string): Promise<NovelSearchResult[]> {
-		return await this.queue.add(async () => {
-			if (Date.now() - this.lastSearchTime < this.COOLDOWN_MS) {
-				const waitTime = this.COOLDOWN_MS - (Date.now() - this.lastSearchTime);
-				this.logger?.debug(
-					`[SearchQueue] 搜索请求过快，等待 ${Math.floor(waitTime)}ms 后重试`,
-				);
-				await this._sleep(waitTime);
-			}
-			this.logger?.debug(`[SearchQueue] 开始搜索关键词 "${keyword}"`);
-			const results = await searchNovels(keyword, this.client);
-			this.logger?.debug(
-				`[SearchQueue] 搜索完成，关键词 "${keyword}" 共找到 ${results.length} 条结果`,
-			);
-			this.lastSearchTime = Date.now();
-			return results;
-		});
 	}
 }
 

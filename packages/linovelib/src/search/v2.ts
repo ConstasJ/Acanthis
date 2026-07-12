@@ -57,7 +57,7 @@ export async function refreshSearchTicket(
 	await runTimeout(request, 2000);
 }
 
-class SearchTicketManager {
+export class SearchTicketManager {
 	private mutex = new Mutex();
 	private readonly ticketCookieKey = "jieqiSearchTicket";
 	private readonly domain = "www.linovelib.com";
