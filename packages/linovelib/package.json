@@ -35,11 +35,12 @@
 		"@babel/parser": "^7.29.7",
 		"@babel/traverse": "^7.29.7",
 		"@babel/types": "^7.29.7",
+		"async-mutex": "^0.5.0",
 		"cheerio": "^1.2.0",
 		"deepmerge-ts": "^7.1.5",
 		"p-queue": "^9.3.0",
-		"zod": "^4.4.3",
-		"winston": "^3.19.0"
+		"winston": "^3.19.0",
+		"zod": "^4.4.3"
 	},
 	"devDependencies": {
 		"@acanthis-dec/config-tsdown": "workspace:*",
