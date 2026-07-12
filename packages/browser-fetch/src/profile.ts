@@ -69,7 +69,7 @@ const versionUATemplate = {
 		"User-Agent":
 			"Mozilla/5.0 ({platform}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36",
 		"Sec-Ch-Ua":
-			'"Google Chrome";v="150", "Chromium";v="150", "Not)A;Brand";v="24"',
+			'"Not;A=Brand";v="8", "Chromium";v="150", "Google Chrome";v="150"',
 	},
 };
 
