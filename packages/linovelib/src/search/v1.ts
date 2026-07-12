@@ -2,7 +2,7 @@ import { webcrypto } from "node:crypto";
 import type { BrowserFetchClient } from "@acanthis-dec/browser-fetch";
 import type { NovelSearchResult } from "@acanthis-dec/core";
 import * as cheerio from "cheerio";
-import { extractNovelIdFromUrl } from "./utils";
+import { extractNovelIdFromUrl } from "../utils";
 
 function k(e: string): Uint8Array<ArrayBuffer> {
 	// 标准 Base64 映射表
@@ -71,7 +71,7 @@ async function solveSearchChallenge(
 	}
 }
 
-export async function searchNovels(
+export async function searchNovelsV1(
 	keyword: string,
 	fetchClient: BrowserFetchClient,
 ): Promise<NovelSearchResult[]> {
