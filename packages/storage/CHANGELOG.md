@@ -1,5 +1,14 @@
 # @acanthis-dec/storage
 
+## 1.0.6
+
+### Patch Changes
+
+- Updated dependencies [8949718]
+- Updated dependencies [2c8596b]
+  - @acanthis-dec/browser-fetch@1.1.0
+  - @acanthis-dec/core@1.1.0
+
 ## 1.0.5
 
 ### Patch Changes

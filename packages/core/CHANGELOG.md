@@ -1,5 +1,11 @@
 # @acanthis-dec/core
 
+## 1.1.0
+
+### Minor Changes
+
+- 8949718: 实现了若干个实用工具
+
 ## 1.0.2
 
 ### Patch Changes
