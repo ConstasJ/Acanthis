@@ -24,7 +24,7 @@ export async function refreshSearchTicket(
 			},
 		},
 	);
-	if (guardJsResp.mimeType !== "text/javascript") {
+	if (guardJsResp.mimeType !== "application/javascript") {
 		throw new Error(`Unexpected response type: ${guardJsResp.mimeType}`);
 	}
 	const guardJsToken = guardJsResp.data.match(/jieqiSearchJs=([^;"]+)/)?.[1];
@@ -91,9 +91,8 @@ export class SearchTicketManager {
 
 			const result = await task();
 
-			// 请求成功后:旧票作废,同时不阻塞地预取下一张票
+			// 请求成功后:旧票作废
 			await this.consumeTicket();
-			this.schedulePrefetch(); // 不 await!
 
 			return result;
 		});
@@ -103,7 +102,7 @@ export class SearchTicketManager {
 	 * 不在调用方持有的锁内执行,而是自己重新抢锁,
 	 * 这样不会拖慢刚刚那次请求的 return。
 	 */
-	private schedulePrefetch(): void {
+	schedulePrefetch(): void {
 		if (this.prefetching) return; // 已经有一个在跑,不重复触发
 		this.prefetching = true;
 
@@ -147,13 +146,15 @@ async function obtainFromNextPage(
 	const $ = load(html);
 	const results: NovelSearchResult[] = [];
 	results.push(...parseSearchHtml($));
-	results.push(
-		...(await obtainFromNextPage(
-			$("a.next").attr("href") || "",
-			fetchClient,
-			ticketManager,
-		)),
-	);
+	if ($("a.next").length > 0) {
+		results.push(
+			...(await obtainFromNextPage(
+				$("a.next").attr("href") || "",
+				fetchClient,
+				ticketManager,
+			)),
+		);
+	}
 	return results;
 }
 
@@ -197,5 +198,6 @@ export async function searchNovelsV2(
 			)),
 		);
 	}
+	ticketManager.schedulePrefetch();
 	return results;
 }
