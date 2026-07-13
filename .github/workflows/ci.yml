@@ -17,6 +17,8 @@ jobs:
     permissions:
       contents: read
     outputs:
+      api-server-src: ${{ steps.changes.outputs.api-server-src }}
+      packages-src: ${{ steps.changes.outputs.packages-src }}
       api-server: ${{ steps.changes.outputs.api-server }}
       packages: ${{ steps.changes.outputs.packages }}
       ci: ${{ steps.changes.outputs.ci }}
@@ -30,6 +32,10 @@ jobs:
         uses: dorny/paths-filter@v4
         with:
           filters: |
+            api-server-src:
+              - 'apps/api-server/src/**/*.ts'
+            packages-src:
+              - 'packages/*/src/**/*.ts'
             api-server:
               - 'apps/api-server/src/**/*.ts'
               - 'apps/api-server/package.json'
@@ -130,7 +136,7 @@ jobs:
     if: |
       github.event_name == 'push' && 
       github.ref == 'refs/heads/master' && 
-      (needs.changes.outputs.packages == 'true' || needs.changes.outputs.api-server == 'true' || needs.changes.outputs.ci == 'true')
+      (needs.changes.outputs.packages-src == 'true' || needs.changes.outputs.api-server-src == 'true' || needs.changes.outputs.ci == 'true')
     runs-on: ubuntu-latest
     env:
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
