@@ -50,7 +50,6 @@ export class DatabaseCookieStore implements CookiesStore {
 					secure: cookie.secure,
 					httpOnly: cookie.httpOnly,
 					sameSite: cookie.sameSite,
-					createdAt: cookie.createdAt,
 					lastAccessedAt: Date.now(),
 				},
 			})
