@@ -225,6 +225,18 @@ export class BrowserFetchClient {
 			// Update cookie store with any new cookies from the response
 			if (response.cookies) {
 				for (const cookie of response.cookies) {
+					if (cookie.maxAge) {
+						if (cookie.maxAge <= 0) {
+							if (cookie.maxAge === 0) {
+								await this.cookieStore.delete(
+									cookie.name,
+									cookie.domain,
+									cookie.path,
+								);
+							}
+							continue;
+						}
+					}
 					await this.cookieStore.set(cookie.name, cookie.value, {
 						domain: cookie.domain,
 						path: cookie.path,
