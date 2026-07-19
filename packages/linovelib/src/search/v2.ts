@@ -141,6 +141,9 @@ async function obtainFromNextPage(
 		if (response.mimeType !== "text/html") {
 			throw new Error(`Unexpected response type: ${response.mimeType}`);
 		}
+		if (response.data === "") {
+			throw new Error("Empty response body when fetching next page");
+		}
 		return response.data;
 	});
 	const $ = load(html);
@@ -176,6 +179,9 @@ export async function searchNovelsV2(
 		});
 		if (tr?.mimeType !== "text/html") {
 			throw new Error(`Unexpected response type: ${tr?.mimeType}`);
+		}
+		if (tr?.data === "") {
+			throw new Error("Empty response body when fetching search results");
 		}
 		return tr.data;
 	});
