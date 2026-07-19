@@ -220,6 +220,8 @@ export class ImpersTransport implements Transport {
 							value: cookie.value,
 							domain: cookie.domain ?? hostname,
 							path: cookie.path ?? path,
+							expires: cookie.expires ? new Date(cookie.expires) : undefined,
+							maxAge: cookie.maxAge ?? undefined,
 							secure: cookie.secure,
 							httpOnly: cookie.httpOnly,
 							sameSite: cookie.sameSite ?? "Lax",
