@@ -1,5 +1,13 @@
 # @acanthis-dec/storage
 
+## 1.0.7
+
+### Patch Changes
+
+- 8654d2b: 修复了 filter 时 now 可能引用过期数据的问题
+- Updated dependencies [e5ea7d6]
+  - @acanthis-dec/browser-fetch@1.1.1
+
 ## 1.0.6
 
 ### Patch Changes

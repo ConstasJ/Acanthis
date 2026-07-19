@@ -1,5 +1,15 @@
 # @acanthis-dec/linovelib
 
+## 1.1.1
+
+### Patch Changes
+
+- 19203d3: 修正行为，如果搜索页结果为空则直接报错
+- Updated dependencies [e5ea7d6]
+- Updated dependencies [8654d2b]
+  - @acanthis-dec/browser-fetch@1.1.1
+  - @acanthis-dec/storage@1.0.7
+
 ## 1.1.0
 
 ### Minor Changes

@@ -1,5 +1,12 @@
 # @acanthis-dec/browser-fetch
 
+## 1.1.1
+
+### Patch Changes
+
+- e5ea7d6: - 修复了 expires 和 maxAge 无法正确透传到上层 cookieStore 的问题
+  - 添加了处理 maxAge 为 0 或负数的逻辑，确保在这种情况下不会将 cookie 存储到 cookieStore 中
+
 ## 1.1.0
 
 ### Minor Changes
