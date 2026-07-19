@@ -57,6 +57,13 @@ export async function refreshSearchTicket(
 	await runTimeout(request, 2000);
 }
 
+export class EmptyBodyError extends Error {
+	constructor(message: string) {
+		super(message);
+		this.name = "EmptyBodyError";
+	}
+}
+
 export class SearchTicketManager {
 	private mutex = new Mutex();
 	private readonly ticketCookieKey = "jieqiSearchTicket";
@@ -89,12 +96,23 @@ export class SearchTicketManager {
 				await refreshSearchTicket(this.fetchClient);
 			}
 
-			const result = await task();
+			while (true) {
+				try {
+					const result = await task();
 
-			// 请求成功后:旧票作废
-			await this.consumeTicket();
+					// 请求成功后:旧票作废
+					await this.consumeTicket();
 
-			return result;
+					return result;
+				} catch (error) {
+					if (error instanceof EmptyBodyError) {
+						await refreshSearchTicket(this.fetchClient);
+						continue;
+					}
+					await this.consumeTicket();
+					throw error;
+				}
+			}
 		});
 	}
 	/**
@@ -142,7 +160,7 @@ async function obtainFromNextPage(
 			throw new Error(`Unexpected response type: ${response.mimeType}`);
 		}
 		if (response.data === "") {
-			throw new Error("Empty response body when fetching next page");
+			throw new EmptyBodyError("Empty response body when fetching next page");
 		}
 		return response.data;
 	});
@@ -181,7 +199,9 @@ export async function searchNovelsV2(
 			throw new Error(`Unexpected response type: ${tr?.mimeType}`);
 		}
 		if (tr?.data === "") {
-			throw new Error("Empty response body when fetching search results");
+			throw new EmptyBodyError(
+				"Empty response body when fetching search results",
+			);
 		}
 		return tr.data;
 	});
