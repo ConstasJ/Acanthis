@@ -2,4 +2,4 @@
 "@acanthis-dec/storage": patch
 ---
 
-修复了 createdAt 无法正确指向的问题
+修复了filter时now可能引用过期数据的问题

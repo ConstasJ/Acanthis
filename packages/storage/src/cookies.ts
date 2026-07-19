@@ -50,6 +50,7 @@ export class DatabaseCookieStore implements CookiesStore {
 					secure: cookie.secure,
 					httpOnly: cookie.httpOnly,
 					sameSite: cookie.sameSite,
+					createdAt: cookie.createdAt,
 					lastAccessedAt: Date.now(),
 				},
 			})
@@ -214,11 +215,11 @@ export class DatabaseCookieStore implements CookiesStore {
 		const parsedUrl = typeof url === "string" ? new URL(url) : url;
 		const hostname = parsedUrl.hostname;
 		const pathname = parsedUrl.pathname;
-		const now = Date.now();
 		const secure = parsedUrl.protocol === "https:";
 		const candidates = await this.db.query.cookies.findMany();
 		return candidates
 			.filter((cookie) => {
+				const now = Date.now();
 				if (cookie.secure && !secure) return false;
 				if (cookie.domain && !matchesDomain(cookie.domain, hostname))
 					return false;
