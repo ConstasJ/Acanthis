@@ -1,5 +1,12 @@
 # @acanthis-dec/api-server
 
+## 1.0.8
+
+### Patch Changes
+
+- Updated dependencies [99cbf29]
+  - @acanthis-dec/linovelib@1.1.2
+
 ## 1.0.7
 
 ### Patch Changes

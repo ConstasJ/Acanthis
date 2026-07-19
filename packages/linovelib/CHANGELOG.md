@@ -1,5 +1,11 @@
 # @acanthis-dec/linovelib
 
+## 1.1.2
+
+### Patch Changes
+
+- 99cbf29: 修复了 searchTicket 的行为异常
+
 ## 1.1.1
 
 ### Patch Changes
