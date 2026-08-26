@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import { browserProfileNames } from "@acanthis-dec/browser-fetch";
 import { deepmerge } from "deepmerge-ts";
 import dotenv from "dotenv";
-import YAML from "js-yaml";
+import { load } from "js-yaml";
 import { z } from "zod";
 
 export const ConfigSchema = z.object({
@@ -106,7 +106,7 @@ export function getConfig(): Config {
 	try {
 		let fileConfig = {};
 		if (existsSync(configPath)) {
-			fileConfig = YAML.load(readFileSync(configPath, "utf8")) as Record<
+			fileConfig = load(readFileSync(configPath, "utf8")) as Record<
 				string,
 				unknown
 			>;
