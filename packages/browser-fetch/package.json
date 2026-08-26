@@ -5,7 +5,7 @@
 	"author": "ConstasJ <constasj@qq.com>",
 	"license": "MIT",
 	"type": "module",
-	"packageManager": "pnpm@11.7.0",
+	"packageManager": "pnpm@11.24.0",
 	"exports": {
 		".": "./src/index.ts"
 	},
@@ -28,8 +28,8 @@
 		"url": "https://github.com/ConstasJ/Acanthis/issues"
 	},
 	"dependencies": {
-		"deepmerge-ts": "^7.1.5",
-		"impers": "^0.0.9",
+		"deepmerge-ts": "^8.0.2",
+		"impers": "^0.1.1",
 		"p-retry": "^8.0.0",
 		"zod": "^4.4.3"
 	},

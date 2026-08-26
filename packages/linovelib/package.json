@@ -5,7 +5,7 @@
 	"author": "ConstasJ <constasj@qq.com>",
 	"license": "MIT",
 	"type": "module",
-	"packageManager": "pnpm@11.7.0",
+	"packageManager": "pnpm@11.24.0",
 	"exports": {
 		".": "./src/index.ts"
 	},
@@ -32,13 +32,13 @@
 		"@acanthis-dec/core": "workspace:*",
 		"@acanthis-dec/deobfuscator": "workspace:*",
 		"@acanthis-dec/storage": "workspace:*",
-		"@babel/parser": "^7.29.7",
-		"@babel/traverse": "^7.29.7",
-		"@babel/types": "^7.29.7",
+		"@babel/parser": "^8.0.4",
+		"@babel/traverse": "^8.0.4",
+		"@babel/types": "^8.0.4",
 		"async-mutex": "^0.5.0",
 		"cheerio": "^1.2.0",
-		"deepmerge-ts": "^7.1.5",
-		"p-queue": "^9.3.0",
+		"deepmerge-ts": "^8.0.2",
+		"p-queue": "^9.3.3",
 		"winston": "^3.19.0",
 		"zod": "^4.4.3"
 	},
