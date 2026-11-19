@@ -141,6 +141,7 @@ vite.config.ts.timestamp-*
 .vite/
 
 *.html
+!apps/web/index.html
 
 data
 .turbo/

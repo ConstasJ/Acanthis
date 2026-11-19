@@ -1,0 +1,68 @@
+@import "tailwindcss";
+
+:root,
+[data-theme="light"] {
+	--bg-primary: #f8f7f4;
+	--bg-secondary: #efede8;
+	--bg-elevated: #ffffff;
+	--text-primary: #1c1917;
+	--text-secondary: #57534e;
+	--text-muted: #78716c;
+	--border-subtle: #e7e5e4;
+	--accent: #b45309;
+	--accent-soft: #fef3c7;
+	--reader-bg: #faf9f6;
+	--reader-text: #1c1917;
+}
+
+[data-theme="sepia"] {
+	--bg-primary: #f4ecd8;
+	--bg-secondary: #eaddc1;
+	--bg-elevated: #f9f3e3;
+	--text-primary: #3b2f1e;
+	--text-secondary: #62503a;
+	--text-muted: #857054;
+	--border-subtle: #dfd1b4;
+	--accent: #9a4a12;
+	--accent-soft: #ead4b0;
+	--reader-bg: #f4ecd8;
+	--reader-text: #3b2f1e;
+}
+
+[data-theme="oled"] {
+	--bg-primary: #000000;
+	--bg-secondary: #0c0c0e;
+	--bg-elevated: #141417;
+	--text-primary: #e5e5e7;
+	--text-secondary: #a1a1aa;
+	--text-muted: #71717a;
+	--border-subtle: #27272a;
+	--accent: #f59e0b;
+	--accent-soft: #271c06;
+	--reader-bg: #000000;
+	--reader-text: #d4d4d8;
+}
+
+html,
+body {
+	background-color: var(--bg-primary);
+	color: var(--text-primary);
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+}
+
+.safe-top {
+	padding-top: env(safe-area-inset-top, 0px);
+}
+
+.safe-bottom {
+	padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.pb-safe {
+	padding-bottom: max(0.75rem, env(safe-area-inset-bottom, 0px));
+}
+
+.pt-safe {
+	padding-top: max(0.75rem, env(safe-area-inset-top, 0px));
+}

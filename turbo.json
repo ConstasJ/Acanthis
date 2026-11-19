@@ -5,6 +5,10 @@
 			"dependsOn": ["^build"],
 			"inputs": [
 				"src/**",
+				"**/*.vue",
+				"index.html",
+				"vite.config.ts",
+				"public/**",
 				"package.json",
 				"tsconfig.json",
 				"tsconfig.*.json",
@@ -20,7 +24,14 @@
 		},
 		"check-types": {
 			"dependsOn": [],
-			"inputs": ["**/*.ts", "**/*.tsx", "!**/*.test.ts", "!**/*.test.tsx"]
+			"inputs": [
+				"**/*.ts",
+				"**/*.tsx",
+				"**/*.vue",
+				"vite.config.ts",
+				"!**/*.test.ts",
+				"!**/*.test.tsx"
+			]
 		},
 		"//#format-and-lint": {},
 		"//#format-and-lint:fix": {
