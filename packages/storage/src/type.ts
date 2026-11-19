@@ -1,3 +1,5 @@
+import type { NovelInfo } from "@acanthis-dec/core";
+
 export interface DataWithUpdatedAt<T> {
 	data: T;
 	updatedAt: number;
@@ -17,4 +19,16 @@ export interface VolumeCoverMetadata {
 	hash: string;
 	contentType: string;
 	originalUrl: string;
+}
+
+export interface ListNovelsOptions {
+	page: number;
+	pageSize: number;
+}
+
+export interface PaginatedNovels {
+	items: NovelInfo[];
+	total: number;
+	page: number;
+	pageSize: number;
 }

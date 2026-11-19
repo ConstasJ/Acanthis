@@ -5,6 +5,7 @@ import {
 	sqliteTable,
 	text,
 	unique,
+	uniqueIndex,
 } from "drizzle-orm/sqlite-core";
 
 export const novels = sqliteTable(
@@ -146,6 +147,25 @@ export const generalCache = sqliteTable("general_cache", {
 	value: text("value", { mode: "json" }).notNull(),
 });
 
+export const illustrationMetadata = sqliteTable(
+	"illustration_metadata",
+	{
+		id: integer("id").primaryKey({ autoIncrement: true }),
+		platform: text("platform").notNull(),
+		urlHash: text("url_hash").notNull(),
+		originalUrl: text("original_url").notNull(),
+		fileHash: text("file_hash"),
+		contentType: text("content_type"),
+		createdAt: integer("created_at").notNull(),
+	},
+	(table) => [
+		uniqueIndex("illustration_platform_url_hash_idx").on(
+			table.platform,
+			table.urlHash,
+		),
+	],
+);
+
 export const relations = defineRelations(
 	{
 		novels,
@@ -159,6 +179,7 @@ export const relations = defineRelations(
 		volumeCoverMetadata,
 		cookies,
 		generalCache,
+		illustrationMetadata,
 	},
 	(r) => ({
 		novels: {
