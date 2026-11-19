@@ -5,7 +5,7 @@
 	"author": "ConstasJ <constasj@qq.com>",
 	"license": "MIT",
 	"type": "module",
-	"packageManager": "pnpm@11.24.0",
+	"packageManager": "pnpm@12.21.0",
 	"exports": {
 		".": "./src/index.ts"
 	},
@@ -30,9 +30,9 @@
 	"dependencies": {
 		"@acanthis-dec/browser-fetch": "workspace:*",
 		"@acanthis-dec/core": "workspace:*",
-		"@libsql/client": "^0.17.4",
+		"@libsql/client": "^0.18.0",
 		"drizzle-orm": "rc",
-		"zod": "^4.4.3"
+		"zod": "^4.6.7"
 	},
 	"devDependencies": {
 		"@acanthis-dec/config-tsdown": "workspace:*",
