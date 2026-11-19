@@ -235,6 +235,19 @@ export class LinovelibClient {
 		});
 	}
 
+	async getIllustration(
+		url: string,
+		referer?: string,
+	): Promise<BinaryResponse> {
+		if (this.options?.session.enabled && !this.isSessionValid) {
+			this.isSessionValid = await ensureValidSession(this.fetchClient, {
+				username: this.options.session.username,
+				password: this.options.session.password,
+			});
+		}
+		return await this.getCover(url, referer || "https://www.linovelib.com/");
+	}
+
 	async getChapter(
 		novelId: string,
 		chapterId: string,
