@@ -8,3 +8,4 @@ export {
 	extractChapterIllustrationUrls,
 	rewriteChapterIllustrations,
 } from "./illustration";
+export { isUnresolvedChapterId } from "./novel";

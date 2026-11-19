@@ -29,9 +29,8 @@ function processVolumeName(novelTitle: string, volumeName: string): string {
 	return volumeName.trim();
 }
 
-interface FixTask {
-	chapter: Chapter; // 引用待修改的章节对象
-	nextChapterEl: Element; // 依赖的下一个章节 DOM 节点
+export function isUnresolvedChapterId(id: string): boolean {
+	return id.startsWith("TOBEDETERMINED");
 }
 
 export function parseVolumeOrChapterId(url: string): string {
@@ -42,25 +41,105 @@ export function parseVolumeOrChapterId(url: string): string {
 	return match ? (match[1] ?? "") : "";
 }
 
-async function parseChapterIdFromNextChapter(
-	nextChapterEl: Element,
-	chapterQueue: NovelChapterQueue,
-): Promise<string> {
-	const nextChapterPath = nextChapterEl.attribs.href ?? "";
-	const nextChapterContent = await chapterQueue.fetchChapterPart(
-		`https://www.linovelib.com${nextChapterPath}`,
-	);
-	const $temp = cheerio.load(nextChapterContent);
-	const chapterPath =
-		$temp("div.mlfy_page a:first").attr("href") ??
-		nextChapterContent.match(
-			/url_previous:'(\/novel\/\d+\/[\d_]+\.html)'/,
-		)?.[1] ??
-		"";
-	return parseVolumeOrChapterId(chapterPath);
+function extractChapterIdFromLink(
+	href: string | undefined,
+	novelId: string,
+): string {
+	if (!href) {
+		return "";
+	}
+	const match = href.match(/\/novel\/(\d+)\/(\d+)(?:_\d+)?\.html/);
+	if (!match || match[1] !== novelId) {
+		return "";
+	}
+	const chapterId = match[2] ?? "";
+	return /^\d+$/.test(chapterId) ? chapterId : "";
 }
 
-async function getNovelVolumes(
+async function parseChapterIdFromNextChapter(
+	novelId: string,
+	nextChapterId: string,
+	chapterQueue: NovelChapterQueue,
+): Promise<string> {
+	if (!/^\d+$/.test(nextChapterId)) {
+		return "";
+	}
+	try {
+		const nextChapterContent = await chapterQueue.fetchChapterPart(
+			`https://www.linovelib.com/novel/${novelId}/${nextChapterId}.html`,
+		);
+		const $temp = cheerio.load(nextChapterContent);
+		const domHref = $temp("div.mlfy_page a:first").attr("href");
+		const domChapterId = extractChapterIdFromLink(domHref, novelId);
+		if (domChapterId) {
+			return domChapterId;
+		}
+		const scriptHref = nextChapterContent.match(
+			/url_previous\s*:\s*['"](\/novel\/\d+\/[\d_]+\.html)['"]/,
+		)?.[1];
+		return extractChapterIdFromLink(scriptHref, novelId);
+	} catch {
+		return "";
+	}
+}
+
+export async function parseNextChapterIdFromPrevChapter(
+	novelId: string,
+	prevChapterId: string,
+	chapterQueue: NovelChapterQueue,
+): Promise<string> {
+	if (!/^\d+$/.test(prevChapterId)) {
+		return "";
+	}
+	const MAX_PAGES = 50;
+	const visited = new Set<string>();
+	let currentPageId = prevChapterId;
+
+	for (let page = 0; page < MAX_PAGES; page++) {
+		if (visited.has(currentPageId)) {
+			return "";
+		}
+		visited.add(currentPageId);
+
+		let html = "";
+		try {
+			html = await chapterQueue.fetchChapterPart(
+				`https://www.linovelib.com/novel/${novelId}/${currentPageId}.html`,
+			);
+		} catch {
+			return "";
+		}
+
+		const $ = cheerio.load(html);
+		const domMatch = $("div.mlfy_page a:last")
+			.attr("href")
+			?.match(/\/novel\/(\d+)\/([\d_]+)\.html/);
+		const scriptMatch = html.match(
+			/url_next\s*:\s*['"]\/novel\/(\d+)\/([\d_]+)\.html['"]/,
+		);
+		const nextPageId =
+			(domMatch?.[1] === novelId ? domMatch[2] : undefined) ??
+			(scriptMatch?.[1] === novelId ? scriptMatch[2] : undefined) ??
+			"";
+
+		if (!nextPageId || visited.has(nextPageId)) {
+			return "";
+		}
+		if (nextPageId.startsWith(`${prevChapterId}_`)) {
+			currentPageId = nextPageId;
+			continue;
+		}
+		if (/^\d+$/.test(nextPageId) && nextPageId !== prevChapterId) {
+			return nextPageId;
+		}
+		return "";
+	}
+
+	return "";
+}
+
+export async function getNovelVolumes(
+	novelId: string,
 	title: string,
 	url: string,
 	fetchClient: BrowserFetchClient,
@@ -71,10 +150,13 @@ async function getNovelVolumes(
 	const volumeEls = extractVolumesArray(catalogHtml.data);
 
 	const volumes: Volume[] = [];
-	const fixTasks: FixTask[] = [];
+	const flatChapters: Array<{
+		chapter: Chapter;
+		vIndex: number;
+		cIndex: number;
+	}> = [];
 
 	// --- 第一步：同步解析整个 DOM 树，建立完整的目录结构 ---
-	// 预先将所有的 volumeEl 加载好，方便跨卷时能够安全地索引
 	const parsedVolumes = volumeEls.map((el) => {
 		const $ = cheerio.load(el);
 		return {
@@ -87,13 +169,10 @@ async function getNovelVolumes(
 	});
 
 	for (let vIndex = 0; vIndex < parsedVolumes.length; vIndex++) {
-		const vData = parsedVolumes[vIndex] as {
-			$: cheerio.CheerioAPI;
-			volumeName: string;
-			volumeId: string;
-			volumeCover: string;
-			chapterEls: Element[];
-		};
+		const vData = parsedVolumes[vIndex];
+		if (!vData) {
+			continue;
+		}
 		const chapters: Chapter[] = [];
 
 		for (let cIndex = 0; cIndex < vData.chapterEls.length; cIndex++) {
@@ -114,38 +193,11 @@ async function getNovelVolumes(
 				volumeId: vData.volumeId,
 			};
 			chapters.push(chapterObj);
-
-			// 如果需要后续修复，寻找它的下一个章节节点
-			if (chapterId === "TOBEDETERMINED" && chapterQueue) {
-				let nextChapterEl: Element | null = null;
-
-				if (cIndex < vData.chapterEls.length - 1) {
-					// 情况 A：本卷还有下一章
-					const potentialNextEl = vData.chapterEls[cIndex + 1];
-					if (potentialNextEl) {
-						nextChapterEl = potentialNextEl;
-					}
-				} else if (vIndex < parsedVolumes.length - 1) {
-					// 情况 B：本卷结束了，去找下一卷的第一章
-					const nextVolData = parsedVolumes[vIndex + 1];
-					if (nextVolData) {
-						if (nextVolData.chapterEls.length > 0) {
-							const potentialNextEl = nextVolData.chapterEls[0];
-							if (potentialNextEl) {
-								nextChapterEl = potentialNextEl;
-							}
-						}
-					}
-				}
-
-				// 如果找到了合法的下一章，扔进任务清单
-				if (nextChapterEl) {
-					fixTasks.push({
-						chapter: chapterObj, // JS 对象引用，后续直接修改 id
-						nextChapterEl,
-					});
-				}
-			}
+			flatChapters.push({
+				chapter: chapterObj,
+				vIndex,
+				cIndex: chapters.length - 1,
+			});
 		}
 
 		volumes.push({
@@ -153,25 +205,69 @@ async function getNovelVolumes(
 			platform: "linovelib",
 			title: vData.volumeName,
 			coverUrl: vData.volumeCover,
-			chapters: chapters,
+			chapters,
 		});
 	}
 
-	// --- 第二步：集中并发/队列处理，回填数据 ---
-	if (fixTasks.length > 0 && chapterQueue) {
-		// 使用 Promise.all 配合你的 p-queue (concurrency=1)
-		await Promise.all(
-			fixTasks.map(async (task) => {
-				// 此时推入 MQ，由 MQ 内部控制并发率和流控
-				const realId = await parseChapterIdFromNextChapter(
-					task.nextChapterEl,
+	// --- 第二步：两阶段双向推导隐藏章节 ID ---
+	if (chapterQueue) {
+		// 第一阶段：反向单跳推导（仅当紧邻下一章已有合法纯数字 ID 时请求）
+		const phase1Tasks: Array<Promise<void>> = [];
+		for (let i = 0; i < flatChapters.length; i++) {
+			const current = flatChapters[i];
+			const next = flatChapters[i + 1];
+			if (
+				current &&
+				next &&
+				current.chapter.id === "TOBEDETERMINED" &&
+				/^\d+$/.test(next.chapter.id)
+			) {
+				const nextChapterId = next.chapter.id;
+				phase1Tasks.push(
+					(async () => {
+						const realId = await parseChapterIdFromNextChapter(
+							novelId,
+							nextChapterId,
+							chapterQueue,
+						);
+						if (/^\d+$/.test(realId) && realId !== nextChapterId) {
+							current.chapter.id = realId;
+						}
+					})(),
+				);
+			}
+		}
+		if (phase1Tasks.length > 0) {
+			await Promise.all(phase1Tasks);
+		}
+
+		// 第二阶段：正向链式推导兜底（按顺序从前往后解锁连续隐藏章节与全书末章）
+		for (let i = 0; i < flatChapters.length; i++) {
+			const current = flatChapters[i];
+			const prev = flatChapters[i - 1];
+			if (
+				current &&
+				prev &&
+				current.chapter.id === "TOBEDETERMINED" &&
+				/^\d+$/.test(prev.chapter.id)
+			) {
+				const realId = await parseNextChapterIdFromPrevChapter(
+					novelId,
+					prev.chapter.id,
 					chapterQueue,
 				);
-				if (realId) {
-					task.chapter.id = realId; // 利用引用直接修改 volumes 数组内部的值
+				if (/^\d+$/.test(realId) && realId !== prev.chapter.id) {
+					current.chapter.id = realId;
 				}
-			}),
-		);
+			}
+		}
+	}
+
+	// --- 第三步：未决章节唯一占位符兜底 ---
+	for (const entry of flatChapters) {
+		if (entry.chapter.id === "TOBEDETERMINED" || entry.chapter.id === "") {
+			entry.chapter.id = `TOBEDETERMINED_${entry.vIndex}_${entry.cIndex}`;
+		}
 	}
 
 	return volumes;
@@ -228,6 +324,7 @@ export async function getNovelInfo(
 	};
 	novel.volumes = (
 		await getNovelVolumes(
+			id,
 			title,
 			`https://www.linovelib.com${$("a.read-btn").attr("href")}`,
 			fetchClient,
