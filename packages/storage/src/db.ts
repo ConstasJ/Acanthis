@@ -1,18 +1,32 @@
 import { existsSync, mkdirSync, rmSync, statSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import type {
+	BookshelfItem,
 	Chapter,
 	Novel,
 	NovelInfo,
 	NovelSearchResult,
+	ReadingProgress,
 	Volume,
 } from "@acanthis-dec/core";
 import { type Client, createClient } from "@libsql/client";
-import { and, count, desc, eq, inArray, ne, notInArray } from "drizzle-orm";
+import {
+	and,
+	count,
+	desc,
+	eq,
+	gt,
+	inArray,
+	isNull,
+	max,
+	ne,
+	notInArray,
+} from "drizzle-orm";
 import { drizzle } from "drizzle-orm/libsql";
 import { migrate } from "drizzle-orm/libsql/migrator";
 import type { z } from "zod";
 import {
+	bookshelfItems,
 	chapters,
 	generalCache,
 	genres,
@@ -22,6 +36,7 @@ import {
 	novelCoverMetadata,
 	novelGenres,
 	novels,
+	readingProgress,
 	relations,
 	volumeCoverMetadata,
 	volumes,
@@ -29,8 +44,11 @@ import {
 import type {
 	DataWithUpdatedAt,
 	ListNovelsOptions,
+	MergeSyncStateInput,
+	MergeSyncStateResult,
 	NovelCoverMetadata,
 	PaginatedNovels,
+	SyncStateResult,
 	VolumeCoverMetadata,
 } from "./type";
 import { getUrlHash } from "./utils";
@@ -54,8 +72,45 @@ function getDrizzle(client: Client) {
 
 export type DrizzleInstance = ReturnType<typeof getDrizzle>;
 
+const CLOCK_SKEW_TOLERANCE_MS = 60_000;
+
+function toBookshelfItem(
+	row: typeof bookshelfItems.$inferSelect,
+): BookshelfItem {
+	return {
+		platform: row.platform,
+		novelId: row.novelId,
+		title: row.title,
+		author: row.author,
+		coverUrl: row.coverUrl,
+		addedAt: row.addedAt,
+		updatedAt: row.updatedAt,
+		deletedAt: row.deletedAt,
+	};
+}
+
+function toReadingProgress(
+	row: typeof readingProgress.$inferSelect,
+): ReadingProgress {
+	return {
+		platform: row.platform,
+		novelId: row.novelId,
+		novelTitle: row.novelTitle,
+		coverUrl: row.coverUrl,
+		volumeId: row.volumeId,
+		volumeTitle: row.volumeTitle,
+		chapterId: row.chapterId,
+		chapterTitle: row.chapterTitle,
+		paragraphIndex: row.paragraphIndex,
+		totalParagraphs: row.totalParagraphs,
+		deviceLabel: row.deviceLabel,
+		updatedAt: row.updatedAt,
+	};
+}
+
 export class DatabaseService {
 	private client: Client;
+	private readyPromise: Promise<void>;
 	db: DrizzleInstance;
 
 	constructor(options: DatabaseOptions) {
@@ -69,16 +124,20 @@ export class DatabaseService {
 		this.client = createClient({
 			url: `file:${options.path}`,
 		});
-		this.client.execute("PRAGMA journal_mode = WAL;");
 		this.db = getDrizzle(this.client);
+		this.readyPromise = this._init(options);
+	}
+
+	private async _init(options: DatabaseOptions): Promise<void> {
+		await this.client.execute("PRAGMA journal_mode = WAL;");
 		if (options.migrations?.enabled ?? true) {
-			this._migrate(options.migrations?.directory);
+			await this._migrate(options.migrations?.directory);
 		}
 	}
 
-	private _migrate(directory?: string) {
+	private async _migrate(directory?: string): Promise<void> {
 		if (!this.db) throw new Error("Database not initialized");
-		migrate(this.db, {
+		await migrate(this.db, {
 			migrationsFolder: directory || "migrations",
 		});
 	}
@@ -868,8 +927,219 @@ export class DatabaseService {
 		};
 	}
 
+	private async getMaxSyncCursor(
+		executor: Pick<DrizzleInstance, "select">,
+	): Promise<number> {
+		const bookshelfMaxRow = await executor
+			.select({ value: max(bookshelfItems.serverUpdatedAt) })
+			.from(bookshelfItems)
+			.get();
+		const progressMaxRow = await executor
+			.select({ value: max(readingProgress.serverUpdatedAt) })
+			.from(readingProgress)
+			.get();
+		const bookshelfMax = Number(bookshelfMaxRow?.value ?? 0);
+		const progressMax = Number(progressMaxRow?.value ?? 0);
+		return Math.max(bookshelfMax, progressMax);
+	}
+
+	async getSyncState(since?: number): Promise<SyncStateResult> {
+		await this.readyPromise;
+		return await this.db.transaction(async (tx) => {
+			const maxCursor = await this.getMaxSyncCursor(tx);
+
+			if (since === undefined || since <= 0) {
+				const bookshelfRows = await tx
+					.select()
+					.from(bookshelfItems)
+					.where(isNull(bookshelfItems.deletedAt))
+					.all();
+				const progressRows = await tx.select().from(readingProgress).all();
+
+				return {
+					bookshelf: bookshelfRows.map(toBookshelfItem),
+					progress: progressRows.map(toReadingProgress),
+					cursor: maxCursor,
+				};
+			}
+
+			const bookshelfRows = await tx
+				.select()
+				.from(bookshelfItems)
+				.where(gt(bookshelfItems.serverUpdatedAt, since))
+				.all();
+			const progressRows = await tx
+				.select()
+				.from(readingProgress)
+				.where(gt(readingProgress.serverUpdatedAt, since))
+				.all();
+
+			return {
+				bookshelf: bookshelfRows.map(toBookshelfItem),
+				progress: progressRows.map(toReadingProgress),
+				cursor: Math.max(since, maxCursor),
+			};
+		});
+	}
+
+	async mergeSyncState(
+		input: MergeSyncStateInput,
+	): Promise<MergeSyncStateResult> {
+		await this.readyPromise;
+		return await this.db.transaction(async (tx) => {
+			let lastCursor = await this.getMaxSyncCursor(tx);
+			const nextCursor = () => {
+				lastCursor = Math.max(Date.now(), lastCursor + 1);
+				return lastCursor;
+			};
+
+			const bookshelfMap = new Map<string, BookshelfItem>();
+			const progressMap = new Map<string, ReadingProgress>();
+
+			for (const item of input.bookshelf ?? []) {
+				const key = `${item.platform}\0${item.novelId}`;
+				const effectiveUpdatedAt = Math.min(
+					item.updatedAt,
+					Date.now() + CLOCK_SKEW_TOLERANCE_MS,
+				);
+				const existing = await tx
+					.select()
+					.from(bookshelfItems)
+					.where(
+						and(
+							eq(bookshelfItems.platform, item.platform),
+							eq(bookshelfItems.novelId, item.novelId),
+						),
+					)
+					.get();
+
+				if (!existing) {
+					const serverUpdatedAt = nextCursor();
+					const inserted = await tx
+						.insert(bookshelfItems)
+						.values({
+							platform: item.platform,
+							novelId: item.novelId,
+							title: item.title,
+							author: item.author,
+							coverUrl: item.coverUrl,
+							addedAt: item.addedAt,
+							updatedAt: effectiveUpdatedAt,
+							serverUpdatedAt,
+							deletedAt: item.deletedAt,
+						})
+						.returning()
+						.get();
+					bookshelfMap.set(key, toBookshelfItem(inserted));
+				} else if (effectiveUpdatedAt >= existing.updatedAt) {
+					const serverUpdatedAt = nextCursor();
+					const updated = await tx
+						.update(bookshelfItems)
+						.set({
+							title: item.title,
+							author: item.author,
+							coverUrl: item.coverUrl,
+							addedAt: item.addedAt,
+							updatedAt: effectiveUpdatedAt,
+							serverUpdatedAt,
+							deletedAt: item.deletedAt,
+						})
+						.where(eq(bookshelfItems.id, existing.id))
+						.returning()
+						.get();
+					if (!updated) {
+						throw new Error(
+							`Failed to update bookshelf item: ${item.platform}/${item.novelId}`,
+						);
+					}
+					bookshelfMap.set(key, toBookshelfItem(updated));
+				} else {
+					bookshelfMap.set(key, toBookshelfItem(existing));
+				}
+			}
+
+			for (const item of input.progress ?? []) {
+				const key = `${item.platform}\0${item.novelId}`;
+				const effectiveUpdatedAt = Math.min(
+					item.updatedAt,
+					Date.now() + CLOCK_SKEW_TOLERANCE_MS,
+				);
+				const existing = await tx
+					.select()
+					.from(readingProgress)
+					.where(
+						and(
+							eq(readingProgress.platform, item.platform),
+							eq(readingProgress.novelId, item.novelId),
+						),
+					)
+					.get();
+
+				if (!existing) {
+					const serverUpdatedAt = nextCursor();
+					const inserted = await tx
+						.insert(readingProgress)
+						.values({
+							platform: item.platform,
+							novelId: item.novelId,
+							novelTitle: item.novelTitle,
+							coverUrl: item.coverUrl,
+							volumeId: item.volumeId,
+							volumeTitle: item.volumeTitle,
+							chapterId: item.chapterId,
+							chapterTitle: item.chapterTitle,
+							paragraphIndex: item.paragraphIndex,
+							totalParagraphs: item.totalParagraphs,
+							deviceLabel: item.deviceLabel,
+							updatedAt: effectiveUpdatedAt,
+							serverUpdatedAt,
+						})
+						.returning()
+						.get();
+					progressMap.set(key, toReadingProgress(inserted));
+				} else if (effectiveUpdatedAt >= existing.updatedAt) {
+					const serverUpdatedAt = nextCursor();
+					const updated = await tx
+						.update(readingProgress)
+						.set({
+							novelTitle: item.novelTitle,
+							coverUrl: item.coverUrl,
+							volumeId: item.volumeId,
+							volumeTitle: item.volumeTitle,
+							chapterId: item.chapterId,
+							chapterTitle: item.chapterTitle,
+							paragraphIndex: item.paragraphIndex,
+							totalParagraphs: item.totalParagraphs,
+							deviceLabel: item.deviceLabel,
+							updatedAt: effectiveUpdatedAt,
+							serverUpdatedAt,
+						})
+						.where(eq(readingProgress.id, existing.id))
+						.returning()
+						.get();
+					if (!updated) {
+						throw new Error(
+							`Failed to update reading progress: ${item.platform}/${item.novelId}`,
+						);
+					}
+					progressMap.set(key, toReadingProgress(updated));
+				} else {
+					progressMap.set(key, toReadingProgress(existing));
+				}
+			}
+
+			const serverTime = Math.max(Date.now(), lastCursor);
+			return {
+				bookshelf: Array.from(bookshelfMap.values()),
+				progress: Array.from(progressMap.values()),
+				serverTime,
+			};
+		});
+	}
+
 	async close(logger?: (message: string) => void) {
 		try {
+			await this.readyPromise.catch(() => {});
 			await this.client.execute("PRAGMA journal_mode = DELETE;");
 			logger?.("WAL写入盘完成，正在关闭数据库连接...");
 		} catch (error) {

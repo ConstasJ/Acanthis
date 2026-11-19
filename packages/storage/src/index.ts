@@ -9,5 +9,11 @@ export {
 	StorageService,
 	type StorageServiceOptions,
 } from "./service";
-export type { ListNovelsOptions, PaginatedNovels } from "./type";
+export type {
+	ListNovelsOptions,
+	MergeSyncStateInput,
+	MergeSyncStateResult,
+	PaginatedNovels,
+	SyncStateResult,
+} from "./type";
 export { getUrlHash } from "./utils";

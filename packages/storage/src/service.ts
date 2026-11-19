@@ -4,7 +4,13 @@ import type z from "zod";
 import { DatabaseCookieStore } from "./cookies";
 import { type DatabaseOptions, DatabaseService } from "./db";
 import { FSStorageService } from "./files";
-import type { ListNovelsOptions, PaginatedNovels } from "./type";
+import type {
+	ListNovelsOptions,
+	MergeSyncStateInput,
+	MergeSyncStateResult,
+	PaginatedNovels,
+	SyncStateResult,
+} from "./type";
 
 export interface StorageServiceOptions {
 	dataDir?: string;
@@ -150,6 +156,16 @@ export class StorageService {
 		options: ListNovelsOptions,
 	): Promise<PaginatedNovels> {
 		return await this.db.listCachedNovels(platform, options);
+	}
+
+	async getSyncState(since?: number): Promise<SyncStateResult> {
+		return await this.db.getSyncState(since);
+	}
+
+	async mergeSyncState(
+		input: MergeSyncStateInput,
+	): Promise<MergeSyncStateResult> {
+		return await this.db.mergeSyncState(input);
 	}
 
 	async close(logger?: (message: string) => void) {

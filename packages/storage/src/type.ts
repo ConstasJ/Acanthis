@@ -1,4 +1,8 @@
-import type { NovelInfo } from "@acanthis-dec/core";
+import type {
+	BookshelfItem,
+	NovelInfo,
+	ReadingProgress,
+} from "@acanthis-dec/core";
 
 export interface DataWithUpdatedAt<T> {
 	data: T;
@@ -31,4 +35,21 @@ export interface PaginatedNovels {
 	total: number;
 	page: number;
 	pageSize: number;
+}
+
+export interface SyncStateResult {
+	bookshelf: BookshelfItem[];
+	progress: ReadingProgress[];
+	cursor: number;
+}
+
+export interface MergeSyncStateInput {
+	bookshelf?: BookshelfItem[];
+	progress?: ReadingProgress[];
+}
+
+export interface MergeSyncStateResult {
+	bookshelf: BookshelfItem[];
+	progress: ReadingProgress[];
+	serverTime: number;
 }

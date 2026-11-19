@@ -166,6 +166,54 @@ export const illustrationMetadata = sqliteTable(
 	],
 );
 
+export const bookshelfItems = sqliteTable(
+	"bookshelf_items",
+	{
+		id: integer("id").primaryKey({ autoIncrement: true }),
+		platform: text("platform").notNull(),
+		novelId: text("novel_id").notNull(),
+		title: text("title").notNull(),
+		author: text("author").notNull(),
+		coverUrl: text("cover_url").notNull(),
+		addedAt: integer("added_at").notNull(),
+		updatedAt: integer("updated_at").notNull(),
+		serverUpdatedAt: integer("server_updated_at").notNull(),
+		deletedAt: integer("deleted_at"),
+	},
+	(table) => [
+		uniqueIndex("bookshelf_platform_novel_idx").on(
+			table.platform,
+			table.novelId,
+		),
+	],
+);
+
+export const readingProgress = sqliteTable(
+	"reading_progress",
+	{
+		id: integer("id").primaryKey({ autoIncrement: true }),
+		platform: text("platform").notNull(),
+		novelId: text("novel_id").notNull(),
+		novelTitle: text("novel_title").notNull(),
+		coverUrl: text("cover_url").notNull(),
+		volumeId: text("volume_id").notNull(),
+		volumeTitle: text("volume_title").notNull(),
+		chapterId: text("chapter_id").notNull(),
+		chapterTitle: text("chapter_title").notNull(),
+		paragraphIndex: integer("paragraph_index").notNull(),
+		totalParagraphs: integer("total_paragraphs").notNull(),
+		deviceLabel: text("device_label").notNull(),
+		updatedAt: integer("updated_at").notNull(),
+		serverUpdatedAt: integer("server_updated_at").notNull(),
+	},
+	(table) => [
+		uniqueIndex("reading_progress_platform_novel_idx").on(
+			table.platform,
+			table.novelId,
+		),
+	],
+);
+
 export const relations = defineRelations(
 	{
 		novels,
@@ -180,6 +228,8 @@ export const relations = defineRelations(
 		cookies,
 		generalCache,
 		illustrationMetadata,
+		bookshelfItems,
+		readingProgress,
 	},
 	(r) => ({
 		novels: {
