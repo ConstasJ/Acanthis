@@ -136,6 +136,8 @@ export function buildNovelEpub(input: NovelEpubInput): Uint8Array;
   - `<novelIdOrUrl>` 支持纯数字 ID（如 `3590`）或完整作品链接（如 `https://www.linovelib.com/novel/3590.html`）。
   - 选项：
     - `-s, --server <url>`：指定 `api-server` 基础地址（如 `http://localhost:5301`）
+    - `--source <platform>`：指定服务端书源标识（默认 `"linovelib"`，可通过 `acanthis sources` 或交互模式从 `GET /v1/sources` 动态获取）
+    - `-t, --token <token>`：可选访问令牌（服务端启用 `AUTH_TOKEN` 时附带 `Authorization: Bearer <token>`）
     - `-o, --output <dir>`：输出目录
     - `-m, --mode <split|merged>`：导出粒度，`split` 为每卷生成一个 `.epub`，`merged` 为所选分卷合并为单个 `.epub`（默认 `split`，因轻小说通常按卷阅读且单卷插图体积适中；提供 `--merged` 快捷开关等价于 `--mode merged`）
     - `-v, --volumes <spec>`：按 1 基序号范围或分卷 ID 筛选（如 `-v 1,3-5`）
@@ -143,14 +145,15 @@ export function buildNovelEpub(input: NovelEpubInput): Uint8Array;
     - `--strict`：遇到未决章节（`id` 以 `"TOBEDETERMINED"` 开头）或单章/单图重试耗尽时立即以非零退出码中止（默认非严格模式下记录警告并跳过未决章节）
     - `--overwrite`：覆盖同名已存在的 `.epub` 文件
     - `--json`：标准输出仅打印最终结构化 JSON 结果（进度与日志走 `stderr` 或静默），便于自动化脚本消费
-- `acanthis search <keyword>`（支持 `-s, --server`、`--json`）
-- `acanthis list`（调用 `/v1/linovelib/novels`，支持 `--page`、`--page-size`、`-s, --server`、`--json`）
-- `acanthis info <novelIdOrUrl>`（展示作品详情、各分卷 1 基序号、章节数及未决章节提示，支持 `--json`）
-- `acanthis config <get|set|list|reset|path>`（管理持久化配置）
+- `acanthis search <keyword>`（支持 `-s, --server`、`--source`、`-t, --token`、`--json`）
+- `acanthis list`（调用 `/v1/:source/novels`，支持 `--page`、`--page-size`、`-s, --server`、`--source`、`-t, --token`、`--json`）
+- `acanthis sources`（调用 `/v1/sources` 列出当前服务端支持的书源，支持 `--json`）
+- `acanthis info <novelIdOrUrl>`（展示作品详情、各分卷 1 基序号、章节数及未决章节提示，支持 `--source`、`--json`）
+- `acanthis config <get|set|list|reset|path>`（管理持久化配置：`serverUrl`、`token`、`defaultSource`、`outputDir`）
 
 #### 2) 配置优先级与服务端地址重定基（URL Rebasing）
-- **配置优先级**：CLI 显式参数 > 环境变量（`ACANTHIS_SERVER_URL`、`ACANTHIS_OUTPUT_DIR`） > 用户配置文件（Windows 为 `%APPDATA%\acanthis\config.json`，macOS/Linux 遵循 `${XDG_CONFIG_HOME:-~/.config}/acanthis/config.json`） > 默认值（`serverUrl: "http://localhost:5301"`、`outputDir: "."`）。
-- **[工程决策] 服务端媒体链接重定基（防 Docker `HOST` 漏配）**：当服务端未正确配置对外 `HOST` 环境变量时，其返回的封面或插图链接前缀可能是 `http://localhost:5301/v1/linovelib/...`。CLI 的 API 客户端在请求封面与插图时，只要检测到 URL 路径以 `/v1/linovelib/` 开头，统一将其协议与主机部分替换为当前生效的 `serverUrl`，同时保留章节 HTML 中的原始 `src` 字符串作为 `EpubImageAsset.sourceUrl` 匹配键。这样即使服务端反代后未改 `HOST` 配置，远程 CLI 依然能 100% 正常拉取所有封面与插图。
+- **配置优先级**：CLI 显式参数 > 环境变量（`ACANTHIS_SERVER_URL`、`ACANTHIS_API_TOKEN`、`ACANTHIS_SOURCE`、`ACANTHIS_OUTPUT_DIR`） > 用户配置文件（Windows 为 `%APPDATA%\acanthis\config.json`，macOS/Linux 遵循 `${XDG_CONFIG_HOME:-~/.config}/acanthis/config.json`） > 默认值（`serverUrl: "http://localhost:5301"`、`defaultSource: "linovelib"`、`outputDir: "."`）。
+- **[工程决策] 服务端媒体链接重定基（防 Docker `HOST` 漏配）**：当服务端未正确配置对外 `HOST` 环境变量时，其返回的封面或插图链接前缀可能是 `http://localhost:5301/v1/<source>/...`。CLI 的 API 客户端在请求封面与插图时，只要检测到 URL 路径以 `/v1/` 开头，统一将其协议与主机部分替换为当前生效的 `serverUrl`，同时保留章节 HTML 中的原始 `src` 字符串作为 `EpubImageAsset.sourceUrl` 匹配键。这样即使服务端反代后未改 `HOST` 配置，远程 CLI 依然能 100% 正常拉取所有封面与插图。
 
 #### 3) 拉取调度与文件名规范
 - **章节拉取**：按顺序 `concurrency = 1` 请求 `GET /v1/linovelib/chapter/:chapterId?novelId=:novelId`，单章失败自动指数退避重试最多 3 次。

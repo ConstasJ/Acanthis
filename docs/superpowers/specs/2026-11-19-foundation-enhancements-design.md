@@ -128,8 +128,8 @@ Acanthis 计划在现有的 `@acanthis-dec/api-server` 之外扩展两类新终�
 
 ### 5.3 `@acanthis-dec/api-server`：配置、中间件与路由升级
 
-#### 1) CORS 配置与挂载（`apps/api-server/src/config.ts` & `src/index.ts`）
-- `ConfigSchema` 新增顶层 `cors` 配置块：
+#### 1) CORS 与可选全局鉴权配置（`apps/api-server/src/config.ts` & `src/index.ts`）
+- `ConfigSchema` 新增顶层 `cors` 与可选 `auth` 配置块：
   ```ts
   cors: z
   	.object({
@@ -139,13 +139,20 @@ Acanthis 计划在现有的 `@acanthis-dec/api-server` 之外扩展两类新终�
   			.describe("CORS 允许的 Origin，支持 '*'、单个源或源列表"),
   	})
   	.default({ origin: "*" })
-  	.describe("跨域资源共享配置")
+  	.describe("跨域资源共享配置"),
+  auth: z
+  	.object({
+  		token: z.string().min(1).optional().describe("可选的全局访问令牌；设置后启用 API 鉴权"),
+  	})
+  	.optional()
   ```
-- 环境变量映射：`CORS_ORIGIN`。若未设置则为 `undefined`（落回默认值 `"*"`）；若为 `"*"` 则原样保留；若包含逗号则按逗号切分并 `trim()` 过滤空串转为 `string[]`；否则作为单个 `string`。
-- 在 `src/index.ts` 中于路由之前挂载 Hono 内置 `cors({ origin: config.cors.origin })`。
+- 环境变量映射：`CORS_ORIGIN`（`"*`、单源或逗号分隔源列表）与 `AUTH_TOKEN`。
+- 在 `src/index.ts` 中挂载 Hono 内置 `cors({ origin: config.cors.origin, allowHeaders: ["Content-Type", "Authorization"], allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"] })`。
+- 当配置了 `config.auth?.token` 时，除 `/v1/:platform/cover/*` 与 `/v1/:platform/illustration/*` 二进制图片读取路由外，所有 `/v1/*` JSON 路由均校验 `Authorization: Bearer <token>`（使用 `node:crypto` 的 `timingSafeEqual` 比对），未通过返回 `401` `{ code: 40100, message: "Unauthorized" }`。
 
-#### 2) 路由变更（`apps/api-server/src/linovelib.ts`）
-统一抽取 `resolveHost(c)` 辅助函数（保持现有逻辑 `config.host ?? c.req.header("host") ?? "http://localhost:5301"`，并去除末尾多余斜杠以防拼接双斜杠）：
+#### 2) 多源注册与路由变更（`packages/core` & `apps/api-server`）
+- 在 `@acanthis-dec/core` 新增书源描述类型 `NovelSourceDescriptor`（`{ id: string; name: string; capabilities: ("search" | "novels" | "illustrations")[] }`），并在 `api-server` 提供 `GET /v1/sources` 返回当前已挂载的书源列表（初始包含 `linovelib`），供后续 CLI 与 Web 客户端自动发现服务端支持的书源。
+- 统一抽取 `resolveHost(c)` 辅助函数（保持现有逻辑 `config.host ?? c.req.header("host") ?? "http://localhost:5301"`，并去除末尾多余斜杠以防拼接双斜杠）：
 
 1. **`GET /v1/linovelib/chapter/:chapterId?novelId=<optional>`**
    - 新增可选 query 校验：`z.object({ novelId: z.string().min(1).optional() })`。
