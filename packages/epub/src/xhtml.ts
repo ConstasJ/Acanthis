@@ -57,7 +57,28 @@ const URI_ATTRIBUTE_NAMES = new Set([
 	"srcset",
 ]);
 
-const VALID_XML_ATTR_NAME = /^[A-Za-z_:][A-Za-z0-9._:-]*$/;
+const VALID_XML_NCNAME = /^[A-Za-z_][A-Za-z0-9._-]*$/;
+
+const ALLOWED_ATTR_NAMESPACE_PREFIXES = new Set(["xml", "epub"]);
+
+function isAllowedXmlAttributeName(name: string): boolean {
+	const colonIndex = name.indexOf(":");
+	if (colonIndex === -1) {
+		return VALID_XML_NCNAME.test(name);
+	}
+	if (name.indexOf(":", colonIndex + 1) !== -1) {
+		return false;
+	}
+	const prefix = name.slice(0, colonIndex);
+	const localName = name.slice(colonIndex + 1);
+	if (!VALID_XML_NCNAME.test(prefix) || !VALID_XML_NCNAME.test(localName)) {
+		return false;
+	}
+	if (name === "xmlns:epub") {
+		return true;
+	}
+	return ALLOWED_ATTR_NAMESPACE_PREFIXES.has(prefix);
+}
 
 const XML_ESCAPE_MAP: Readonly<Record<string, string>> = {
 	"&": "&amp;",
@@ -68,7 +89,10 @@ const XML_ESCAPE_MAP: Readonly<Record<string, string>> = {
 };
 
 export function escapeXml(text: string): string {
-	return text.replace(/[&<>"']/g, (char) => XML_ESCAPE_MAP[char] ?? char);
+	return stripInvalidXmlControlChars(text).replace(
+		/[&<>"']/g,
+		(char) => XML_ESCAPE_MAP[char] ?? char,
+	);
 }
 
 function extractExtensionFromUrl(sourceUrl?: string): string | undefined {
@@ -108,21 +132,22 @@ export function resolveImageExtension(
 	return extractExtensionFromUrl(sourceUrl) ?? "jpg";
 }
 
-function stripAsciiWhitespaceAndControl(value: string): string {
+function stripWhitespaceAndControl(value: string): string {
+	const withoutWhitespace = value.replace(/\s+/g, "");
 	let result = "";
-	for (let i = 0; i < value.length; i += 1) {
-		const code = value.charCodeAt(i);
+	for (let i = 0; i < withoutWhitespace.length; i += 1) {
+		const code = withoutWhitespace.charCodeAt(i);
 		if (code <= 0x20 || code === 0x7f) {
 			continue;
 		}
-		result += value[i] ?? "";
+		result += withoutWhitespace[i] ?? "";
 	}
 	return result;
 }
 
 function isUnsafeUri(value: string): boolean {
-	// Strip ASCII whitespace and control characters before checking URI scheme
-	const normalized = stripAsciiWhitespaceAndControl(value).toLowerCase();
+	// Strip Unicode whitespace and ASCII control characters before checking URI scheme
+	const normalized = stripWhitespaceAndControl(value).toLowerCase();
 	return (
 		normalized.startsWith("javascript:") ||
 		normalized.startsWith("vbscript:") ||
@@ -134,7 +159,7 @@ function sanitizeElementAttributes(element: Element): void {
 	const cleaned: Record<string, string> = {};
 	for (const [rawKey, rawValue] of Object.entries(element.attribs)) {
 		const key = rawKey.trim();
-		if (!key || !VALID_XML_ATTR_NAME.test(key)) {
+		if (!key || !isAllowedXmlAttributeName(key)) {
 			continue;
 		}
 		const lowerKey = key.toLowerCase();
@@ -167,6 +192,18 @@ function sanitizeNodeList(
 
 		const tagName = node.name.toLowerCase();
 		if (REMOVED_TAG_NAMES.has(tagName)) {
+			continue;
+		}
+
+		if (tagName.includes(":")) {
+			const unwrappedChildren = sanitizeNodeList(
+				node.children,
+				imageHrefBySourceUrl,
+			);
+			for (const child of unwrappedChildren) {
+				child.parent = node.parent;
+				result.push(child);
+			}
 			continue;
 		}
 

@@ -43,12 +43,33 @@ interface ArchiveBinaryEntry {
 	data: Uint8Array;
 }
 
-function normalizeImageMimeType(mimeType: string): string {
-	const base = mimeType.split(";")[0]?.trim().toLowerCase();
-	if (!base) {
-		return "image/jpeg";
+const CANONICAL_IMAGE_MEDIA_TYPES: Readonly<Record<string, string>> = {
+	"image/jpeg": "image/jpeg",
+	"image/jpg": "image/jpeg",
+	"image/png": "image/png",
+	"image/webp": "image/webp",
+	"image/gif": "image/gif",
+	"image/svg+xml": "image/svg+xml",
+	"image/avif": "image/avif",
+};
+
+const EXTENSION_TO_MEDIA_TYPE: Readonly<Record<string, string>> = {
+	jpg: "image/jpeg",
+	jpeg: "image/jpeg",
+	png: "image/png",
+	webp: "image/webp",
+	gif: "image/gif",
+	svg: "image/svg+xml",
+	avif: "image/avif",
+};
+
+function resolveImageMediaType(mimeType: string, ext: string): string {
+	const base = mimeType.split(";")[0]?.trim().toLowerCase() ?? "";
+	const canonical = CANONICAL_IMAGE_MEDIA_TYPES[base];
+	if (canonical) {
+		return canonical;
 	}
-	return base;
+	return EXTENSION_TO_MEDIA_TYPE[ext.toLowerCase()] ?? "image/jpeg";
 }
 
 function resolveVolumeBookTitle(novelTitle: string, volumeTitle: string): string {
@@ -85,7 +106,7 @@ function registerIllustrations(illustrations: readonly EpubImageAsset[]): {
 			zipPath: `OEBPS/images/${fileName}`,
 			manifestHref: `images/${fileName}`,
 			relativeHref: `../images/${fileName}`,
-			mediaType: normalizeImageMimeType(asset.mimeType),
+			mediaType: resolveImageMediaType(asset.mimeType, ext),
 			data: asset.data,
 		};
 		registry.set(asset.sourceUrl, entry);
@@ -199,7 +220,7 @@ function appendCoverAssets(options: {
 		{
 			id: coverImageId,
 			href: `images/${coverFileName}`,
-			mediaType: normalizeImageMimeType(options.cover.mimeType),
+			mediaType: resolveImageMediaType(options.cover.mimeType, coverExt),
 			properties: "cover-image",
 		},
 		{
@@ -398,7 +419,7 @@ export function buildNovelEpub(input: NovelEpubInput): Uint8Array {
 				manifest.push({
 					id: `vol-cover-${volPadded}`,
 					href: `images/${fileName}`,
-					mediaType: normalizeImageMimeType(volume.cover.mimeType),
+					mediaType: resolveImageMediaType(volume.cover.mimeType, ext),
 				});
 				binaryEntries.push({
 					zipPath: `OEBPS/images/${fileName}`,
