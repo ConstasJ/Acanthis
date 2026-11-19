@@ -1,11 +1,16 @@
+import {
+	extractChapterIllustrationUrls,
+	rewriteChapterIllustrations,
+} from "@acanthis-dec/linovelib";
+import { getUrlHash } from "@acanthis-dec/storage";
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import z from "zod";
-import { config } from "./config";
 import { linovelibClient, logger, storageService } from "./services";
 import { type OutputStyle, outputStyleSchema } from "./types";
 import {
 	isUpdateNeeded,
+	resolveHost,
 	transformOutputStyleForNovel,
 	transformOutputStyleForSearchResult,
 } from "./utils";
@@ -16,12 +21,28 @@ const chapterParamSchema = z.object({
 	chapterId: z.string().min(1, "Chapter ID is required"),
 });
 
+const chapterQuerySchema = z.object({
+	novelId: z.string().min(1).optional(),
+});
+
 const novelParamSchema = z.object({
 	novelId: z.string().min(1, "Novel ID is required"),
 });
 
 const volumeParamSchema = z.object({
 	volumeId: z.string().min(1, "Volume ID is required"),
+});
+
+const illustrationParamSchema = z.object({
+	hash: z
+		.string()
+		.regex(/^[a-f0-9]{32}$/i, "Invalid illustration hash"),
+});
+
+const novelsQuerySchema = z.object({
+	page: z.coerce.number().int().min(1).default(1),
+	pageSize: z.coerce.number().int().min(1).max(100).default(20),
+	style: outputStyleSchema.optional(),
 });
 
 const searchQuerySchema = z.object({
@@ -32,13 +53,41 @@ const searchQuerySchema = z.object({
 app.get(
 	"/chapter/:chapterId",
 	zValidator("param", chapterParamSchema),
+	zValidator("query", chapterQuerySchema),
 	async (c) => {
 		try {
 			const chapterId = c.req.param("chapterId");
-			const chapterMeta = await storageService.getChapterFromId(
+			const { novelId } = c.req.valid("query");
+			let chapterMeta = await storageService.getChapterFromId(
 				"linovelib",
 				chapterId,
 			);
+			if (!chapterMeta && novelId) {
+				if (/^\d+$/.test(novelId)) {
+					try {
+						const novel = await linovelibClient.getNovelInfo(novelId);
+						if (novel && novel.title.trim() !== "" && novel.volumes.length > 0) {
+							await storageService.addNovelCache(novel);
+							chapterMeta = await storageService.getChapterFromId(
+								"linovelib",
+								chapterId,
+							);
+						} else {
+							logger.warn(
+								`Novel fallback returned empty/invalid novel for novelId: ${novelId}`,
+							);
+						}
+					} catch (fallbackError) {
+						logger.warn(
+							`Novel fallback failed for novelId ${novelId}: ${fallbackError instanceof Error ? fallbackError.message : String(fallbackError)}`,
+						);
+					}
+				} else {
+					logger.warn(
+						`Ignored non-numeric novelId for chapter fallback: ${novelId}`,
+					);
+				}
+			}
 			if (!chapterMeta) {
 				logger.error(`Chapter meta not found for chapterId: ${chapterId}`);
 				return c.json(
@@ -62,38 +111,156 @@ app.get(
 				);
 			}
 			const hash = chapterMeta.contentHash;
-			if (hash) {
-				const cachedContent = await storageService.getNovelContent(hash);
-				if (cachedContent) {
-					return c.json({
-						code: 0,
-						message: "Success",
-						data: {
-							content: cachedContent,
-						},
-					});
+			let rawHtml = hash
+				? await storageService.getNovelContent(hash)
+				: undefined;
+			if (!rawHtml) {
+				rawHtml = await linovelibClient.getChapter(
+					chapterMeta.novelId,
+					chapterId,
+				);
+				if (rawHtml) {
+					const contentHash = await storageService.setNovelContent(rawHtml);
+					await storageService.addNovelContentHash(
+						"linovelib",
+						chapterId,
+						contentHash,
+					);
 				}
 			}
-			const content = await linovelibClient.getChapter(
-				chapterMeta.novelId,
-				chapterId,
-			);
-			if (content) {
-				const contentHash = await storageService.setNovelContent(content);
-				await storageService.addNovelContentHash(
+			if (!rawHtml) {
+				return c.json({ error: "Chapter not found" }, 404);
+			}
+
+			const illustrationUrls = extractChapterIllustrationUrls(rawHtml);
+			if (illustrationUrls.length > 0) {
+				await storageService.registerIllustrations(
 					"linovelib",
-					chapterId,
-					contentHash,
+					illustrationUrls,
 				);
-				return c.json({
-					code: 0,
-					message: "Success",
-					data: {
-						content,
-					},
+			}
+			const host = resolveHost(c);
+			const content = rewriteChapterIllustrations(
+				rawHtml,
+				(url) => `${host}/v1/linovelib/illustration/${getUrlHash(url)}`,
+			);
+			return c.json({
+				code: 0,
+				message: "Success",
+				data: {
+					content,
+				},
+			});
+		} catch (error) {
+			logger.error(`${error instanceof Error ? error.stack : String(error)}`);
+			return c.json(
+				{
+					code: 20000,
+					message: "Internal Server Error",
+				},
+				500,
+			);
+		}
+	},
+);
+
+app.get("/novels", zValidator("query", novelsQuerySchema), async (c) => {
+	try {
+		const { page, pageSize, style } = c.req.valid("query");
+		const host = resolveHost(c);
+		const paginated = await storageService.listCachedNovels("linovelib", {
+			page,
+			pageSize,
+		});
+		const items = paginated.items.map((novel) =>
+			transformOutputStyleForSearchResult(
+				{
+					...novel,
+					coverUrl: `${host}/v1/linovelib/cover/novel/${novel.id}`,
+				},
+				style,
+			),
+		);
+		return c.json({
+			code: 0,
+			message: "Success",
+			data: {
+				items,
+				total: paginated.total,
+				page: paginated.page,
+				pageSize: paginated.pageSize,
+			},
+		});
+	} catch (error) {
+		logger.error(`${error instanceof Error ? error.stack : String(error)}`);
+		return c.json(
+			{
+				code: 20000,
+				message: "Internal Server Error",
+			},
+			500,
+		);
+	}
+});
+
+app.get(
+	"/illustration/:hash",
+	zValidator("param", illustrationParamSchema),
+	async (c) => {
+		try {
+			const hash = c.req.param("hash").toLowerCase();
+			const cached = await storageService.getIllustrationData(
+				"linovelib",
+				hash,
+			);
+			if (cached) {
+				return c.body(new Uint8Array(cached.data), 200, {
+					"Content-Type": cached.mimeType,
+					"Cache-Control": "public, max-age=86400",
 				});
 			}
-			return c.json({ error: "Chapter not found" }, 404);
+
+			const sourceUrl = await storageService.getIllustrationSourceUrl(
+				"linovelib",
+				hash,
+			);
+			if (!sourceUrl) {
+				logger.error(`Illustration source URL not found for hash: ${hash}`);
+				return c.json(
+					{
+						code: 10003,
+						message: "Illustration not found",
+					},
+					404,
+				);
+			}
+
+			const illustrationData = await linovelibClient.getIllustration(sourceUrl);
+			if (!illustrationData?.data) {
+				logger.error(
+					`Failed to fetch illustration from source URL: ${sourceUrl}`,
+				);
+				return c.json(
+					{
+						code: 10003,
+						message: "Illustration not found",
+					},
+					404,
+				);
+			}
+
+			const contentType =
+				illustrationData.mimeType || "application/octet-stream";
+			await storageService.setIllustrationData(
+				"linovelib",
+				hash,
+				illustrationData.data,
+				contentType,
+			);
+			return c.body(new Uint8Array(illustrationData.data), 200, {
+				"Content-Type": contentType,
+				"Cache-Control": "public, max-age=86400",
+			});
 		} catch (error) {
 			logger.error(`${error instanceof Error ? error.stack : String(error)}`);
 			return c.json(
@@ -113,7 +280,7 @@ app.get(
 	zValidator("query", z.object({ style: outputStyleSchema.optional() })),
 	async (c) => {
 		try {
-			const host = config.host ?? c.header("host") ?? "http://localhost:5301";
+			const host = resolveHost(c);
 			const novelId = c.req.param("novelId");
 			const style = c.req.query("style") as OutputStyle | undefined;
 			const cachedNovel = await storageService.getNovelCache(
@@ -301,7 +468,7 @@ app.get(
 
 app.get("/search", zValidator("query", searchQuerySchema), async (c) => {
 	try {
-		const host = config.host ?? c.header("host") ?? "http://localhost:5301";
+		const host = resolveHost(c);
 		const keyword = c.req.query("keyword") as string;
 		const style = c.req.query("style") as OutputStyle | undefined;
 		const cachedResults = await storageService.searchNovels(

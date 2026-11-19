@@ -5,6 +5,7 @@ import { config } from "./config";
 import LinovelibRoutes from "./linovelib";
 import { createAuthMiddleware, loggerMiddleware } from "./middleware";
 import { logger, storageService } from "./services";
+import SourcesRoutes from "./sources";
 
 const app = new Hono().basePath("/v1");
 
@@ -20,6 +21,7 @@ app.use(
 if (config.auth?.token) {
 	app.use("*", createAuthMiddleware(config.auth.token));
 }
+app.route("/sources", SourcesRoutes);
 app.route("/linovelib", LinovelibRoutes);
 
 const server = serve(

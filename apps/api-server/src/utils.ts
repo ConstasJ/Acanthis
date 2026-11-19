@@ -1,6 +1,24 @@
 import type { Novel, NovelSearchResult, NovelStatus } from "@acanthis-dec/core";
 import type { LinovelibClient } from "@acanthis-dec/linovelib";
+import type { Context } from "hono";
+import { config } from "./config";
 import type { LNReaderNovel, LNReaderNovelItem, OutputStyle } from "./types";
+
+export function resolveHost(
+	c: Context,
+	configuredHost: string | undefined = config.host,
+): string {
+	const rawHost =
+		configuredHost?.trim() ||
+		c.req.header("host")?.trim() ||
+		"http://localhost:5301";
+	const proto =
+		c.req.header("x-forwarded-proto")?.split(",")[0]?.trim() || "http";
+	const hostWithProtocol = /^https?:\/\//i.test(rawHost)
+		? rawHost
+		: `${proto}://${rawHost}`;
+	return hostWithProtocol.replace(/\/+$/, "");
+}
 
 export function transformOutputStyleForNovel(
 	novel: Novel,
@@ -51,10 +69,9 @@ export function transformOutputStyleForNovel(
 	}
 }
 
-export function transformOutputStyleForSearchResult(
-	result: NovelSearchResult,
-	style: OutputStyle | undefined,
-): NovelSearchResult | LNReaderNovelItem {
+export function transformOutputStyleForSearchResult<
+	T extends NovelSearchResult,
+>(result: T, style: OutputStyle | undefined): T | LNReaderNovelItem {
 	switch (style) {
 		case "lnreader": {
 			const lnReaderResult: LNReaderNovelItem = {
