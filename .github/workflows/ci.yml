@@ -9,20 +9,16 @@ on:
       - ".changeset/**"
       - "LICENSE"
       - ".github/workflows/canary.yml"
-      - ".github/workflows/release.yml"
-      - ".github/workflows/cli-release.yml"
-      - ".github/workflows/docker-release.yml"
-      - ".github/workflows/web-release.yml"
+      - ".github/workflows/changesets.yml"
+      - ".github/workflows/publish-artifacts.yml"
   pull_request:
     paths-ignore:
       - "**.md"
       - ".changeset/**"
       - "LICENSE"
       - ".github/workflows/canary.yml"
-      - ".github/workflows/release.yml"
-      - ".github/workflows/cli-release.yml"
-      - ".github/workflows/docker-release.yml"
-      - ".github/workflows/web-release.yml"
+      - ".github/workflows/changesets.yml"
+      - ".github/workflows/publish-artifacts.yml"
 
 concurrency:
   group: ci-${{ github.event.pull_request.number || github.ref }}

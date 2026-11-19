@@ -1,4 +1,4 @@
-name: Release
+name: Changesets
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: release-${{ github.ref }}
+  group: changesets-${{ github.ref }}
   cancel-in-progress: false
 
 permissions:
@@ -16,8 +16,8 @@ permissions:
   pull-requests: write
 
 jobs:
-  release:
-    name: Create release PR and publish packages
+  changesets:
+    name: Create version PR or publish npm packages
     runs-on: ubuntu-latest
     env:
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
@@ -36,7 +36,7 @@ jobs:
           fetch-depth: 0
           token: ${{ steps.app-token.outputs.token }}
 
-      - name: Check whether release action is needed
+      - name: Check whether changesets action is needed
         id: check
         run: |
           SHOULD_RUN=false
@@ -70,13 +70,13 @@ jobs:
         if: steps.check.outputs.should_run == 'true'
         run: pnpm install --frozen-lockfile
 
-      - name: Create release PR and publish packages
+      - name: Create version PR or publish npm packages
         if: steps.check.outputs.should_run == 'true'
         # v2 才能读取 changesets CLI v3 的 CHANGESETS_OUTPUT；v1 只解析旧的 "New tag:" 输出，
-        # 会导致 npm 发布成功但 git tag / GitHub Release 全部缺失，进而无法触发下游 Release 工作流。
+        # 会导致 npm 发布成功但 git tag / GitHub Release 全部缺失，进而无法触发下游制品发布工作流。
         uses: changesets/action@v2
         with:
-          # 用 App token 执行 push，tag push 才能触发下游 Release 工作流
+          # 用 App token 执行 push，tag push 才能触发 Publish Artifacts 工作流
           github-token: ${{ steps.app-token.outputs.token }}
           publish-script: pnpm release
           push-with-git-cli: true
