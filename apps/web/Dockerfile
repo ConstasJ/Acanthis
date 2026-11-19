@@ -15,8 +15,6 @@ FROM nginx:alpine
 
 COPY --from=builder /app/apps/web/dist /usr/share/nginx/html
 COPY apps/web/docker/nginx.conf /etc/nginx/conf.d/default.conf
-COPY apps/web/docker/40-acanthis-config.sh /docker-entrypoint.d/40-acanthis-config.sh
-
-RUN chmod +x /docker-entrypoint.d/40-acanthis-config.sh
+COPY --chmod=0755 apps/web/docker/40-acanthis-config.sh /docker-entrypoint.d/40-acanthis-config.sh
 
 EXPOSE 80
