@@ -1,13 +1,25 @@
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
+import { cors } from "hono/cors";
 import { config } from "./config";
 import LinovelibRoutes from "./linovelib";
-import { loggerMiddleware } from "./middleware";
+import { createAuthMiddleware, loggerMiddleware } from "./middleware";
 import { logger, storageService } from "./services";
 
 const app = new Hono().basePath("/v1");
 
 app.use(loggerMiddleware);
+app.use(
+	"*",
+	cors({
+		origin: config.cors.origin,
+		allowHeaders: ["Content-Type", "Authorization"],
+		allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+	}),
+);
+if (config.auth?.token) {
+	app.use("*", createAuthMiddleware(config.auth.token));
+}
 app.route("/linovelib", LinovelibRoutes);
 
 const server = serve(

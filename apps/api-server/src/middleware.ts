@@ -1,3 +1,4 @@
+import { createHash, timingSafeEqual } from "node:crypto";
 import { getConnInfo } from "@hono/node-server/conninfo";
 import type { Context } from "hono";
 import { createMiddleware } from "hono/factory";
@@ -30,3 +31,56 @@ export const loggerMiddleware = createMiddleware(async (c, next) => {
 	const logMessage = `method=${c.req.method} path=${c.req.path} status=${c.res.status} duration=${end - start}ms ip=${parseClientIp(c)}`;
 	logger.info(logMessage);
 });
+
+const PUBLIC_BINARY_PATH_REGEX = /^\/v1\/[^/]+\/(cover|illustration)\//;
+
+export function createAuthMiddleware(expectedToken: string) {
+	const expectedDigest = createHash("sha256").update(expectedToken).digest();
+
+	return createMiddleware(async (c, next) => {
+		if (c.req.method === "OPTIONS") {
+			return next();
+		}
+		if (
+			c.req.method === "GET" &&
+			PUBLIC_BINARY_PATH_REGEX.test(c.req.path)
+		) {
+			return next();
+		}
+
+		const authHeader = c.req.header("authorization");
+		if (!authHeader?.startsWith("Bearer ")) {
+			return c.json(
+				{
+					code: 40100,
+					message: "Unauthorized",
+				},
+				401,
+			);
+		}
+
+		const providedToken = authHeader.slice(7).trim();
+		if (!providedToken) {
+			return c.json(
+				{
+					code: 40100,
+					message: "Unauthorized",
+				},
+				401,
+			);
+		}
+
+		const providedDigest = createHash("sha256").update(providedToken).digest();
+		if (!timingSafeEqual(providedDigest, expectedDigest)) {
+			return c.json(
+				{
+					code: 40100,
+					message: "Unauthorized",
+				},
+				401,
+			);
+		}
+
+		return next();
+	});
+}

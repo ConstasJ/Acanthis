@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { browserProfileNames } from "@acanthis-dec/browser-fetch";
-import { deepmerge } from "deepmerge-ts";
+import { deepmergeCustom } from "deepmerge-ts";
 import dotenv from "dotenv";
 import { load } from "js-yaml";
 import { z } from "zod";
@@ -93,6 +93,25 @@ export const ConfigSchema = z.object({
 		.string()
 		.optional()
 		.describe("全局代理地址，格式为 http://host:port 或 https://host:port"),
+	cors: z
+		.object({
+			origin: z
+				.union([z.string(), z.array(z.string())])
+				.default("*")
+				.describe("CORS 允许的 Origin，支持 '*'、单个源或源列表"),
+		})
+		.default({ origin: "*" })
+		.describe("跨域资源共享配置"),
+	auth: z
+		.object({
+			token: z
+				.string()
+				.min(1)
+				.optional()
+				.describe("可选的全局访问令牌；设置后启用 API 鉴权"),
+		})
+		.optional()
+		.describe("API 鉴权配置"),
 });
 
 export type Config = z.infer<typeof ConfigSchema>;
@@ -111,9 +130,10 @@ export function getConfig(): Config {
 				unknown
 			>;
 		}
+		const rawHost = process.env.HOST?.trim();
 		const envConfig: Record<string, unknown> = {
 			env,
-			host: process.env.HOST,
+			host: rawHost ? rawHost : undefined,
 			listenHost: process.env.LISTEN_HOST,
 			port: process.env.PORT ? parseInt(process.env.PORT, 10) : undefined,
 			data: {
@@ -161,7 +181,32 @@ export function getConfig(): Config {
 			},
 			proxy: process.env.PROXY_URL,
 		};
-		const mergedRaw = deepmerge(fileConfig, envConfig);
+		const rawCorsOrigin = process.env.CORS_ORIGIN?.trim();
+		if (rawCorsOrigin) {
+			let parsedOrigin: string | string[] | undefined;
+			if (rawCorsOrigin === "*") {
+				parsedOrigin = "*";
+			} else if (rawCorsOrigin.includes(",")) {
+				const origins = rawCorsOrigin
+					.split(",")
+					.map((origin) => origin.trim())
+					.filter(Boolean);
+				if (origins.length > 0) {
+					parsedOrigin = origins;
+				}
+			} else {
+				parsedOrigin = rawCorsOrigin;
+			}
+			if (parsedOrigin !== undefined) {
+				envConfig.cors = { origin: parsedOrigin };
+			}
+		}
+		const rawAuthToken = process.env.AUTH_TOKEN?.trim();
+		if (rawAuthToken) {
+			envConfig.auth = { token: rawAuthToken };
+		}
+		const mergeConfig = deepmergeCustom({ mergeArrays: false });
+		const mergedRaw = mergeConfig(fileConfig, envConfig);
 		const config = ConfigSchema.safeParse(mergedRaw);
 		if (!config.success) {
 			console.error("❌ Invalid configuration:");
