@@ -121,7 +121,13 @@ jobs:
             exit 1
           fi
 
+          IS_PRERELEASE=false
+          if [[ "${VERSION}" == *-* ]]; then
+            IS_PRERELEASE=true
+          fi
+
           echo "docker_version=v${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "is_prerelease=${IS_PRERELEASE}" >> "$GITHUB_OUTPUT"
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -153,7 +159,7 @@ jobs:
             type=semver,pattern={{version}},value=${{ steps.meta.outputs.docker_version }}
             type=semver,pattern={{major}}.{{minor}},value=${{ steps.meta.outputs.docker_version }}
             type=semver,pattern={{major}},value=${{ steps.meta.outputs.docker_version }}
-            type=raw,value=latest
+            type=raw,value=latest,enable=${{ steps.meta.outputs.is_prerelease == 'false' }}
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v7
