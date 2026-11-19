@@ -1,0 +1,177 @@
+name: Canary
+
+on:
+  push:
+    branches:
+      - master
+    paths-ignore:
+      - "**.md"
+      - ".changeset/**"
+      - "LICENSE"
+  workflow_dispatch:
+    inputs:
+      api-server:
+        description: "Build api-server canary image"
+        type: boolean
+        default: true
+      web:
+        description: "Build web canary image"
+        type: boolean
+        default: true
+
+concurrency:
+  group: canary-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  changes:
+    name: Detect canary targets
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      !startsWith(github.event.head_commit.message, 'Version Packages')
+    runs-on: ubuntu-latest
+    outputs:
+      api-server: ${{ github.event_name == 'workflow_dispatch' && (inputs.api-server && 'true' || 'false') || steps.filter.outputs.api-server }}
+      web: ${{ github.event_name == 'workflow_dispatch' && (inputs.web && 'true' || 'false') || steps.filter.outputs.web }}
+    steps:
+      - name: Checkout repository
+        if: github.event_name == 'push'
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Detect change paths
+        if: github.event_name == 'push'
+        id: filter
+        uses: dorny/paths-filter@v4
+        with:
+          filters: |
+            api-server:
+              - 'apps/api-server/**'
+              - '!apps/api-server/**/*.md'
+              - 'packages/core/**'
+              - '!packages/core/**/*.md'
+              - 'packages/linovelib/**'
+              - '!packages/linovelib/**/*.md'
+              - 'packages/storage/**'
+              - '!packages/storage/**/*.md'
+              - 'packages/browser-fetch/**'
+              - '!packages/browser-fetch/**/*.md'
+              - 'packages/deobfuscator/**'
+              - '!packages/deobfuscator/**/*.md'
+              - 'tools/config-typescript/**'
+              - 'package.json'
+              - 'pnpm-lock.yaml'
+              - 'pnpm-workspace.yaml'
+              - '.github/workflows/canary.yml'
+            web:
+              - 'apps/web/**'
+              - '!apps/web/**/*.md'
+              - 'packages/core/**'
+              - '!packages/core/**/*.md'
+              - 'packages/epub/**'
+              - '!packages/epub/**/*.md'
+              - 'tools/config-typescript/**'
+              - 'esa.jsonc'
+              - 'package.json'
+              - 'pnpm-lock.yaml'
+              - 'pnpm-workspace.yaml'
+              - '.github/workflows/canary.yml'
+
+  docker-canary:
+    name: Publish api-server canary image
+    needs: changes
+    if: needs.changes.outputs.api-server == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Download libcurl-impersonate
+        uses: robinraju/release-downloader@v1
+        with:
+          repository: lexiforest/curl-impersonate
+          latest: true
+          fileName: libcurl-impersonate-*.x86_64-linux-gnu.tar.gz
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ghcr.io/constasj/acanthis-api-server
+          tags: |
+            type=raw,value=canary
+            type=sha,prefix=canary-,format=short
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: apps/api-server/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=api-server-canary
+          cache-to: type=gha,mode=max,scope=api-server-canary
+
+  web-canary:
+    name: Publish web canary image
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ghcr.io/constasj/acanthis-web
+          tags: |
+            type=raw,value=canary
+            type=sha,prefix=canary-,format=short
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: apps/web/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=web-canary
+          cache-to: type=gha,mode=max,scope=web-canary

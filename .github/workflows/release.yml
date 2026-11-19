@@ -1,0 +1,82 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  id-token: write
+  contents: write
+  pull-requests: write
+
+jobs:
+  release:
+    name: Create release PR and publish packages
+    runs-on: ubuntu-latest
+    env:
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+      TURBO_TEAM: ${{ vars.TURBO_TEAM }}
+    steps:
+      - name: Create GitHub App token
+        uses: actions/create-github-app-token@v3
+        id: app-token
+        with:
+          client-id: ${{ vars.BOT_CLIENT_ID }}
+          private-key: ${{ secrets.BOT_PRIVATE_KEY }}
+
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Check whether release action is needed
+        id: check
+        run: |
+          SHOULD_RUN=false
+
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            SHOULD_RUN=true
+          elif find .changeset -maxdepth 1 -name '*.md' ! -name 'README.md' | grep -q .; then
+            SHOULD_RUN=true
+          elif [ -n "${{ github.event.before }}" ] && [ "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ]; then
+            if git diff --name-only "${{ github.event.before }}" "${{ github.sha }}" -- '.changeset/*.md' 'apps/*/package.json' 'packages/*/package.json' | grep -q .; then
+              SHOULD_RUN=true
+            fi
+          else
+            SHOULD_RUN=true
+          fi
+
+          echo "should_run=${SHOULD_RUN}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up pnpm
+        if: steps.check.outputs.should_run == 'true'
+        uses: pnpm/action-setup@v6
+
+      - name: Set up Node.js
+        if: steps.check.outputs.should_run == 'true'
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        if: steps.check.outputs.should_run == 'true'
+        run: pnpm install --frozen-lockfile
+
+      - name: Create release PR and publish packages
+        if: steps.check.outputs.should_run == 'true'
+        # v2 才能读取 changesets CLI v3 的 CHANGESETS_OUTPUT；v1 只解析旧的 "New tag:" 输出，
+        # 会导致 npm 发布成功但 git tag / GitHub Release 全部缺失，进而无法触发下游 Release 工作流。
+        uses: changesets/action@v2
+        with:
+          # 用 App token 执行 push，tag push 才能触发下游 Release 工作流
+          github-token: ${{ steps.app-token.outputs.token }}
+          publish-script: pnpm release
+          push-with-git-cli: true

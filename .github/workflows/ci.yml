@@ -4,76 +4,43 @@ on:
   push:
     branches:
       - master
+    paths-ignore:
+      - "**.md"
+      - ".changeset/**"
+      - "LICENSE"
+      - ".github/workflows/canary.yml"
+      - ".github/workflows/release.yml"
+      - ".github/workflows/cli-release.yml"
+      - ".github/workflows/docker-release.yml"
+      - ".github/workflows/web-release.yml"
   pull_request:
+    paths-ignore:
+      - "**.md"
+      - ".changeset/**"
+      - "LICENSE"
+      - ".github/workflows/canary.yml"
+      - ".github/workflows/release.yml"
+      - ".github/workflows/cli-release.yml"
+      - ".github/workflows/docker-release.yml"
+      - ".github/workflows/web-release.yml"
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
 
 jobs:
-  changes:
-    name: Detect changes
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    outputs:
-      api-server-src: ${{ steps.changes.outputs.api-server-src }}
-      web-src: ${{ steps.changes.outputs.web-src }}
-      packages-src: ${{ steps.changes.outputs.packages-src }}
-      api-server: ${{ steps.changes.outputs.api-server }}
-      cli: ${{ steps.changes.outputs.cli }}
-      packages: ${{ steps.changes.outputs.packages }}
-      ci: ${{ steps.changes.outputs.ci }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-      - name: Detect change paths
-        id: changes
-        uses: dorny/paths-filter@v4
-        with:
-          filters: |
-            api-server-src:
-              - 'apps/api-server/src/**/*.ts'
-            web-src:
-              - 'apps/web/**'
-              - 'esa.jsonc'
-            packages-src:
-              - 'packages/*/src/**/*.ts'
-            api-server:
-              - 'apps/api-server/src/**/*.ts'
-              - 'apps/api-server/package.json'
-              - 'apps/api-server/tsconfig.json'
-              - 'apps/api-server/build.ts'
-            cli:
-              - 'apps/cli/src/**/*.ts'
-              - 'apps/cli/scripts/**/*.ts'
-              - 'apps/cli/package.json'
-              - 'apps/cli/tsconfig.json'
-              - 'apps/cli/tsdown.config.ts'
-            packages:
-              - 'packages/*/src/**/*.ts'
-              - 'packages/*/package.json'
-              - 'packages/*/tsconfig.json'
-              - 'packages/*/tsdown.config.ts'
-            ci:
-              - '.github/workflows/ci.yml'
-              - '.github/workflows/release.yml'
-              - '.github/workflows/docker-release.yml'
-              - '.github/workflows/cli-release.yml'
-              - '.github/workflows/web-release.yml'
-              - 'turbo.json'
-              - 'package.json'
-              - 'pnpm-lock.yaml'
   quality:
-    needs: changes
     name: Quality
+    if: >-
+      github.head_ref != 'changeset-release/master' &&
+      !(github.event_name == 'push' && startsWith(github.event.head_commit.message, 'Version Packages'))
     runs-on: ubuntu-latest
     env:
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
       TURBO_TEAM: ${{ vars.TURBO_TEAM }}
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -100,155 +67,3 @@ jobs:
 
       - name: Build
         run: pnpm run build:affected
-
-  release:
-    name: Create release PR and publish packages
-    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
-    needs: [changes, quality]
-    runs-on: ubuntu-latest
-    env:
-      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
-      TURBO_TEAM: ${{ vars.TURBO_TEAM }}
-    permissions:
-      id-token: write
-      contents: write
-      pull-requests: write
-    steps:
-      - name: Create GitHub App token
-        uses: actions/create-github-app-token@v3
-        id: app-token
-        with:
-          client-id: ${{ vars.BOT_CLIENT_ID }}
-          private-key: ${{ secrets.BOT_PRIVATE_KEY }}
-
-      - name: Checkout repository
-        uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-          token: ${{ steps.app-token.outputs.token }}
-
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v6
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: 24
-          cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Create release PR and publish packages
-        # v2 才能读取 changesets CLI v3 的 CHANGESETS_OUTPUT；v1 只解析旧的 "New tag:" 输出，
-        # 会导致 npm 发布成功但 git tag / GitHub Release 全部缺失，进而无法触发 Docker Release。
-        uses: changesets/action@v2
-        with:
-          # 用 App token 执行 push，tag push 才能触发 Docker Release 工作流
-          github-token: ${{ steps.app-token.outputs.token }}
-          publish-script: pnpm release
-          push-with-git-cli: true
-
-  docker-canary:
-    name: Publish canary image
-    needs: [changes, quality]
-    if: |
-      github.event_name == 'push' && 
-      github.ref == 'refs/heads/master' && 
-      (needs.changes.outputs.packages-src == 'true' || needs.changes.outputs.api-server-src == 'true' || needs.changes.outputs.ci == 'true')
-    runs-on: ubuntu-latest
-    env:
-      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
-      TURBO_TEAM: ${{ vars.TURBO_TEAM }}
-    permissions:
-      contents: read
-      packages: write
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
-
-      - name: Download libcurl-impersonate
-        uses: robinraju/release-downloader@v1
-        with:
-          repository: lexiforest/curl-impersonate
-          latest: true
-          fileName: libcurl-impersonate-*.x86_64-linux-gnu.tar.gz
-
-      - name: Log in to GHCR
-        uses: docker/login-action@v4
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Extract Docker metadata
-        id: meta
-        uses: docker/metadata-action@v6
-        with:
-          images: ghcr.io/constasj/acanthis-api-server
-          tags: |
-            type=raw,value=canary
-            type=sha,prefix=canary-,format=short
-
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          file: apps/api-server/Dockerfile
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-  web-canary:
-    name: Publish web canary image
-    needs: [changes, quality]
-    if: |
-      github.event_name == 'push' &&
-      github.ref == 'refs/heads/master' &&
-      (needs.changes.outputs.packages-src == 'true' || needs.changes.outputs.web-src == 'true' || needs.changes.outputs.ci == 'true')
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
-
-      - name: Log in to GHCR
-        uses: docker/login-action@v4
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Extract Docker metadata
-        id: meta
-        uses: docker/metadata-action@v6
-        with:
-          images: ghcr.io/constasj/acanthis-web
-          tags: |
-            type=raw,value=canary
-            type=sha,prefix=canary-,format=short
-
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          file: apps/web/Dockerfile
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha,scope=web-canary
-          cache-to: type=gha,mode=max,scope=web-canary
