@@ -50,7 +50,10 @@ const client = new LinovelibClient(
 
 const results = await client.searchNovels("keyword");
 const novel = await client.getNovelInfo("example-id");
-const chapterHtml = await client.getChapter("example-novel-id", "example-chapter-id");
+const chapterHtml = await client.getChapter(
+	"example-novel-id",
+	"example-chapter-id",
+);
 ```
 
 ## API

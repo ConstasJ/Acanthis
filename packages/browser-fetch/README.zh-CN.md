@@ -28,7 +28,10 @@ import { BrowserFetchClient } from "@acanthis-dec/browser-fetch";
 ## 用法
 
 ```ts
-import { BrowserFetchClient, FileCookiesStore } from "@acanthis-dec/browser-fetch";
+import {
+	BrowserFetchClient,
+	FileCookiesStore,
+} from "@acanthis-dec/browser-fetch";
 
 const client = new BrowserFetchClient({
 	profile: "chrome-latest-linux",

@@ -8,14 +8,14 @@ Acanthis is a TypeScript ESM monorepo for building a quiet content access layer:
 
 ## Packages
 
-| Package | Purpose |
-| --- | --- |
-| [`@acanthis-dec/api-server`](./apps/api-server/README.md) | Hono HTTP API for the supported adapters and local cache. |
-| [`@acanthis-dec/browser-fetch`](./packages/browser-fetch/README.md) | Browser-like HTTP client with profiles, cookies, retries, and challenge helpers. |
-| [`@acanthis-dec/core`](./packages/core/README.md) | Shared content models and descrambling utilities. |
-| [`@acanthis-dec/deobfuscator`](./packages/deobfuscator/README.md) | JavaScript obfuscation detection and recovery wrapper. |
-| [`@acanthis-dec/linovelib`](./packages/linovelib/README.md) | Reading-site adapter that turns source pages into normalized novel data. |
-| [`@acanthis-dec/storage`](./packages/storage/README.md) | SQLite/libSQL and filesystem persistence for cache, covers, cookies, and content. |
+| Package                                                             | Purpose                                                                           |
+| ------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| [`@acanthis-dec/api-server`](./apps/api-server/README.md)           | Hono HTTP API for the supported adapters and local cache.                         |
+| [`@acanthis-dec/browser-fetch`](./packages/browser-fetch/README.md) | Browser-like HTTP client with profiles, cookies, retries, and challenge helpers.  |
+| [`@acanthis-dec/core`](./packages/core/README.md)                   | Shared content models and descrambling utilities.                                 |
+| [`@acanthis-dec/deobfuscator`](./packages/deobfuscator/README.md)   | JavaScript obfuscation detection and recovery wrapper.                            |
+| [`@acanthis-dec/linovelib`](./packages/linovelib/README.md)         | Reading-site adapter that turns source pages into normalized novel data.          |
+| [`@acanthis-dec/storage`](./packages/storage/README.md)             | SQLite/libSQL and filesystem persistence for cache, covers, cookies, and content. |
 
 ## Installation
 

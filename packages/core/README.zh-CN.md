@@ -17,13 +17,21 @@ pnpm --filter=@acanthis-dec/core run build
 从 workspace 源码或发布后的 ESM 包导入：
 
 ```ts
-import { buildDescrambleMapping, joinChapterHtml, restoreByMapping } from "@acanthis-dec/core";
+import {
+	buildDescrambleMapping,
+	joinChapterHtml,
+	restoreByMapping,
+} from "@acanthis-dec/core";
 ```
 
 ## 用法
 
 ```ts
-import { buildDescrambleMapping, joinChapterHtml, restoreByMapping } from "@acanthis-dec/core";
+import {
+	buildDescrambleMapping,
+	joinChapterHtml,
+	restoreByMapping,
+} from "@acanthis-dec/core";
 
 const html = joinChapterHtml("Chapter 1", "<p>Hello</p>");
 

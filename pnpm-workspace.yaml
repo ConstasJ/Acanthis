@@ -1,7 +1,7 @@
 packages:
-  - 'apps/*'
-  - 'packages/*'
-  - 'tools/*'
+  - "apps/*"
+  - "packages/*"
+  - "tools/*"
 
 allowBuilds:
   better-sqlite3: true
@@ -11,10 +11,10 @@ allowBuilds:
   onnxruntime-node: true
 
 catalog:
-  tsdown: '0.23.7'
-  typescript: '7.0.2'
-  '@types/node': '26.6.6'
-  tsx: '4.23.15'
+  tsdown: "0.23.7"
+  typescript: "7.0.2"
+  "@types/node": "26.6.6"
+  tsx: "4.23.15"
 
 minimumReleaseAge: 0
 

@@ -17,13 +17,21 @@ pnpm --filter=@acanthis-dec/core run build
 Import from workspace source or the published ESM package:
 
 ```ts
-import { buildDescrambleMapping, joinChapterHtml, restoreByMapping } from "@acanthis-dec/core";
+import {
+	buildDescrambleMapping,
+	joinChapterHtml,
+	restoreByMapping,
+} from "@acanthis-dec/core";
 ```
 
 ## Usage
 
 ```ts
-import { buildDescrambleMapping, joinChapterHtml, restoreByMapping } from "@acanthis-dec/core";
+import {
+	buildDescrambleMapping,
+	joinChapterHtml,
+	restoreByMapping,
+} from "@acanthis-dec/core";
 
 const html = joinChapterHtml("Chapter 1", "<p>Hello</p>");
 

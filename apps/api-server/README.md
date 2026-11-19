@@ -59,13 +59,13 @@ curl "http://localhost:5301/v1/linovelib/chapter/example-chapter-id"
 
 All routes are mounted under `/v1/linovelib`.
 
-| Method | Path | Description |
-| --- | --- | --- |
-| `GET` | `/chapter/:chapterId` | Returns chapter content from cache or the configured adapter. |
-| `GET` | `/novel/:novelId` | Returns normalized novel metadata; accepts optional `style` query. |
-| `GET` | `/cover/novel/:novelId` | Returns novel cover binary data. |
-| `GET` | `/cover/volume/:volumeId` | Returns volume cover binary data. |
-| `GET` | `/search?keyword=<text>` | Searches normalized metadata and caches results. |
+| Method | Path                      | Description                                                        |
+| ------ | ------------------------- | ------------------------------------------------------------------ |
+| `GET`  | `/chapter/:chapterId`     | Returns chapter content from cache or the configured adapter.      |
+| `GET`  | `/novel/:novelId`         | Returns normalized novel metadata; accepts optional `style` query. |
+| `GET`  | `/cover/novel/:novelId`   | Returns novel cover binary data.                                   |
+| `GET`  | `/cover/volume/:volumeId` | Returns volume cover binary data.                                  |
+| `GET`  | `/search?keyword=<text>`  | Searches normalized metadata and caches results.                   |
 
 Successful JSON routes use:
 

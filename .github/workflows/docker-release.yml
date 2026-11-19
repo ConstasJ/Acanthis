@@ -3,7 +3,7 @@ name: Docker Release
 on:
   push:
     tags:
-      - '@acanthis-dec/api-server@*'
+      - "@acanthis-dec/api-server@*"
   workflow_dispatch:
 
 concurrency:
@@ -22,11 +22,11 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-      
+
       - name: Get Version from packages.json
         id: version
         run: echo "VERSION=v$(jq -r '.version' apps/api-server/package.json)" >> $GITHUB_OUTPUT
-  
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
 

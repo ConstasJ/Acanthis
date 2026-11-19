@@ -8,14 +8,14 @@ Acanthis 是一个 TypeScript ESM monorepo，用来构建一层安静的内容�
 
 ## 包列表
 
-| 包 | 作用 |
-| --- | --- |
-| [`@acanthis-dec/api-server`](./apps/api-server/README.zh-CN.md) | 基于 Hono 的 HTTP API，连接适配器与本地缓存。 |
-| [`@acanthis-dec/browser-fetch`](./packages/browser-fetch/README.zh-CN.md) | 带浏览器画像、Cookie、重试与挑战处理能力的请求客户端。 |
-| [`@acanthis-dec/core`](./packages/core/README.zh-CN.md) | 共享内容模型与还原工具。 |
-| [`@acanthis-dec/deobfuscator`](./packages/deobfuscator/README.zh-CN.md) | JavaScript 混淆检测与恢复封装。 |
-| [`@acanthis-dec/linovelib`](./packages/linovelib/README.zh-CN.md) | 阅读站点适配器，将页面整理为统一小说数据。 |
-| [`@acanthis-dec/storage`](./packages/storage/README.zh-CN.md) | SQLite/libSQL 与文件系统持久化，保存缓存、封面、Cookie 与正文。 |
+| 包                                                                        | 作用                                                            |
+| ------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| [`@acanthis-dec/api-server`](./apps/api-server/README.zh-CN.md)           | 基于 Hono 的 HTTP API，连接适配器与本地缓存。                   |
+| [`@acanthis-dec/browser-fetch`](./packages/browser-fetch/README.zh-CN.md) | 带浏览器画像、Cookie、重试与挑战处理能力的请求客户端。          |
+| [`@acanthis-dec/core`](./packages/core/README.zh-CN.md)                   | 共享内容模型与还原工具。                                        |
+| [`@acanthis-dec/deobfuscator`](./packages/deobfuscator/README.zh-CN.md)   | JavaScript 混淆检测与恢复封装。                                 |
+| [`@acanthis-dec/linovelib`](./packages/linovelib/README.zh-CN.md)         | 阅读站点适配器，将页面整理为统一小说数据。                      |
+| [`@acanthis-dec/storage`](./packages/storage/README.zh-CN.md)             | SQLite/libSQL 与文件系统持久化，保存缓存、封面、Cookie 与正文。 |
 
 ## 安装
 

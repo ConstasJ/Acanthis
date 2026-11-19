@@ -59,13 +59,13 @@ curl "http://localhost:5301/v1/linovelib/chapter/example-chapter-id"
 
 所有路由挂载在 `/v1/linovelib` 下。
 
-| 方法 | 路径 | 说明 |
-| --- | --- | --- |
-| `GET` | `/chapter/:chapterId` | 从缓存或配置适配器返回章节正文。 |
-| `GET` | `/novel/:novelId` | 返回统一后的作品元数据；支持可选 `style` 查询参数。 |
-| `GET` | `/cover/novel/:novelId` | 返回作品封面二进制数据。 |
-| `GET` | `/cover/volume/:volumeId` | 返回分卷封面二进制数据。 |
-| `GET` | `/search?keyword=<text>` | 搜索统一元数据并缓存结果。 |
+| 方法  | 路径                      | 说明                                                |
+| ----- | ------------------------- | --------------------------------------------------- |
+| `GET` | `/chapter/:chapterId`     | 从缓存或配置适配器返回章节正文。                    |
+| `GET` | `/novel/:novelId`         | 返回统一后的作品元数据；支持可选 `style` 查询参数。 |
+| `GET` | `/cover/novel/:novelId`   | 返回作品封面二进制数据。                            |
+| `GET` | `/cover/volume/:volumeId` | 返回分卷封面二进制数据。                            |
+| `GET` | `/search?keyword=<text>`  | 搜索统一元数据并缓存结果。                          |
 
 成功的 JSON 路由返回：
 
