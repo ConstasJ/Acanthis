@@ -4,6 +4,7 @@ import type z from "zod";
 import { DatabaseCookieStore } from "./cookies";
 import { type DatabaseOptions, DatabaseService } from "./db";
 import { FSStorageService } from "./files";
+import type { ListNovelsOptions, PaginatedNovels } from "./type";
 
 export interface StorageServiceOptions {
 	dataDir?: string;
@@ -115,6 +116,40 @@ export class StorageService {
 
 	async setCache<T>(key: string, value: T): Promise<void> {
 		await this.db.setCache(key, value);
+	}
+
+	async registerIllustrations(platform: string, urls: string[]): Promise<void> {
+		await this.db.registerIllustrations(platform, urls);
+	}
+
+	async getIllustrationSourceUrl(
+		platform: string,
+		urlHash: string,
+	): Promise<string | undefined> {
+		return await this.db.getIllustrationSourceUrl(platform, urlHash);
+	}
+
+	async getIllustrationData(
+		platform: string,
+		urlHash: string,
+	): Promise<BinaryResponse | undefined> {
+		return await this.files.getIllustrationData(platform, urlHash);
+	}
+
+	async setIllustrationData(
+		platform: string,
+		urlHash: string,
+		data: Buffer,
+		contentType: string,
+	): Promise<void> {
+		await this.files.setIllustrationData(platform, urlHash, data, contentType);
+	}
+
+	async listCachedNovels(
+		platform: string,
+		options: ListNovelsOptions,
+	): Promise<PaginatedNovels> {
+		return await this.db.listCachedNovels(platform, options);
 	}
 
 	async close(logger?: (message: string) => void) {

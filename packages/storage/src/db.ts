@@ -3,11 +3,12 @@ import { dirname, resolve } from "node:path";
 import type {
 	Chapter,
 	Novel,
+	NovelInfo,
 	NovelSearchResult,
 	Volume,
 } from "@acanthis-dec/core";
 import { type Client, createClient } from "@libsql/client";
-import { and, eq } from "drizzle-orm";
+import { and, count, desc, eq, inArray, ne, notInArray } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/libsql";
 import { migrate } from "drizzle-orm/libsql/migrator";
 import type { z } from "zod";
@@ -15,6 +16,7 @@ import {
 	chapters,
 	generalCache,
 	genres,
+	illustrationMetadata,
 	keywordNovels,
 	keywordSearches,
 	novelCoverMetadata,
@@ -26,9 +28,12 @@ import {
 } from "./table";
 import type {
 	DataWithUpdatedAt,
+	ListNovelsOptions,
 	NovelCoverMetadata,
+	PaginatedNovels,
 	VolumeCoverMetadata,
 } from "./type";
+import { getUrlHash } from "./utils";
 
 export type MigrationOptions = {
 	enabled?: boolean;
@@ -232,7 +237,11 @@ export class DatabaseService {
 					.run();
 			}
 
+			const volumePlatformIds: string[] = [];
+			const chapterPlatformIds: string[] = [];
+
 			for (const volume of novel.volumes) {
+				volumePlatformIds.push(volume.id);
 				const { id: volumeId } = await tx
 					.insert(volumes)
 					.values({
@@ -252,6 +261,7 @@ export class DatabaseService {
 					.returning({ id: volumes.id })
 					.get();
 				for (const chapter of volume.chapters) {
+					chapterPlatformIds.push(chapter.id);
 					await tx
 						.insert(chapters)
 						.values({
@@ -264,11 +274,40 @@ export class DatabaseService {
 						.onConflictDoUpdate({
 							target: [chapters.novelId, chapters.platformId],
 							set: {
+								volumeId,
 								name: chapter.title,
 							},
 						})
 						.run();
 				}
+			}
+
+			if (chapterPlatformIds.length > 0) {
+				await tx
+					.delete(chapters)
+					.where(
+						and(
+							eq(chapters.novelId, novelId),
+							notInArray(chapters.platformId, chapterPlatformIds),
+						),
+					)
+					.run();
+			} else {
+				await tx.delete(chapters).where(eq(chapters.novelId, novelId)).run();
+			}
+
+			if (volumePlatformIds.length > 0) {
+				await tx
+					.delete(volumes)
+					.where(
+						and(
+							eq(volumes.novelId, novelId),
+							notInArray(volumes.platformId, volumePlatformIds),
+						),
+					)
+					.run();
+			} else {
+				await tx.delete(volumes).where(eq(volumes.novelId, novelId)).run();
 			}
 		});
 	}
@@ -606,6 +645,227 @@ export class DatabaseService {
 				set: { value },
 			})
 			.run();
+	}
+
+	async registerIllustrations(
+		platform: string,
+		items: string[] | { urlHash: string; originalUrl: string }[],
+	): Promise<void> {
+		const uniqueItems = new Map<
+			string,
+			{ urlHash: string; originalUrl: string }
+		>();
+		for (const item of items) {
+			if (typeof item === "string") {
+				const trimmed = item.trim();
+				if (!trimmed) {
+					continue;
+				}
+				const urlHash = getUrlHash(trimmed);
+				if (!uniqueItems.has(urlHash)) {
+					uniqueItems.set(urlHash, { urlHash, originalUrl: trimmed });
+				}
+			} else {
+				const urlHash = item.urlHash.trim();
+				const originalUrl = item.originalUrl.trim();
+				if (!urlHash || !originalUrl) {
+					continue;
+				}
+				if (!uniqueItems.has(urlHash)) {
+					uniqueItems.set(urlHash, { urlHash, originalUrl });
+				}
+			}
+		}
+
+		if (uniqueItems.size === 0) {
+			return;
+		}
+
+		const createdAt = Date.now();
+		const rows = Array.from(uniqueItems.values()).map((entry) => ({
+			platform,
+			urlHash: entry.urlHash,
+			originalUrl: entry.originalUrl,
+			createdAt,
+		}));
+
+		const chunkSize = 200;
+		await this.db.transaction(async (tx) => {
+			for (let i = 0; i < rows.length; i += chunkSize) {
+				const chunk = rows.slice(i, i + chunkSize);
+				await tx
+					.insert(illustrationMetadata)
+					.values(chunk)
+					.onConflictDoNothing({
+						target: [
+							illustrationMetadata.platform,
+							illustrationMetadata.urlHash,
+						],
+					})
+					.run();
+			}
+		});
+	}
+
+	async getIllustrationSourceUrl(
+		platform: string,
+		urlHash: string,
+	): Promise<string | undefined> {
+		const record = await this.db
+			.select({ originalUrl: illustrationMetadata.originalUrl })
+			.from(illustrationMetadata)
+			.where(
+				and(
+					eq(illustrationMetadata.platform, platform),
+					eq(illustrationMetadata.urlHash, urlHash),
+				),
+			)
+			.get();
+
+		return record?.originalUrl;
+	}
+
+	async getIllustrationMetadata(
+		platform: string,
+		urlHash: string,
+	): Promise<
+		| {
+				originalUrl: string;
+				fileHash: string | null;
+				contentType: string | null;
+		  }
+		| undefined
+	> {
+		return await this.db
+			.select({
+				originalUrl: illustrationMetadata.originalUrl,
+				fileHash: illustrationMetadata.fileHash,
+				contentType: illustrationMetadata.contentType,
+			})
+			.from(illustrationMetadata)
+			.where(
+				and(
+					eq(illustrationMetadata.platform, platform),
+					eq(illustrationMetadata.urlHash, urlHash),
+				),
+			)
+			.get();
+	}
+
+	async updateIllustrationFileInfo(
+		platform: string,
+		urlHash: string,
+		fileHash: string,
+		contentType: string,
+	): Promise<void> {
+		await this.db
+			.update(illustrationMetadata)
+			.set({ fileHash, contentType })
+			.where(
+				and(
+					eq(illustrationMetadata.platform, platform),
+					eq(illustrationMetadata.urlHash, urlHash),
+				),
+			)
+			.run();
+	}
+
+	async listCachedNovels(
+		platform: string,
+		options: ListNovelsOptions,
+	): Promise<PaginatedNovels> {
+		const page = Math.max(1, Math.trunc(options.page));
+		const pageSize = Math.max(1, Math.trunc(options.pageSize));
+		const offset = (page - 1) * pageSize;
+
+		const whereClause = and(
+			eq(novels.platform, platform),
+			ne(novels.status, "unknown"),
+			ne(novels.author, ""),
+			ne(novels.name, ""),
+		);
+
+		const totalResult = await this.db
+			.select({ value: count() })
+			.from(novels)
+			.where(whereClause)
+			.get();
+		const total = totalResult?.value ?? 0;
+
+		if (total === 0) {
+			return {
+				items: [],
+				total: 0,
+				page,
+				pageSize,
+			};
+		}
+
+		const novelRows = await this.db
+			.select({
+				id: novels.id,
+				platform: novels.platform,
+				platformId: novels.platformId,
+				name: novels.name,
+				coverUrl: novels.coverUrl,
+				author: novels.author,
+				summary: novels.summary,
+				status: novels.status,
+			})
+			.from(novels)
+			.where(whereClause)
+			.orderBy(desc(novels.updateAt), desc(novels.id))
+			.limit(pageSize)
+			.offset(offset)
+			.all();
+
+		if (novelRows.length === 0) {
+			return {
+				items: [],
+				total,
+				page,
+				pageSize,
+			};
+		}
+
+		const novelIds = novelRows.map((row) => row.id);
+		const genreRows = await this.db
+			.select({
+				novelId: novelGenres.novelId,
+				genreName: genres.name,
+			})
+			.from(novelGenres)
+			.innerJoin(genres, eq(novelGenres.genreId, genres.id))
+			.where(inArray(novelGenres.novelId, novelIds))
+			.all();
+
+		const genresByNovelId = new Map<number, string[]>();
+		for (const row of genreRows) {
+			const existing = genresByNovelId.get(row.novelId);
+			if (existing) {
+				existing.push(row.genreName);
+			} else {
+				genresByNovelId.set(row.novelId, [row.genreName]);
+			}
+		}
+
+		const items: NovelInfo[] = novelRows.map((row) => ({
+			id: row.platformId,
+			platform: row.platform,
+			title: row.name,
+			coverUrl: row.coverUrl,
+			author: row.author,
+			summary: row.summary,
+			status: row.status,
+			genres: genresByNovelId.get(row.id) ?? [],
+		}));
+
+		return {
+			items,
+			total,
+			page,
+			pageSize,
+		};
 	}
 
 	async close(logger?: (message: string) => void) {

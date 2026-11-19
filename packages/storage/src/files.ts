@@ -104,4 +104,44 @@ export class FSStorageService {
 			});
 		}
 	}
+
+	async getIllustrationData(
+		platform: string,
+		urlHash: string,
+	): Promise<BinaryResponse | undefined> {
+		const meta = await this.dbService.getIllustrationMetadata(
+			platform,
+			urlHash,
+		);
+		if (!meta?.fileHash || !meta?.contentType) {
+			return undefined;
+		}
+		const ext = getExtFromContentType(meta.contentType);
+		const illustrationPath = `${this.basePath}/illustrations/${meta.fileHash.slice(0, 2)}/${meta.fileHash}.${ext}`;
+		if (!existsSync(illustrationPath)) {
+			return undefined;
+		}
+		const data = await readFile(illustrationPath);
+		return { data, mimeType: meta.contentType };
+	}
+
+	async setIllustrationData(
+		platform: string,
+		urlHash: string,
+		data: Buffer,
+		contentType: string,
+	): Promise<void> {
+		const fileHash = getCoverHash(data);
+		const ext = getExtFromContentType(contentType);
+		const illustrationDir = `${this.basePath}/illustrations/${fileHash.slice(0, 2)}`;
+		await this._initPath(illustrationDir);
+		const illustrationPath = `${illustrationDir}/${fileHash}.${ext}`;
+		await writeFile(illustrationPath, data);
+		await this.dbService.updateIllustrationFileInfo(
+			platform,
+			urlHash,
+			fileHash,
+			contentType,
+		);
+	}
 }
