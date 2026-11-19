@@ -47,3 +47,29 @@ export interface NovelSourceDescriptor {
 	name: string;
 	capabilities: SourceCapability[];
 }
+
+export interface BookshelfItem {
+	platform: string;
+	novelId: string;
+	title: string;
+	author: string;
+	coverUrl: string;
+	addedAt: number;
+	updatedAt: number;
+	deletedAt: number | null;
+}
+
+export interface ReadingProgress {
+	platform: string;
+	novelId: string;
+	novelTitle: string;
+	coverUrl: string;
+	volumeId: string;
+	volumeTitle: string;
+	chapterId: string;
+	chapterTitle: string;
+	paragraphIndex: number;
+	totalParagraphs: number;
+	deviceLabel: string;
+	updatedAt: number;
+}

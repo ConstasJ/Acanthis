@@ -6,6 +6,7 @@ export {
 	restoreByMapping,
 } from "./descramble";
 export type {
+	BookshelfItem,
 	Chapter,
 	ChapterContent,
 	Novel,
@@ -13,6 +14,7 @@ export type {
 	NovelSearchResult,
 	NovelSourceDescriptor,
 	NovelStatus,
+	ReadingProgress,
 	SourceCapability,
 	Volume,
 } from "./types";
