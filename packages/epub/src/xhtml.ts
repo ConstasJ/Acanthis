@@ -226,11 +226,9 @@ function sanitizeNodeList(
 				node.children = [];
 				result.push(node);
 			} else {
-				const placeholder = new Element(
-					"p",
-					{ class: "image-placeholder" },
-					[new Text("[插图未包含]")],
-				);
+				const placeholder = new Element("p", { class: "image-placeholder" }, [
+					new Text("[插图未包含]"),
+				]);
 				placeholder.parent = node.parent;
 				result.push(placeholder);
 			}

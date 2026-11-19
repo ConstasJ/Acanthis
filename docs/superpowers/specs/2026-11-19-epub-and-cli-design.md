@@ -3,12 +3,14 @@
 ## 1. 背景与意图（Intent & Why）
 
 在第一步底座能力（CORS、正文插图受控代理缓存、书库列表、章节直链兜底、隐藏章节双向推导）就绪后，第二步需要交付两个紧密协作的模块：
+
 1. **`@acanthis-dec/epub`（`packages/epub`）**：平台无关的标准 EPUB 3 内存组装引擎，供 CLI 与后续第三步的在线 Web 客户端共同复用；
 2. **`@acanthis-dec/cli`（`apps/cli`）**：面向自动化脚本与终端人类用户的双模命令行工具，连接 `@acanthis-dec/api-server` 将轻小说按分卷或整书合集导出为离线 EPUB 电子书，并同时支持 **npm 轻量包** 与 **GitHub Release 单文件二进制（配套 WinGet / Homebrew 清单）** 双轨分发。
 
 ## 2. 目标与非目标（Goals, Non-Goals & Anti-Goals）
 
 ### Goals
+
 1. **零 Node 耦合的 `@acanthis-dec/epub` 包**：纯内存 `Uint8Array` 输入输出，产出符合 EPUB 3.0 规范（并向后兼容 EPUB 2 NCX 目录及封面元数据）的电子书二进制数据，支持单卷成书与整书多卷合集两种结构。
 2. **严格的 HTML -> XHTML 清洗与排版**：自动处理章节首标题去重、命名 HTML 实体（如 `&nbsp;`）转 UTF-8 字符、空标签自闭合、插图离线打包路径重写及日系轻小说样式表内嵌。
 3. **双模 CLI（自动化参数 + 终端交互向导）**：完整参数或非 TTY 环境下静默/结构化执行（支持 `--json` 与明确退出码）；TTY 缺省参数时启动交互向导（浏览服务端书库 / 搜索作品 -> 勾选分卷 -> 选择拆卷或合集 -> 实时进度展示）。
@@ -17,11 +19,13 @@
    - **单文件二进制渠道**：监听 `@acanthis-dec/cli@*` Git tag，使用 `bun build --compile` 交叉编译 Windows / Linux / macOS 单文件可执行程序上传至 GitHub Release（含 `SHA256SUMS.txt`），自动生成标准 **WinGet** 与 **Homebrew Formula** 清单并支持条件化自动推送更新。
 
 ### Non-Goals
+
 - **不包含本地直连爬虫模式（`--direct`）**：CLI 不引入 `@acanthis-dec/linovelib`、`impers`、`isolated-vm`、`onnxruntime-node` 等重型原生或 V8 绑定包，所有抓取与缓存统一由 `@acanthis-dec/api-server` 承担。
 - **不维护自定义 Shell/PowerShell 安装脚本**：不编写 `install.sh` 或 `install.ps1`，单文件安装统一走 GitHub Release 直下、WinGet 或 Homebrew Tap。
 - 本阶段不涉及 Web 客户端 UI（留待第三步）。
 
 ### Anti-Goals
+
 - **禁止在 `packages/epub` 中引入 Node 专属 API**（如 `node:fs`、`node:path`、`node:crypto`、全局 `Buffer`），必须保证后续浏览器端无需 polyfill 即可直接打包运行。
 - **禁止在 `apps/cli` 中引入任何 C++/N-API/FFI 原生扩展**，确保 `bun build --compile` 跨平台交叉编译 100% 纯净可用。
 - **禁止对章节正文发起高并发请求轰炸服务端**：服务端 `NovelChapterQueue` 为单并发串行队列，CLI 拉取章节必须串行（`concurrency = 1`）以避免排队请求超时；仅对已去重的封面与插图二进制采用受控并发（默认 `4`）。
@@ -34,12 +38,12 @@
 
 ## 4. 备选方案权衡（Approaches）
 
-| 维度 | 方案 1：独立 `packages/epub` + npm 纯 JS + GH Release 单二进制（已选定） | 方案 2：EPUB 逻辑内聚于 `apps/cli` | 方案 3：npm 通过 `optionalDependencies` 分发二进制 |
-| --- | --- | --- | --- |
-| Web 端复用能力 | 浏览器可直接导入 `@acanthis-dec/epub` 离线生成 EPUB | 第三步需二次拆包重构或被迫改为服务端打包 | 同左（若拆包） |
-| npm 安装体积 | 几十 KB 纯 JS，秒装秒用 | 几十 KB 纯 JS | 需额外维护 5 个平台子包，每次下载 60~90MB |
-| 无 Node 用户体验 | GitHub Release 单文件 + WinGet / Homebrew 原生安装 | 同左 | 同左 |
-| 维护复杂度 | 清晰分离库包、CLI 与 `cli-release.yml` | 前期少一个包，后期返工 | npm 多包发布矩阵繁琐 |
+| 维度             | 方案 1：独立 `packages/epub` + npm 纯 JS + GH Release 单二进制（已选定） | 方案 2：EPUB 逻辑内聚于 `apps/cli`       | 方案 3：npm 通过 `optionalDependencies` 分发二进制 |
+| ---------------- | ------------------------------------------------------------------------ | ---------------------------------------- | -------------------------------------------------- |
+| Web 端复用能力   | 浏览器可直接导入 `@acanthis-dec/epub` 离线生成 EPUB                      | 第三步需二次拆包重构或被迫改为服务端打包 | 同左（若拆包）                                     |
+| npm 安装体积     | 几十 KB 纯 JS，秒装秒用                                                  | 几十 KB 纯 JS                            | 需额外维护 5 个平台子包，每次下载 60~90MB          |
+| 无 Node 用户体验 | GitHub Release 单文件 + WinGet / Homebrew 原生安装                       | 同左                                     | 同左                                               |
+| 维护复杂度       | 清晰分离库包、CLI 与 `cli-release.yml`                                   | 前期少一个包，后期返工                   | npm 多包发布矩阵繁琐                               |
 
 **用户决策**：采纳 **方案 1**，单文件渠道采用 **GitHub Release + WinGet / Homebrew 清单**（不提供安装脚本）。
 
@@ -48,6 +52,7 @@
 ### 5.1 `@acanthis-dec/epub`（`packages/epub`）
 
 #### 1) 包配置与依赖边界
+
 - **发布配置**：公开 npm 包，`"exports": { ".": "./src/index.ts" }`，`publishConfig` 输出 `./dist/index.mjs` 与 `./dist/index.d.mts`。
 - **构建与类型约束**：
   - `tsdown.config.ts` 继承 `@acanthis-dec/config-tsdown` 的 `baseConfig` 并覆盖 `platform: "neutral"`；
@@ -58,6 +63,7 @@
   - `htmlparser2`、`domhandler`、`dom-serializer`（纯 JS HTML 解析与严格 XML 序列化）
 
 #### 2) 公开接口与数据模型
+
 ```ts
 export interface EpubImageAsset {
 	/** 原始或服务端重写后的匹配键 URL（与章节 HTML 中 <img src> 一致） */
@@ -111,6 +117,7 @@ export function buildNovelEpub(input: NovelEpubInput): Uint8Array;
 ```
 
 #### 3) EPUB 3 归档结构与 XHTML 转换规则
+
 1. **ZIP 首条目规范**：归档第一个键固定为 `mimetype`，内容为 ASCII `"application/epub+zip"`，压缩级别强制设为 `{ level: 0 }`（不压缩）；其余条目使用默认 Deflate 压缩（图片二进制如 `.jpg`/`.png`/`.webp` 本身已压缩，可设 `level: 0` 提升打包速度）。
 2. **目录与兼容层**：
    - `META-INF/container.xml` 指向 `OEBPS/content.opf`。
@@ -127,6 +134,7 @@ export function buildNovelEpub(input: NovelEpubInput): Uint8Array;
 ### 5.2 `@acanthis-dec/cli`（`apps/cli`）
 
 #### 1) 命令体系与双模交互
+
 可执行命令名为 `acanthis`（基于纯 ESM 的 `citty` 解析命令行参数，`@clack/prompts` + `picocolors` 提供终端交互与进度展示）：
 
 - `acanthis`（无子命令）：
@@ -152,10 +160,12 @@ export function buildNovelEpub(input: NovelEpubInput): Uint8Array;
 - `acanthis config <get|set|list|reset|path>`（管理持久化配置：`serverUrl`、`token`、`defaultSource`、`outputDir`）
 
 #### 2) 配置优先级与服务端地址重定基（URL Rebasing）
+
 - **配置优先级**：CLI 显式参数 > 环境变量（`ACANTHIS_SERVER_URL`、`ACANTHIS_API_TOKEN`、`ACANTHIS_SOURCE`、`ACANTHIS_OUTPUT_DIR`） > 用户配置文件（Windows 为 `%APPDATA%\acanthis\config.json`，macOS/Linux 遵循 `${XDG_CONFIG_HOME:-~/.config}/acanthis/config.json`） > 默认值（`serverUrl: "http://localhost:5301"`、`defaultSource: "linovelib"`、`outputDir: "."`）。
 - **[工程决策] 服务端媒体链接重定基（防 Docker `HOST` 漏配）**：当服务端未正确配置对外 `HOST` 环境变量时，其返回的封面或插图链接前缀可能是 `http://localhost:5301/v1/<source>/...`。CLI 的 API 客户端在请求封面与插图时，只要检测到 URL 路径以 `/v1/` 开头，统一将其协议与主机部分替换为当前生效的 `serverUrl`，同时保留章节 HTML 中的原始 `src` 字符串作为 `EpubImageAsset.sourceUrl` 匹配键。这样即使服务端反代后未改 `HOST` 配置，远程 CLI 依然能 100% 正常拉取所有封面与插图。
 
 #### 3) 拉取调度与文件名规范
+
 - **章节拉取**：按顺序 `concurrency = 1` 请求 `GET /v1/linovelib/chapter/:chapterId?novelId=:novelId`，单章失败自动指数退避重试最多 3 次。
 - **图片拉取**：汇总目标范围内所有封面与章节插图 URL 去重后，以默认 `concurrency = 4` 并发拉取二进制并缓存于本次任务的内存池中（合并模式或多章共用插图仅下载一次）。
 - **输出文件名清洗**：
@@ -166,11 +176,14 @@ export function buildNovelEpub(input: NovelEpubInput): Uint8Array;
 ### 5.3 双轨构建、GitHub Release 与 WinGet / Homebrew 清单
 
 #### 1) 包构建脚本（`apps/cli/package.json`）
+
 - `build`：使用 `tsdown` 输出 `dist/index.mjs`（注入 `#!/usr/bin/env node`），由 `pnpm release` 发布至 npm；`@acanthis-dec/core` 与 `@acanthis-dec/epub` 作为公开工作区依赖随 Changesets 协同发版。
 - `build:bin`：`bun build ./src/index.ts --compile --minify --outfile ./dist/acanthis`，供本地或 CI 单文件打包使用。
 
 #### 2) 多平台单二进制发布工作流（`.github/workflows/cli-release.yml`）
+
 参照现有 `docker-release.yml` 模式，监听 tag push `"@acanthis-dec/cli@*"` 及 `workflow_dispatch`：
+
 1. **编译与归档 Job（`build-binaries`，运行于 `ubuntu-latest` + `oven-sh/setup-bun`）**：
    读取 `apps/cli/package.json` 的 `version`，依次使用 `bun build --compile --minify` 交叉编译 5 个目标并打包：
    - `bun-windows-x64` -> `acanthis.exe` -> `acanthis-v${VERSION}-windows-x64.zip`
@@ -178,7 +191,7 @@ export function buildNovelEpub(input: NovelEpubInput): Uint8Array;
    - `bun-linux-arm64` -> `acanthis` -> `acanthis-v${VERSION}-linux-arm64.tar.gz`
    - `bun-darwin-arm64` -> `acanthis` -> `acanthis-v${VERSION}-darwin-arm64.tar.gz`
    - `bun-darwin-x64` -> `acanthis` -> `acanthis-v${VERSION}-darwin-x64.tar.gz`
-   计算全部归档的 SHA-256 生成 `SHA256SUMS.txt`。
+     计算全部归档的 SHA-256 生成 `SHA256SUMS.txt`。
 2. **包管理器清单生成脚本（`apps/cli/scripts/generate-manifests.ts`）**：
    输入版本号、仓库地址与 `SHA256SUMS.txt`，确定性地生成两套标准清单产物（同时作为 Release 附件或 CI Artifact 留存，便于人工核验或首次手动提 PR）：
    - **Homebrew Formula（`Formula/acanthis.rb`）**：根据 `on_macos` / `on_linux` 与 `Hardware::CPU.arm?` / `intel?` 分别指向对应的 4 个 `.tar.gz` Release 下载链接与 `sha256`，安装 `bin.install "acanthis"` 并附带 `test { assert_match version.to_s, shell_output("#{bin}/acanthis --version") }`。

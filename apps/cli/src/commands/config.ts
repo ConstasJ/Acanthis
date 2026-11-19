@@ -41,7 +41,8 @@ function parseConfigKey(raw: unknown): CliConfigKey {
 export const configCommand = defineCommand({
 	meta: {
 		name: "config",
-		description: "Manage persistent CLI configuration (get, set, list, reset, path)",
+		description:
+			"Manage persistent CLI configuration (get, set, list, reset, path)",
 	},
 	args: {
 		action: {

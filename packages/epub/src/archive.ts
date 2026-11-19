@@ -72,7 +72,10 @@ function resolveImageMediaType(mimeType: string, ext: string): string {
 	return EXTENSION_TO_MEDIA_TYPE[ext.toLowerCase()] ?? "image/jpeg";
 }
 
-function resolveVolumeBookTitle(novelTitle: string, volumeTitle: string): string {
+function resolveVolumeBookTitle(
+	novelTitle: string,
+	volumeTitle: string,
+): string {
 	const novel = novelTitle.trim();
 	const volume = volumeTitle.trim();
 	if (!novel) {

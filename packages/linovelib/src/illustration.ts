@@ -11,10 +11,7 @@ function normalizeIllustrationUrl(
 		return undefined;
 	}
 	const normalized = trimmed.startsWith("//") ? `https:${trimmed}` : trimmed;
-	if (
-		!normalized.startsWith("http://") &&
-		!normalized.startsWith("https://")
-	) {
+	if (!normalized.startsWith("http://") && !normalized.startsWith("https://")) {
 		return undefined;
 	}
 	return normalized;

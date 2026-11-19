@@ -402,11 +402,14 @@ export const useLibraryStore = defineStore("library", () => {
 		return inFlightSyncPromise;
 	}
 
-	async function toggleBookshelf(entry: ToggleBookshelfEntry): Promise<boolean> {
+	async function toggleBookshelf(
+		entry: ToggleBookshelfEntry,
+	): Promise<boolean> {
 		const compositeKey = makeCompositeKey(entry.platform, entry.novelId);
 		const existing = bookshelfMap.value.get(compositeKey);
 		const now = Date.now();
-		const isCurrentlyActive = existing !== undefined && existing.deletedAt === null;
+		const isCurrentlyActive =
+			existing !== undefined && existing.deletedAt === null;
 
 		let updated: BookshelfItem;
 		let added: boolean;

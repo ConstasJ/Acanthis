@@ -44,8 +44,7 @@ export function resolveApiBaseUrl(): string {
 	}
 
 	const envUrl =
-		typeof import.meta !== "undefined" &&
-		typeof import.meta.env !== "undefined"
+		typeof import.meta !== "undefined" && typeof import.meta.env !== "undefined"
 			? import.meta.env.VITE_DEFAULT_API_BASE_URL
 			: undefined;
 	if (typeof envUrl === "string") {

@@ -43,10 +43,12 @@
 ### Task 1: `@acanthis-dec/core` 新增书源发现类型契约
 
 **Files:**
+
 - Modify: `packages/core/src/types.ts:41`
 - Modify: `packages/core/src/index.ts:8-16`
 
 **Interfaces:**
+
 - Consumes: 无（基础类型定义）
 - Produces（由 `packages/core/src/index.ts` 包根导出）:
   - `export type SourceCapability = "search" | "novels" | "illustrations";`
@@ -63,6 +65,7 @@
 - [ ] **Step 3: 运行类型检查、构建与 Lint 验证**
 
 Run:
+
 ```bash
 pnpm --filter=@acanthis-dec/core run check-types
 pnpm --filter=@acanthis-dec/core run build
@@ -82,6 +85,7 @@ git commit -m "feat(core): 新增书源能力与描述类型定义" -m "在 pack
 ### Task 2: `@acanthis-dec/storage` 新增 `illustrationMetadata` 表、Hash 工具、分页类型与 Drizzle 增量迁移
 
 **Files:**
+
 - Modify: `packages/storage/src/table.ts:144-218`
 - Modify: `packages/storage/src/utils.ts:28-43`
 - Modify: `packages/storage/src/type.ts:1-20`
@@ -89,6 +93,7 @@ git commit -m "feat(core): 新增书源能力与描述类型定义" -m "在 pack
 - Create: `packages/storage/migrations/<timestamp>_<name>/migration.sql`（及同目录 `snapshot.json`，由 `drizzle-kit generate` 生成）
 
 **Interfaces:**
+
 - Consumes: `@acanthis-dec/core` (`NovelInfo`)
 - Produces:
   - 内部表定义（仅从 `packages/storage/src/table.ts` 导出供内部 `db.ts` 消费，不从包根 `index.ts` 暴露）：
@@ -101,6 +106,7 @@ git commit -m "feat(core): 新增书源能力与描述类型定义" -m "在 pack
 - [ ] **Step 1: 在 `packages/storage/src/table.ts` 新增 `illustrationMetadata` 表并更新 `defineRelations`**
 
 在 `generalCache` 后新增 `illustrationMetadata = sqliteTable("illustration_metadata", { ... })`：
+
 - 列定义：`id`（自增主键）、`platform`（`text("platform").notNull()`）、`urlHash`（`text("url_hash").notNull()`）、`originalUrl`（`text("original_url").notNull()`）、`fileHash`（`text("file_hash")` 可空）、`contentType`（`text("content_type")` 可空）、`createdAt`（`integer("created_at").notNull()`）。
 - 索引：`unique("illustration_platform_url_hash_idx").on(table.platform, table.urlHash)`。
 - 将 `illustrationMetadata` 加入第 149-162 行 `defineRelations({ ... })` 首参表映射中。
@@ -114,12 +120,14 @@ git commit -m "feat(core): 新增书源能力与描述类型定义" -m "在 pack
 - [ ] **Step 3: 生成 Drizzle 增量迁移并追加存量未决章节清理 SQL**
 
 Run:
+
 ```bash
 pnpm --filter=@acanthis-dec/storage exec drizzle-kit generate
 ```
 Expected: 在 `packages/storage/migrations/` 下生成新的 `<timestamp>_<name>/` 文件夹，包含 `snapshot.json` 与 `migration.sql`（内含 `CREATE TABLE illustration_metadata` 与 `CREATE UNIQUE INDEX illustration_platform_url_hash_idx`）。
 
 随后编辑新生成的 `migration.sql`，在末尾追加（遵循 Drizzle 语句分隔符约定）：
+
 ```sql
 --> statement-breakpoint
 DELETE FROM `chapters` WHERE `platform_id` LIKE 'TOBEDETERMINED%';
@@ -128,12 +136,14 @@ DELETE FROM `chapters` WHERE `platform_id` LIKE 'TOBEDETERMINED%';
 - [ ] **Step 4: 类型检查与临时库迁移冒烟验证**
 
 Run:
+
 ```bash
 pnpm --filter=@acanthis-dec/storage run check-types
 pnpm --filter=@acanthis-dec/storage run build
 pnpm run format-and-lint
 ```
 并用 `pnpm --filter=@acanthis-dec/storage exec tsx -e "..."` 在临时目录创建预置旧表与 `"TOBEDETERMINED"` 章节行的 SQLite 库，指向 `packages/storage/migrations`（即包内 `./migrations`）实例化 `DatabaseService`（或依次执行初始与新增迁移），验证：
+
 1. `SELECT count(*) FROM chapters WHERE platform_id LIKE 'TOBEDETERMINED%'` 结果为 `0`；
 2. `sqlite_master` 中存在 `illustration_metadata` 表与 `illustration_platform_url_hash_idx` 唯一索引。
 
@@ -149,11 +159,13 @@ git commit -m "feat(storage): 新增插图元数据表、分页类型与增量�
 ### Task 3: `@acanthis-dec/storage` 实现插图缓存、书库分页查询与事务残留清理
 
 **Files:**
+
 - Modify: `packages/storage/src/db.ts:14-31,183-274,611-622`
 - Modify: `packages/storage/src/files.ts:1-107`
 - Modify: `packages/storage/src/service.ts:1-123`
 
 **Interfaces:**
+
 - Consumes: Task 2（`illustrationMetadata`、`getUrlHash`、`getExtFromContentType`、`ListNovelsOptions`、`PaginatedNovels`）
 - Produces（`StorageService` 新增实例方法，并同步由 `DatabaseService` / `FSStorageService` 提供底层实现）:
   - `registerIllustrations(platform: string, urls: string[]): Promise<void>`
@@ -165,6 +177,7 @@ git commit -m "feat(storage): 新增插图元数据表、分页类型与增量�
 - [ ] **Step 1: 增强 `DatabaseService.addNovelCache` 事务残留清理并新增 DB 查询/写入方法**
 
 在 `packages/storage/src/db.ts` 完成以下变更：
+
 1. **事务内残留清理（`addNovelCache` 183-274 行）**：
    - 更新已有章节冲突策略为同时刷新 `volumeId` 与 `name`（**绝不覆写 `contentHash`**）。
    - upsert 全部分卷与章节后，收集本次有效 `volumePlatformIds` 与 `chapterPlatformIds`：
@@ -191,12 +204,14 @@ git commit -m "feat(storage): 新增插图元数据表、分页类型与增量�
 - [ ] **Step 3: 类型检查、构建与端到端实测验证（覆盖 Review Focus #1、#4、#5）**
 
 Run:
+
 ```bash
 pnpm --filter=@acanthis-dec/storage run check-types
 pnpm --filter=@acanthis-dec/storage run build
 pnpm run format-and-lint
 ```
 并运行 `pnpm --filter=@acanthis-dec/storage exec tsx -e "..."` 临时验证脚本（使用临时目录 + 临时 SQLite，执行后清理临时目录），确认全部断言通过：
+
 1. **Review Focus #1（空卷与残留清理）**：先写入含 `TOBEDETERMINED_0_0` 与普通章节（附带 `contentHash="abc"`）的 `Novel`，再次调用 `addNovelCache` 用真实 ID 替换占位章并保留普通章，断言占位行已删除且保留章 `contentHash` 仍为 `"abc"`；随后以 `volumes: []` 调用 `addNovelCache`，断言不抛 `notInArray` 异常且分卷/章节被清空。
 2. **Review Focus #4（插图幂等与半状态恢复）**：传入含重复 URL 的数组调用 `registerIllustrations`，断言无冲突报错且 `getIllustrationSourceUrl` 返回正确原 URL；调用 `setIllustrationData` 落盘后手动 `rmSync` 删除磁盘文件，断言 `getIllustrationData` 返回 `undefined` 而非抛错。
 3. **Review Focus #5（书库占位过滤与空库）**：空库调用 `listCachedNovels("linovelib", { page: 1, pageSize: 20 })` 返回 `{ items: [], total: 0, page: 1, pageSize: 20 }`；写入 `addSearchResult` 与 `addNovelCoverMetadata` 占位行后查询仍为 `total: 0`；写入完整 `addNovelCache` 后返回对应 `NovelInfo`（含 `genres`）且按 `updateAt DESC, id DESC` 排序。
@@ -213,11 +228,13 @@ git commit -m "feat(storage): 实现插图缓存管理、书库分页查询与�
 ### Task 4: `@acanthis-dec/linovelib` 实现章节插图提取/重写与二进制图片拉取
 
 **Files:**
+
 - Create: `packages/linovelib/src/illustration.ts`（或直接修改 `packages/linovelib/src/chapter.ts` 并在 `index.ts` 导出）
 - Modify: `packages/linovelib/src/client.ts:230-237`
 - Modify: `packages/linovelib/src/index.ts:1-6`
 
 **Interfaces:**
+
 - Consumes: `@acanthis-dec/browser-fetch` (`BinaryResponse`)、`cheerio`
 - Produces（由 `packages/linovelib/src/index.ts` 包根导出）:
   - `export function extractChapterIllustrationUrls(html: string): string[];`
@@ -227,6 +244,7 @@ git commit -m "feat(storage): 实现插图缓存管理、书库分页查询与�
 - [ ] **Step 1: 实现 `extractChapterIllustrationUrls` 与 `rewriteChapterIllustrations`**
 
 在 `packages/linovelib/src/illustration.ts`（用 Cheerio 片段模式 `cheerio.load(html, null, false)`，避免注入 `<html><head><body>` 外壳）：
+
 - 规范化辅助逻辑：提取 `img` 的 `src` 并 `trim()`；若以 `"//"` 开头则补全为 `"https:" + src`；仅保留以 `"http://"` 或 `"https://"` 开头的 URL（过滤空串、`data:`、相对路径等）。
 - `extractChapterIllustrationUrls(html: string): string[]`：遍历所有 `img`，按出现顺序使用 `Set<string>` 去重返回规范化 URL 数组。
 - `rewriteChapterIllustrations(html: string, mapUrl: (originalUrl: string) => string): string`：使用片段模式加载 `html`，对每个满足 HTTP(S) 规范的 `img` 将其 `src` 替换为 `mapUrl(normalizedUrl)`，直接返回 `$.html()`，不改动既有 `<p>`、`<h2>` 等段落与标签结构。
@@ -234,15 +252,18 @@ git commit -m "feat(storage): 实现插图缓存管理、书库分页查询与�
 - [ ] **Step 2: 为 `LinovelibClient` 新增 `getIllustration` 并在包根导出新工具函数**
 
 1. 在 `packages/linovelib/src/client.ts:230-237` 后新增：
+
    ```ts
    async getIllustration(url: string, referer?: string): Promise<BinaryResponse>
    ```
+
    若 `this.options?.session.enabled && !this.isSessionValid` 则先执行 `ensureValidSession`，随后复用 `this.getCover(url, referer || "https://www.linovelib.com/")`。
 2. 在 `packages/linovelib/src/index.ts` 导出 `extractChapterIllustrationUrls` 与 `rewriteChapterIllustrations`。
 
 - [ ] **Step 3: 类型检查、构建与端到端片段解析验证（覆盖 Review Focus #2）**
 
 Run:
+
 ```bash
 pnpm --filter=@acanthis-dec/linovelib run check-types
 pnpm --filter=@acanthis-dec/linovelib run build
@@ -250,6 +271,7 @@ pnpm run format-and-lint
 ```
 并运行 `pnpm --filter=@acanthis-dec/linovelib exec tsx -e "..."` 临时脚本验证 **Review Focus #2**：
 输入包含 `<h2>章节名</h2>\n<p>正文</p><p><img src="//img.example.com/a.jpg" class="imagecontent"></p><p><img src="https://cdn.example.com/b.png"></p><img src="data:image/png;base64,AAA"><img src="   "><img><img src="//img.example.com/a.jpg">`：
+
 - `extractChapterIllustrationUrls` 返回 `["https://img.example.com/a.jpg", "https://cdn.example.com/b.png"]`（仅 2 项且顺序正确）；
 - `rewriteChapterIllustrations` 返回字符串包含重写后的两个 `src`，保留 `<h2>` 与 `<p>`，保留 `data:image/...` 等非 HTTP(S) 原样不变，且**不包含** `<html>`、`<head>` 或 `<body>` 标签。
 
@@ -265,10 +287,12 @@ git commit -m "feat(linovelib): 新增章节插图提取、片段重写与二进
 ### Task 5: `@acanthis-dec/linovelib` 重构目录隐藏章节（`TOBEDETERMINED`）双向推导
 
 **Files:**
+
 - Modify: `packages/linovelib/src/novel.ts:32-242`
 - Modify: `packages/linovelib/src/index.ts:1-6`
 
 **Interfaces:**
+
 - Consumes: `NovelChapterQueue`（`fetchChapterPart(url: string): Promise<string>`，位于 `packages/linovelib/src/queue.ts:62-116`）
 - Produces:
   - 包根导出（`packages/linovelib/src/index.ts`）：`export function isUnresolvedChapterId(id: string): boolean`（返回 `id.startsWith("TOBEDETERMINED")`）
@@ -281,6 +305,7 @@ git commit -m "feat(linovelib): 新增章节插图提取、片段重写与二进
 - [ ] **Step 1: 实现 `isUnresolvedChapterId` 与 `parseNextChapterIdFromPrevChapter`**
 
 在 `packages/linovelib/src/novel.ts`：
+
 1. 新增导出 `isUnresolvedChapterId(id: string): boolean`，实现为 `id.startsWith("TOBEDETERMINED")`。
 2. 实现 `parseNextChapterIdFromPrevChapter(novelId: string, prevChapterId: string, chapterQueue: NovelChapterQueue): Promise<string>`：
    - 若 `!/^\d+$/.test(prevChapterId)` 直接返回 `""`；
@@ -294,6 +319,7 @@ git commit -m "feat(linovelib): 新增章节插图提取、片段重写与二进
 - [ ] **Step 2: 重构 `getNovelVolumes` 两阶段双向推导状态机并更新 `getNovelInfo` 与包根导出**
 
 在 `packages/linovelib/src/novel.ts` 与 `src/index.ts`：
+
 1. 重构 `getNovelVolumes(novelId, title, url, fetchClient, retry, chapterQueue?)`：
    - 同步解析各卷 DOM 后，按阅读顺序将全书所有章节展平为 `flatChapters: Array<{ chapter: Chapter; vIndex: number; cIndex: number; nextHref: string }>`（保留对 `volumes[vIndex].chapters[cIndex]` 的直接引用）。
    - **第一阶段（反向单跳推导）**：仅当 `chapterQueue` 存在，遍历 `flatChapters`，当 `current.chapter.id === "TOBEDETERMINED"` **且** `next` 存在且 `!/^$/.test(next.chapter.id)`、`!isUnresolvedChapterId(next.chapter.id)` 且 `/^\d+$/.test(next.chapter.id)` 时，才调用 `parseChapterIdFromNextChapter` 请求 `https://www.linovelib.com/novel/${novelId}/${next.chapter.id}.html` 提取 `url_previous`；若解析出合法纯数字 ID 则原地回填 `current.chapter.id`。
@@ -305,12 +331,14 @@ git commit -m "feat(linovelib): 新增章节插图提取、片段重写与二进
 - [ ] **Step 3: 类型检查、构建与隐藏章节状态机验证（覆盖 Review Focus #1）**
 
 Run:
+
 ```bash
 pnpm --filter=@acanthis-dec/linovelib run check-types
 pnpm --filter=@acanthis-dec/linovelib run build
 pnpm run format-and-lint
 ```
 并运行 `pnpm --filter=@acanthis-dec/linovelib exec tsx -e "..."` 验证脚本（构造含 mock `fetchClient.text` 与真实 `NovelChapterQueue` 的测试场景），断言 **Review Focus #1** 全部情景通过且队列未抛出 `Invalid chapter URL`：
+
 1. 第一卷包含「正常章 `100` -> 连续两章隐藏 `javascript:cid(0)` -> 正常章 `103`」：验证 `102` 由反向单跳或正向推导正确解出，`101` 与 `102` 均获得正确数字 ID；
 2. 跨卷边界隐藏：卷 1 末章 `javascript:cid(0)` 依赖卷 2 首章 `201` 反向或前章正向正确解出；
 3. 全书末章隐藏 + 前一章多分页（`301.html` -> `301_2.html` -> `302.html`）：验证正向链式翻页命中 `302` 并回填末章；
@@ -328,11 +356,13 @@ git commit -m "feat(linovelib): 重构目录隐藏章节双向推导与唯一占
 ### Task 6: `@acanthis-dec/api-server` 配置、CORS 与可选 Bearer 鉴权中间件
 
 **Files:**
+
 - Modify: `apps/api-server/src/config.ts:9-176`
 - Modify: `apps/api-server/src/middleware.ts:1-32`
 - Modify: `apps/api-server/src/index.ts:1-12`
 
 **Interfaces:**
+
 - Consumes: `node:crypto` (`createHash`, `timingSafeEqual`)、`hono/cors`
 - Produces:
   - `ConfigSchema` & `Config` 新增 `cors: { origin: string | string[] }`（默认 `{ origin: "*" }`）与 `auth?: { token?: string } | undefined`
@@ -342,6 +372,7 @@ git commit -m "feat(linovelib): 重构目录隐藏章节双向推导与唯一占
 - [ ] **Step 1: 扩展 `ConfigSchema` 与 `getConfig()` 环境变量映射**
 
 在 `apps/api-server/src/config.ts`：
+
 1. `ConfigSchema` 新增：
    - `cors: z.object({ origin: z.union([z.string(), z.array(z.string())]).default("*") }).default({ origin: "*" })`
    - `auth: z.object({ token: z.string().min(1).optional() }).optional()`
@@ -364,12 +395,14 @@ git commit -m "feat(linovelib): 重构目录隐藏章节双向推导与唯一占
 - [ ] **Step 3: 类型检查、构建与 CORS/鉴权实测验证（覆盖 Review Focus #3）**
 
 Run:
+
 ```bash
 pnpm --filter=@acanthis-dec/api-server run check-types
 pnpm --filter=@acanthis-dec/api-server run build
 pnpm run format-and-lint
 ```
 使用临时端口与临时数据目录分别启动 `@acanthis-dec/api-server` 进程验证 **Review Focus #3**（测试后停止进程并清理临时目录）：
+
 1. 设置 `AUTH_TOKEN=""` 与未设置 `CORS_ORIGIN` 启动成功，验证 `GET /v1/linovelib/search?keyword=test` 不返回 `401`，响应头含 `Access-Control-Allow-Origin: *`；
 2. 设置 `AUTH_TOKEN="secret-token-123"`、`CORS_ORIGIN="https://app.example.com,http://localhost:5173"` 启动后请求：
    - `OPTIONS /v1/linovelib/search`（带 `Origin: http://localhost:5173`、`Access-Control-Request-Method: GET`）-> `204`/`200` 且返回匹配 `Access-Control-Allow-Origin: http://localhost:5173`（未被 Auth 拦截）；
@@ -390,12 +423,14 @@ git commit -m "feat(api-server): 新增 CORS 与可选 Bearer 鉴权配置及中
 ### Task 7: `@acanthis-dec/api-server` 新增书源发现、书库分页、插图代理与章节直链兜底路由
 
 **Files:**
+
 - Modify: `apps/api-server/src/utils.ts:1-88`
 - Create: `apps/api-server/src/sources.ts`（或直接注册于 `index.ts`）
 - Modify: `apps/api-server/src/index.ts:8-12`
 - Modify: `apps/api-server/src/linovelib.ts:1-345`
 
 **Interfaces:**
+
 - Consumes:
   - `@acanthis-dec/core` (`NovelSourceDescriptor`)
   - `@acanthis-dec/storage` (`getUrlHash`, `StorageService.registerIllustrations`, `getIllustrationSourceUrl`, `getIllustrationData`, `setIllustrationData`, `listCachedNovels`)
@@ -412,6 +447,7 @@ git commit -m "feat(api-server): 新增 CORS 与可选 Bearer 鉴权配置及中
 - [ ] **Step 1: 抽取 `resolveHost(c)` 并泛型化 `transformOutputStyleForSearchResult`**
 
 在 `apps/api-server/src/utils.ts`：
+
 1. 新增导出 `resolveHost(c: Context): string`：取 `config.host ?? c.req.header("host") ?? "http://localhost:5301"`；若不以 `http://` 或 `https://` 开头，根据 `c.req.header("x-forwarded-proto") ?? "http"` 补齐协议前缀；最后 `.replace(/\/+$/, "")` 去除末尾所有斜杠。
 2. 将 `transformOutputStyleForSearchResult` 签名升级为 `<T extends NovelSearchResult>(result: T, style: OutputStyle | undefined): T | LNReaderNovelItem`，保持运行时分支不变。
 3. 将 `apps/api-server/src/linovelib.ts:116` 与 `:304` 的 `config.host ?? c.header("host") ?? ...` 统一替换为 `resolveHost(c)`。
@@ -424,12 +460,13 @@ git commit -m "feat(api-server): 新增 CORS 与可选 Bearer 鉴权配置及中
 - [ ] **Step 3: 升级 `GET /v1/linovelib/chapter/:chapterId` 并新增 `/illustration/:hash` 与 `/novels` 路由**
 
 在 `apps/api-server/src/linovelib.ts`：
+
 1. **升级 `GET /chapter/:chapterId`**：
    - 增加 `zValidator("query", z.object({ novelId: z.string().min(1).optional() }))`。
    - 当 `chapterMeta` 为空且传入 `novelId` 时：尝试 `linovelibClient.getNovelInfo(novelId)`（捕获源站异常仅记日志不抛 500），仅当返回有效作品（`novel && novel.title !== "" && novel.volumes.length > 0`）时执行 `storageService.addNovelCache(novel)`，再重查 `getChapterFromId("linovelib", chapterId)`；仍为空则返回 `404` `{ code: 10000, message: "Chapter meta not found" }`。
    - 获取原始未改写 `rawHtml`（来自 `getNovelContent(hash)`；或新抓取 `linovelibClient.getChapter` 后先调用 `setNovelContent(rawHtml)` + `addNovelContentHash` 持久化原始 HTML）。
    - 提取插图 URL：`const urls = extractChapterIllustrationUrls(rawHtml)`，若 `urls.length > 0` 调用 `await storageService.registerIllustrations("linovelib", urls)`。
-   - 用 `const host = resolveHost(c)` 调用 `rewriteChapterIllustrations(rawHtml, (url) => \`\${host}/v1/linovelib/illustration/\${getUrlHash(url)}\`)` 返回重写后的 `content`。
+   - 用 `const host = resolveHost(c)` 调用 `rewriteChapterIllustrations(rawHtml, (url) => \`\${host}/v1/linovelib/illustration/\${getUrlHash(url)}\`)`返回重写后的`content`。
 2. **新增 `GET /illustration/:hash`**：
    - 校验 param：`z.object({ hash: z.string().regex(/^[a-f0-9]{32}$/, "Invalid illustration hash") })`。
    - 先查 `storageService.getIllustrationData("linovelib", hash)`，命中则带 `Content-Type` 与 `Cache-Control: public, max-age=86400` 返回 `c.body(new Uint8Array(cached.data))`。
@@ -443,12 +480,14 @@ git commit -m "feat(api-server): 新增 CORS 与可选 Bearer 鉴权配置及中
 - [ ] **Step 4: 全量类型检查、构建、Lint 与 API 端到端实测（覆盖 Review Focus #4、#5）**
 
 Run:
+
 ```bash
 pnpm run check-types
 pnpm run build
 pnpm run format-and-lint
 ```
 在临时数据目录（预置一个临时 `data.db` 与 `.zst` 章节文件模拟存量老缓存，且配置 `HOST="https://api.example.com/"`）启动 `@acanthis-dec/api-server`，使用 `curl`/PowerShell `Invoke-RestMethod` 验证：
+
 1. `GET /v1/sources` -> `200` `code: 0`，`data` 含 `linovelib` 及 `["search", "novels", "illustrations"]`；
 2. **Review Focus #5**：
    - `GET /v1/linovelib/novels?page=1&pageSize=20` -> 排除所有 `unknown`/空字段占位行，有效书目 `coverUrl` 为 `https://api.example.com/v1/linovelib/cover/novel/<id>`（无双斜杠）；`style=lnreader` 返回 `{ name, path, cover }`；

@@ -299,9 +299,9 @@ export const webDb = {
 		const tx = db.transaction(STORES.novels, "readonly");
 		const store = tx.objectStore(STORES.novels);
 		const record = await requestToPromise(
-			store.get(
-				makeCompositeKey(platform, novelId),
-			) as IDBRequest<StoredNovelRecord | undefined>,
+			store.get(makeCompositeKey(platform, novelId)) as IDBRequest<
+				StoredNovelRecord | undefined
+			>,
 		);
 		await transactionDone(tx);
 		return record ? stripNovelRecord(record) : null;
@@ -376,7 +376,9 @@ export const webDb = {
 					cursor.continue();
 				};
 				cursorRequest.onerror = () =>
-					reject(cursorRequest.error ?? new Error("LRU eviction cursor failed"));
+					reject(
+						cursorRequest.error ?? new Error("LRU eviction cursor failed"),
+					);
 			});
 		}
 

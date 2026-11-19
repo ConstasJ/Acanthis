@@ -12,7 +12,8 @@ import {
 export const infoCommand = defineCommand({
 	meta: {
 		name: "info",
-		description: "Show novel metadata, 1-based volume indices, and chapter stats",
+		description:
+			"Show novel metadata, 1-based volume indices, and chapter stats",
 	},
 	args: {
 		novelIdOrUrl: {
@@ -66,7 +67,9 @@ export const infoCommand = defineCommand({
 			return;
 		}
 
-		process.stdout.write(`${pc.bold(novel.title)} ${pc.cyan(`[${novel.id}]`)}\n`);
+		process.stdout.write(
+			`${pc.bold(novel.title)} ${pc.cyan(`[${novel.id}]`)}\n`,
+		);
 		process.stdout.write(`Author:   ${novel.author}\n`);
 		process.stdout.write(`Platform: ${novel.platform}\n`);
 		process.stdout.write(`Status:   ${novel.status}\n`);

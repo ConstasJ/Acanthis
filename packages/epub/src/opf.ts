@@ -59,7 +59,9 @@ export function buildContentOpf(options: {
 		}
 	}
 
-	lines.push(`\t\t<meta property="dcterms:modified">${modifiedTimestamp}</meta>`);
+	lines.push(
+		`\t\t<meta property="dcterms:modified">${modifiedTimestamp}</meta>`,
+	);
 
 	const coverImageId = options.coverImageId?.trim();
 	if (coverImageId) {

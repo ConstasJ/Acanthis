@@ -3,11 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import z from "zod";
 import { normalizeServerUrl } from "./client";
-import type {
-	CliConfigKey,
-	CliStoredConfig,
-	ResolvedCliConfig,
-} from "./types";
+import type { CliConfigKey, CliStoredConfig, ResolvedCliConfig } from "./types";
 
 const DEFAULT_SERVER_URL = "http://localhost:5301";
 const DEFAULT_SOURCE = "linovelib";

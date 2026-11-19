@@ -18,8 +18,7 @@ interface ArchiveChecksums {
 	windowsX64: string;
 }
 
-const SEMVER_REGEX =
-	/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
+const SEMVER_REGEX = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
 const REPO_REGEX = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
 const SHA256_LINE_REGEX = /^([0-9a-fA-F]{64})\s+\*?(?:.*[/\\])?([^\s/\\]+)$/;
 const SHA256_HEX_REGEX = /^[0-9a-f]{64}$/;

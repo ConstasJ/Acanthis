@@ -38,19 +38,19 @@ acanthis
 
 按作品数字 ID 或作品页面链接（如 `https://www.linovelib.com/novel/3590.html`）导出 `.epub` 文件。
 
-| 参数 | 短参数 | 默认值 | 说明 |
-| --- | --- | --- | --- |
-| `--server <url>` | `-s` | 配置值 / `http://localhost:5301` | Acanthis API 服务端基础地址 |
-| `--source <platform>` | — | 配置值 / `linovelib` | 书源标识 |
-| `--token <token>` | `-t` | 配置值 / 未设置 | 可选 Bearer 访问令牌 |
-| `--output <dir>` | `-o` | 配置值 / `.` | 导出文件输出目录 |
-| `--mode <split\|merged>` | `-m` | `split` | `split` 按分卷输出 `[作者] 书名 - 分卷名.epub`；`merged` 合并输出 `[作者] 书名.epub`（选定部分分卷时为 `(选集)`） |
-| `--merged` | — | `false` | 快捷开关，等价于 `--mode merged` |
-| `--volumes <spec>` | `-v` | 全部分卷 | 逗号分隔的 1 基卷序号、闭区间（如 `1,3-5`）或分卷 ID |
-| `--no-illustrations` | — | `illustrations = true` | 跳过章节插图下载（仅保留封面，正文中缺失插图将替换为占位提示） |
-| `--strict` | — | `false` | 遇到未决 `TOBEDETERMINED` 章节或章节/插图重试耗尽时立即以退出码 `1` 中止（无封面分卷 `404` 始终自动降级容错） |
-| `--overwrite` | — | `false` | 覆盖已存在的同名 `.epub` 文件（默认跳过） |
-| `--json` | — | `false` | 仅向 `stdout` 输出单行结构化 JSON 结果；所有进度与警告均输出至 `stderr` |
+| 参数                     | 短参数 | 默认值                           | 说明                                                                                                              |
+| ------------------------ | ------ | -------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `--server <url>`         | `-s`   | 配置值 / `http://localhost:5301` | Acanthis API 服务端基础地址                                                                                       |
+| `--source <platform>`    | —      | 配置值 / `linovelib`             | 书源标识                                                                                                          |
+| `--token <token>`        | `-t`   | 配置值 / 未设置                  | 可选 Bearer 访问令牌                                                                                              |
+| `--output <dir>`         | `-o`   | 配置值 / `.`                     | 导出文件输出目录                                                                                                  |
+| `--mode <split\|merged>` | `-m`   | `split`                          | `split` 按分卷输出 `[作者] 书名 - 分卷名.epub`；`merged` 合并输出 `[作者] 书名.epub`（选定部分分卷时为 `(选集)`） |
+| `--merged`               | —      | `false`                          | 快捷开关，等价于 `--mode merged`                                                                                  |
+| `--volumes <spec>`       | `-v`   | 全部分卷                         | 逗号分隔的 1 基卷序号、闭区间（如 `1,3-5`）或分卷 ID                                                              |
+| `--no-illustrations`     | —      | `illustrations = true`           | 跳过章节插图下载（仅保留封面，正文中缺失插图将替换为占位提示）                                                    |
+| `--strict`               | —      | `false`                          | 遇到未决 `TOBEDETERMINED` 章节或章节/插图重试耗尽时立即以退出码 `1` 中止（无封面分卷 `404` 始终自动降级容错）     |
+| `--overwrite`            | —      | `false`                          | 覆盖已存在的同名 `.epub` 文件（默认跳过）                                                                         |
+| `--json`                 | —      | `false`                          | 仅向 `stdout` 输出单行结构化 JSON 结果；所有进度与警告均输出至 `stderr`                                           |
 
 #### `acanthis search <keyword>`
 
@@ -109,8 +109,8 @@ acanthis
 
 ## 退出码说明
 
-| 退出码 | 含义 |
-| --- | --- |
-| `0` | 执行成功 |
-| `1` | 运行期错误、网络错误、鉴权失败（`401`）、`--strict` 中止或非 TTY 无子命令调用 |
-| `2` | CLI 参数无效、输入校验失败或配置文件错误（`CliConfigError`） |
+| 退出码 | 含义                                                                          |
+| ------ | ----------------------------------------------------------------------------- |
+| `0`    | 执行成功                                                                      |
+| `1`    | 运行期错误、网络错误、鉴权失败（`401`）、`--strict` 中止或非 TTY 无子命令调用 |
+| `2`    | CLI 参数无效、输入校验失败或配置文件错误（`CliConfigError`）                  |

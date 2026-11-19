@@ -41,10 +41,7 @@ export function createAuthMiddleware(expectedToken: string) {
 		if (c.req.method === "OPTIONS") {
 			return next();
 		}
-		if (
-			c.req.method === "GET" &&
-			PUBLIC_BINARY_PATH_REGEX.test(c.req.path)
-		) {
+		if (c.req.method === "GET" && PUBLIC_BINARY_PATH_REGEX.test(c.req.path)) {
 			return next();
 		}
 

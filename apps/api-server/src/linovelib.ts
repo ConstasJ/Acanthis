@@ -35,9 +35,7 @@ const volumeParamSchema = z.object({
 });
 
 const illustrationParamSchema = z.object({
-	hash: z
-		.string()
-		.regex(/^[a-f0-9]{32}$/i, "Invalid illustration hash"),
+	hash: z.string().regex(/^[a-f0-9]{32}$/i, "Invalid illustration hash"),
 });
 
 const novelsQuerySchema = z.object({
@@ -67,7 +65,11 @@ app.get(
 				if (/^\d+$/.test(novelId)) {
 					try {
 						const novel = await linovelibClient.getNovelInfo(novelId);
-						if (novel && novel.title.trim() !== "" && novel.volumes.length > 0) {
+						if (
+							novel &&
+							novel.title.trim() !== "" &&
+							novel.volumes.length > 0
+						) {
 							await storageService.addNovelCache(novel);
 							chapterMeta = await storageService.getChapterFromId(
 								"linovelib",

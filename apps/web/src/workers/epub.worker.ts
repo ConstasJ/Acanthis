@@ -200,7 +200,12 @@ async function runExport(request: EpubWorkerRequest): Promise<void> {
 	const illustrationUrlsPerVolume: string[][] = selectedVolumes.map(() => []);
 
 	if (totalChapters > 0) {
-		emitProgress("chapters", 0, totalChapters, `正在准备 ${totalChapters} 个章节…`);
+		emitProgress(
+			"chapters",
+			0,
+			totalChapters,
+			`正在准备 ${totalChapters} 个章节…`,
+		);
 	}
 
 	let completedChapters = 0;

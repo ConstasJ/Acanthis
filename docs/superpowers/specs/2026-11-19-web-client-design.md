@@ -5,6 +5,7 @@
 在第一步（服务端缓存、插图代理与目录修复底座）和第二步（平台无关 `@acanthis-dec/epub` 与 `@acanthis-dec/cli`）的基础上，第三步构建面向日常阅读的在线网页客户端 **`@acanthis-dec/web`（`apps/web`）**，并同步补齐支撑它的**单后端多书源发现**与**单用户跨设备阅读同步**后端切片。
 
 核心使用场景：
+
 - 用户日常以**手机端阅读为主、桌面端阅读为辅**，采用**前后端分离部署**（静态前端托管于 Cloudflare Pages / Nginx 等，连接自托管 `@acanthis-dec/api-server`）；
 - 书架收藏与阅读进度支持**手机、电脑及后续规划的 Compose Multiplatform（CMP）原生 App 跨设备无缝同步**；
 - 客户端采用**单后端多源（Multi-Source per Server）**模型——不绑定单一站点路径，自动发现并对接服务端已启用的所有书源适配器（如当前的 `linovelib` 及未来扩展的其他站点包）。
@@ -12,6 +13,7 @@
 ## 2. 目标与非目标（Goals, Non-Goals & Anti-Goals）
 
 ### Goals
+
 1. **单后端多源协议打通**：服务端提供 `GET /v1/sources` 书源发现接口；客户端所有路由、缓存、书架与阅读进度统一使用 `(platform, novelId)` 复合标识寻址。
 2. **跨平台通用阅读进度与单用户书架同步**：在 `@acanthis-dec/storage` 与 `@acanthis-dec/api-server` 增加单用户书架（含软删除墓碑 `deletedAt`）与块级阅读进度（`paragraphIndex`）持久化及增量同步接口，配套可选的 `AUTH_TOKEN` 鉴权。
 3. **移动端优先、本地优先（Local-First）的 Vue 3 PWA**：
@@ -21,11 +23,13 @@
 4. **可切换阅读模式与网页直出 EPUB**：阅读器默认采用**上下滚动模式**，支持一键切换为**左右翻页模式**（共享同一 `paragraphIndex` 锚点，切换不丢位置）；作品详情页与阅读器内直接复用 `@acanthis-dec/epub`（Web Worker）在浏览器本地打包下载 `.epub`。
 
 ### Non-Goals
+
 - **不做多用户账号注册/登录体系**：本阶段按个人自托管单用户设计，仅提供全局可选 `AUTH_TOKEN` 访问保护。
 - **不做客户端挂载多后端实例聚合**：一个客户端实例同一时间对接一个配置的 `api-server` 地址，多书源完全由该服务端挂载的适配器决定。
 - **不在本阶段实现 CMP 原生客户端**：但同步协议与 `paragraphIndex` 锚点设计直接保证未来 CMP 客户端零改造接入。
 
 ### Anti-Goals
+
 - **禁止以像素高度（`scrollTop`）作为跨端同步基准**：不同屏幕尺寸与未来原生客户端像素高度不可比，必须使用章节内容块序号 `paragraphIndex`（`0-based`）。
 - **禁止未经净化的 `v-html` 直出**：所有章节富文本必须先经 `DOMPurify` 严格白名单过滤后再拆块渲染，彻底阻断 XSS。
 - **禁止把鉴权 Token 拼入图片查询参数或依赖跨站 Cookie**：分离部署下移动端 Safari（ITP）会拦截跨站 Cookie，URL 带 Token 易泄露至日志；JSON 接口统一走 `Authorization: Bearer <token>`，已入库登记的封面与插图二进制路由保持免 Header 直连以兼容原生 `<img src>` 与浏览器缓存。
@@ -41,13 +45,15 @@
 ## 4. 备选方案权衡（Approaches）
 
 ### 4.1 状态与同步架构
-| 维度 | 方案 1：本地优先 PWA + 时间戳增量同步（已选定） | 方案 2：纯在线无状态 SPA | 方案 3：WebSocket / SSE 实时长连接同步 |
-| --- | --- | --- | --- |
-| 手机弱网与锁屏可靠性 | IndexedDB 秒存 + 下一章预取 + `keepalive` 后台刷写，不丢进度 | 弱网切章白屏等待，划走后台易丢最后进度 | 移动端唤醒重连复杂且耗电 |
-| 跨端一致性（含未来 CMP） | 基于 `updatedAt`（Last-Write-Wins）+ 软删除墓碑确定性收敛 | 无离线能力 | 对单人阅读属于过度设计 |
-| 实现复杂度 | 适中（增加一层轻量 IndexedDB 同步队列） | 最低 | 最高 |
+
+| 维度                     | 方案 1：本地优先 PWA + 时间戳增量同步（已选定）              | 方案 2：纯在线无状态 SPA               | 方案 3：WebSocket / SSE 实时长连接同步 |
+| ------------------------ | ------------------------------------------------------------ | -------------------------------------- | -------------------------------------- |
+| 手机弱网与锁屏可靠性     | IndexedDB 秒存 + 下一章预取 + `keepalive` 后台刷写，不丢进度 | 弱网切章白屏等待，划走后台易丢最后进度 | 移动端唤醒重连复杂且耗电               |
+| 跨端一致性（含未来 CMP） | 基于 `updatedAt`（Last-Write-Wins）+ 软删除墓碑确定性收敛    | 无离线能力                             | 对单人阅读属于过度设计                 |
+| 实现复杂度               | 适中（增加一层轻量 IndexedDB 同步队列）                      | 最低                                   | 最高                                   |
 
 ### 4.2 移动端主界面信息架构
+
 经原型对比，选定 **方案 A（经典三栏底导：书架 / 书源·发现 / 设置）**：书架聚焦跨源收藏与顶部“继续阅读”大卡片；发现页通过顶部书源胶囊切换服务端支持的各平台书库与搜索；桌面宽屏自动转为左侧 Navigation Rail。
 
 ## 5. 详细设计（Detailed Design）
@@ -55,7 +61,9 @@
 ### 5.1 共享类型与后端扩展（`core` / `storage` / `api-server`）
 
 #### 1) 书源发现与同步共享类型（`@acanthis-dec/core`）
+
 在 `packages/core/src/types.ts` 新增跨端通用模型：
+
 ```ts
 export type SourceCapability = "search" | "novels" | "illustrations";
 
@@ -93,15 +101,19 @@ export interface ReadingProgress {
 ```
 
 #### 2) 同步数据表（`@acanthis-dec/storage`）
+
 在 `packages/storage/src/table.ts` 新增两张表并生成 Drizzle 迁移：
+
 - `bookshelf_items`：`id`（自增主键）、`platform`、`novel_id`、`title`、`author`、`cover_url`、`added_at`、`updated_at`（客户端事件时间）、`server_updated_at`（服务端单调写入游标）、`deleted_at`（可空整数），唯一索引 `UNIQUE(platform, novel_id)`。
 - `reading_progress`：`id`（自增主键）、`platform`、`novel_id`、`novel_title`、`cover_url`、`volume_id`、`volume_title`、`chapter_id`、`chapter_title`、`paragraph_index`、`total_paragraphs`、`device_label`、`updated_at`（客户端事件时间）、`server_updated_at`（服务端单调写入游标），唯一索引 `UNIQUE(platform, novel_id)`。
 
 **[工程决策] LWW 新旧比较与离线重放游标分离**：
+
 - **新旧裁决（基于 `updatedAt`）**：客户端上报的 `updatedAt` 在服务端先执行时钟漂移钳制 `effectiveUpdatedAt = Math.min(input.updatedAt, Date.now() + 60_000)`；仅当库中不存在对应 `(platform, novelId)` 记录，或 `effectiveUpdatedAt >= existing.updatedAt` 时更新该行。
 - **增量游标（基于 `serverUpdatedAt`）**：每当某行在服务端实际写入或更新时，将其 `server_updated_at` 设为服务端单调递增时间戳 `cursorNow = Math.max(Date.now(), lastCursor + 1)`。`GET /v1/sync/state?since=<cursor>` 按 `server_updated_at > cursor` 过滤并返回新的 `cursor`。这样即使设备 A 离线数小时后重连补推较早 `updatedAt` 的进度，已被服务端采纳的变更仍会获得最新的 `server_updated_at`，确保设备 B 增量拉取时绝不漏同步。
 
 #### 3) 服务端鉴权、多源注册与同步路由（`@acanthis-dec/api-server`）
+
 1. **可选鉴权配置**：
    - `ConfigSchema` 新增 `auth: z.object({ token: z.string().min(1).optional() }).optional()`，映射环境变量 `AUTH_TOKEN`；
    - `cors` 中间件显式配置 `allowHeaders: ["Content-Type", "Authorization"]`、`allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]`；
@@ -117,6 +129,7 @@ export interface ReadingProgress {
 ### 5.2 前端应用架构（`apps/web` — `@acanthis-dec/web`）
 
 #### 1) 路由与页面职责
+
 - `/`（**书架页 `BookshelfView`**）：
   - 顶部“继续阅读”主卡片：取全量 `reading_progress` 中 `updatedAt` 最大的一条，展示封面、书名、书源角标、卷章名、段落百分比及 `deviceLabel`（如 `手机端 · 10 分钟前`），点击直达对应章节与段落；
   - 收藏网格：展示所有 `deletedAt === null` 的书架项，左上角带书源短名徽标，支持按“最近阅读 / 最近添加”切换排序及长按/菜单移除收藏。
@@ -136,6 +149,7 @@ export interface ReadingProgress {
   - 若首次打开应用且未配置有效后端（请求失败或 `401`），在书架/发现页展示温和引导卡片跳转 `/settings`。
 
 #### 2) 阅读器引擎与双模式切换细节
+
 1. **安全净化与内容分块（`parseChapterBlocks`）**：
    - 先使用 `DOMPurify.sanitize` 执行严格标签/属性白名单清洗（仅保留 `h1-h6, p, img, br, hr, ruby, rt, rp, span, em, strong, b, i`，剥离一切事件处理器与脚本）；
    - 将净化后的 DOM 顶层子节点拆解为有序数组 `ReaderBlock[]`（标题块、段落 HTML 块、插图块），对所有图片 URL 执行与 CLI 相同的 **`apiBaseUrl` 媒体重定基**（将 `/v1/...` 路径重写到当前配置的 `apiBaseUrl` 域名下），并为每个块绑定 `0-based` 的 `blockIndex`。
@@ -149,7 +163,9 @@ export interface ReadingProgress {
 4. **下一章静默预取**：进入某章阅读稳定 1.5 秒后，根据本地缓存目录定位紧邻下一章（非 `TOBEDETERMINED*`），若 IndexedDB 尚未缓存则静默请求并存入本地 `cachedChapters`。
 
 #### 3) 本地优先存储与同步状态机（IndexedDB + Pinia）
+
 IndexedDB 库 `acanthis-web` 包含 5 个 Object Store：
+
 - `bookshelf`（主键 `${platform}:${novelId}`）
 - `progress`（主键 `${platform}:${novelId}`）
 - `dirtyQueue`（记录待推送的本地变更键，离线或请求失败时保留，网络恢复后自动重推）
@@ -157,6 +173,7 @@ IndexedDB 库 `acanthis-web` 包含 5 个 Object Store：
 - `chapters`（章节正文缓存，带 LRU / 容量上限清理策略，默认最多保留最近阅读的 200 章正文避免撑爆手机存储）
 
 **同步触发时机**：
+
 1. 应用冷启动及每次从后台切回前台（`document.visibilityState === "visible"`）时：携带上次成功的 `lastSyncServerTime` 调用 `GET /v1/sync/state?since=...` 拉取增量，若有待推送的 `dirtyQueue` 先调用 `POST /v1/sync/state` 合并。
 2. 阅读位置变动时：立即更新内存与 IndexedDB；防抖 2 秒后调用 `POST /v1/sync/state`；切章或触发 `visibilitychange -> hidden` / `pagehide` 时，使用 `fetch(..., { keepalive: true })` 立即刷写最新进度（携带 `Authorization` Header，解决移动端直接划走标签页丢进度的问题）。
 3. **跨设备进度跳转体验**：打开阅读器时若拉取到的远端进度更新时间晚于本地：
@@ -170,6 +187,7 @@ IndexedDB 库 `acanthis-web` 包含 5 个 Object Store：
 1. **Git 直连静态托管平台（阿里云 ESA / Cloudflare Pages / Vercel）**：
    - **过滤安装构建策略**：Monorepo 根部存在后端专用的原生编译依赖（`isolated-vm`、`better-sqlite3`、`onnxruntime-node`、`koffi`）；静态平台统一使用 `pnpm install --filter=@acanthis-dec/web... --frozen-lockfile` 与 `pnpm --filter=@acanthis-dec/web... run build`，仅安装并按拓扑顺序构建 `@acanthis-dec/core`、`@acanthis-dec/epub` 与 `@acanthis-dec/web`。
    - **阿里云 ESA 原生配置（仓库根目录 `esa.jsonc`）**：
+
      ```jsonc
      {
      	"name": "acanthis-web",
@@ -181,6 +199,7 @@ IndexedDB 库 `acanthis-web` 包含 5 个 Object Store：
      	}
      }
      ```
+
      利用 `notFoundStrategy: "singlePageApplication"` 让边缘节点对未命中物理文件的浏览器导航请求自动返回 `200 OK` 与 `index.html`，无缝支持 Vue Router History 模式。
    - **Cloudflare Pages / Netlify / Vercel 兼容**：在 `apps/web/public/_redirects` 内置 `/* /index.html 200`，并在 `apps/web/vercel.json` 提供等效 SPA rewrite 规则。
 

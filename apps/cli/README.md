@@ -38,19 +38,19 @@ The wizard probes server connectivity (prompting for a new `serverUrl` or token 
 
 Export a novel (by numeric ID or URL such as `https://www.linovelib.com/novel/3590.html`) to `.epub` file(s).
 
-| Flag | Alias | Default | Description |
-| --- | --- | --- | --- |
-| `--server <url>` | `-s` | Config / `http://localhost:5301` | Acanthis API server base URL |
-| `--source <platform>` | — | Config / `linovelib` | Novel source identifier |
-| `--token <token>` | `-t` | Config / unset | Optional Bearer auth token |
-| `--output <dir>` | `-o` | Config / `.` | Output directory |
-| `--mode <split\|merged>` | `-m` | `split` | `split` produces `[Author] Title - Volume.epub` per volume; `merged` produces `[Author] Title.epub` (or `(选集)` when subset selected) |
-| `--merged` | — | `false` | Shortcut overriding `--mode` to `merged` |
-| `--volumes <spec>` | `-v` | All volumes | Comma-separated 1-based indices, ranges (e.g. `1,3-5`), or volume IDs |
-| `--no-illustrations` | — | `illustrations = true` | Skip downloading chapter illustrations (covers only; missing images render placeholder text) |
-| `--strict` | — | `false` | Abort with exit code `1` on unresolved `TOBEDETERMINED` chapters or chapter/illustration retry exhaustion (volume cover `404` always falls back gracefully) |
-| `--overwrite` | — | `false` | Overwrite existing `.epub` files instead of skipping |
-| `--json` | — | `false` | Emit only one JSON summary object to `stdout`; all progress and warnings go to `stderr` |
+| Flag                     | Alias | Default                          | Description                                                                                                                                                 |
+| ------------------------ | ----- | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--server <url>`         | `-s`  | Config / `http://localhost:5301` | Acanthis API server base URL                                                                                                                                |
+| `--source <platform>`    | —     | Config / `linovelib`             | Novel source identifier                                                                                                                                     |
+| `--token <token>`        | `-t`  | Config / unset                   | Optional Bearer auth token                                                                                                                                  |
+| `--output <dir>`         | `-o`  | Config / `.`                     | Output directory                                                                                                                                            |
+| `--mode <split\|merged>` | `-m`  | `split`                          | `split` produces `[Author] Title - Volume.epub` per volume; `merged` produces `[Author] Title.epub` (or `(选集)` when subset selected)                      |
+| `--merged`               | —     | `false`                          | Shortcut overriding `--mode` to `merged`                                                                                                                    |
+| `--volumes <spec>`       | `-v`  | All volumes                      | Comma-separated 1-based indices, ranges (e.g. `1,3-5`), or volume IDs                                                                                       |
+| `--no-illustrations`     | —     | `illustrations = true`           | Skip downloading chapter illustrations (covers only; missing images render placeholder text)                                                                |
+| `--strict`               | —     | `false`                          | Abort with exit code `1` on unresolved `TOBEDETERMINED` chapters or chapter/illustration retry exhaustion (volume cover `404` always falls back gracefully) |
+| `--overwrite`            | —     | `false`                          | Overwrite existing `.epub` files instead of skipping                                                                                                        |
+| `--json`                 | —     | `false`                          | Emit only one JSON summary object to `stdout`; all progress and warnings go to `stderr`                                                                     |
 
 #### `acanthis search <keyword>`
 
@@ -109,8 +109,8 @@ Configuration is resolved in 4 tiers (highest priority first):
 
 ## Exit Codes
 
-| Exit Code | Meaning |
-| --- | --- |
-| `0` | Success |
-| `1` | Runtime, network, authentication (`401`), `--strict` abort, or non-TTY root invocation error |
-| `2` | Invalid CLI arguments, validation failure, or configuration file error (`CliConfigError`) |
+| Exit Code | Meaning                                                                                      |
+| --------- | -------------------------------------------------------------------------------------------- |
+| `0`       | Success                                                                                      |
+| `1`       | Runtime, network, authentication (`401`), `--strict` abort, or non-TTY root invocation error |
+| `2`       | Invalid CLI arguments, validation failure, or configuration file error (`CliConfigError`)    |

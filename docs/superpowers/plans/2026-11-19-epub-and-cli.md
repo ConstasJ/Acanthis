@@ -46,6 +46,7 @@
 ### Task 1: `packages/epub` 包脚手架与零 Node 编译期门禁
 
 **Files:**
+
 - Create: `packages/epub/package.json`
 - Create: `packages/epub/tsconfig.json`
 - Create: `packages/epub/tsdown.config.ts`
@@ -54,6 +55,7 @@
 - Modify: `pnpm-lock.yaml`（通过 `pnpm install` 更新）
 
 **Interfaces:**
+
 - Consumes: `@acanthis-dec/config-tsdown` (`baseConfig`), `@acanthis-dec/config-typescript/libraries.json`
 - Produces: `@acanthis-dec/epub` 包边界配置与 `packages/epub/src/types.ts` 导出的 5 个公开契约类型：
   - `EpubImageAsset`: `{ sourceUrl: string; data: Uint8Array; mimeType: string }`
@@ -65,6 +67,7 @@
 - [ ] **Step 1: 创建 `packages/epub/package.json`、`tsconfig.json` 与 `tsdown.config.ts`**
 
 参照 `packages/core/package.json` 创建公开包配置，关键差异字段精确如下：
+
 - `packages/epub/package.json`：`"name": "@acanthis-dec/epub"`、`"version": "0.1.0"`、`"type": "module"`、`"packageManager": "pnpm@12.21.0"`、`"exports": { ".": "./src/index.ts" }`、`"publishConfig": { "types": "./dist/index.d.mts", "exports": { ".": { "import": "./dist/index.mjs", "types": "./dist/index.d.mts" } } }`；`dependencies` 包含 `"dom-serializer": "^2.0.0"`、`"domhandler": "^6.0.1"`、`"fflate": "^0.8.3"`、`"htmlparser2": "^10.1.0"`；`devDependencies` 包含 `"@acanthis-dec/config-tsdown": "workspace:*"`、`"@acanthis-dec/config-typescript": "workspace:*"`、`"tsdown": "catalog:"`、`"tsx": "catalog:"`、`"typescript": "catalog:"`（**禁止加入 `@types/node`**）。
 - `packages/epub/tsconfig.json`：继承 `@acanthis-dec/config-typescript/libraries.json`，并显式设置 `"compilerOptions": { "types": [] }` 阻断 `base.json` 的 Node 全局类型。
 - `packages/epub/tsdown.config.ts`：展开 `baseConfig` 并覆盖 `platform: "neutral"`。
@@ -76,6 +79,7 @@
 - [ ] **Step 3: 安装依赖并验证编译期零 Node 门禁**
 
 Run:
+
 ```bash
 pnpm install
 pnpm --filter=@acanthis-dec/epub run check-types
@@ -97,10 +101,12 @@ git commit -m "feat(epub): 初始化 @acanthis-dec/epub 包脚手架与零 Node 
 ### Task 2: `packages/epub` HTML -> XHTML 清洗引擎与内嵌轻小说样式表
 
 **Files:**
+
 - Create: `packages/epub/src/styles.ts`
 - Create: `packages/epub/src/xhtml.ts`
 
 **Interfaces:**
+
 - Consumes: `EpubImageAsset`, `EpubChapterData` (`packages/epub/src/types.ts`), `htmlparser2`, `domhandler`, `dom-serializer`
 - Produces:
   - `packages/epub/src/styles.ts`:
@@ -115,6 +121,7 @@ git commit -m "feat(epub): 初始化 @acanthis-dec/epub 包脚手架与零 Node 
 - [ ] **Step 1: 实现 `packages/epub/src/styles.ts`**
 
 导出 `DEFAULT_EPUB_CSS`，包含：
+
 - 全局正文行高与字体栈、`p` 首行缩进 `2em` 与段距、`h1.chapter-title` 与分卷扉页居中样式；
 - `<ruby>` / `<rt>` 振假名对齐样式；
 - `.cover-page` 与 `img` 自适应防跨页截断规则（`max-width: 100%; max-height: 100vh; object-fit: contain; break-inside: avoid; page-break-inside: avoid`）；
@@ -123,6 +130,7 @@ git commit -m "feat(epub): 初始化 @acanthis-dec/epub 包脚手架与零 Node 
 - [ ] **Step 2: 实现 `packages/epub/src/xhtml.ts`**
 
 实现要点（仅用标准 Web/JS API 与 `htmlparser2` / `domhandler` / `dom-serializer`）：
+
 - `escapeXml(text)`：转义 `&`、`<`、`>`、`"`、`'`。
 - `resolveImageExtension(mimeType, sourceUrl)`：先按 `;` 分割并 `trim().toLowerCase()` 剥离 MIME 参数（如 `image/jpeg; charset=utf-8` -> `image/jpeg`），映射 `image/jpeg -> jpg`、`image/png -> png`、`image/webp -> webp`、`image/gif -> gif`、`image/svg+xml -> svg`、`image/avif -> avif`；若 MIME 为 `application/octet-stream` 或未知，则回退从 `sourceUrl` 路径扩展名提取（白名单限制，默认 `"jpg"`）。
 - `sanitizeChapterHtmlToXhtml` 核心清洗算法：
@@ -138,6 +146,7 @@ git commit -m "feat(epub): 初始化 @acanthis-dec/epub 包脚手架与零 Node 
 - [ ] **Step 3: 类型检查、构建与 XHTML 边界实测（覆盖 Review Focus #2 & #3）**
 
 Run:
+
 ```bash
 pnpm --filter=@acanthis-dec/epub run check-types
 pnpm --filter=@acanthis-dec/epub run build
@@ -176,11 +185,13 @@ git commit -m "feat(epub): 实现 HTML 到 XHTML 严格清洗与内嵌轻小说�
 ### Task 3: `packages/epub` OPF / NAV / NCX / Container 元数据生成器
 
 **Files:**
+
 - Create: `packages/epub/src/opf.ts`
 - Create: `packages/epub/src/nav.ts`
 - Create: `packages/epub/src/ncx.ts`
 
 **Interfaces:**
+
 - Consumes: `escapeXml` (`packages/epub/src/xhtml.ts`)
 - Produces:
   - `packages/epub/src/opf.ts`:
@@ -212,6 +223,7 @@ git commit -m "feat(epub): 实现 HTML 到 XHTML 严格清洗与内嵌轻小说�
 - [ ] **Step 3: 类型检查与元数据 XML 结构实测**
 
 Run:
+
 ```bash
 pnpm --filter=@acanthis-dec/epub run check-types
 pnpm --filter=@acanthis-dec/epub exec tsx -e '
@@ -252,12 +264,14 @@ git commit -m "feat(epub): 实现 EPUB 3 OPF、NAV 与兼容 EPUB 2 NCX 生成�
 ### Task 4: `packages/epub` 内存归档打包器与公开 API（`buildVolumeEpub` / `buildNovelEpub`）
 
 **Files:**
+
 - Create: `packages/epub/src/archive.ts`
 - Modify: `packages/epub/src/index.ts`
 - Create: `packages/epub/README.md`
 - Create: `packages/epub/README.zh-CN.md`
 
 **Interfaces:**
+
 - Consumes: Task 1-3 内部模块及 `fflate` (`strToU8`, `zipSync`, `type Zippable`)
 - Produces（`packages/epub/src/index.ts` 对外公开契约，与 `docs/superpowers/specs/2026-11-19-epub-and-cli-design.md` §5.1.2 及 `docs/superpowers/plans/2026-11-19-web-client.md` Task 8 契约逐字一致）：
   - Types: `EpubImageAsset`, `EpubChapterData`, `EpubVolumeData`, `VolumeEpubInput`, `NovelEpubInput`
@@ -268,6 +282,7 @@ git commit -m "feat(epub): 实现 EPUB 3 OPF、NAV 与兼容 EPUB 2 NCX 生成�
 - [ ] **Step 1: 实现 `packages/epub/src/archive.ts`**
 
 核心打包算法（严禁使用 `Buffer` 或 `node:*`）：
+
 1. **图片去重注册表**：以 `asset.sourceUrl` 为键建立 `Map<string, { manifestId: string; zipPath: string; relativeHref: string; mediaType: string; data: Uint8Array }>`；相同 `sourceUrl` 跨章仅分配一个 `OEBPS/images/img-XXXX.<ext>`（`XXXX` 4 位零填充），确保 OPF manifest 无重复 ID/href（覆盖 Review Focus #3）。
 2. **MIME 规范化**：向 OPF 写入 `<item media-type="...">` 时剥离 `; ...` 参数，避免含 `; charset=utf-8` 导致 EPUB 校验失败。
 3. **封面与分卷处理**：
@@ -285,6 +300,7 @@ git commit -m "feat(epub): 实现 EPUB 3 OPF、NAV 与兼容 EPUB 2 NCX 生成�
 - [ ] **Step 3: 包级构建、Lint 与 ZIP 二进制结构端到端实测（覆盖 Review Focus #2 & #3）**
 
 Run:
+
 ```bash
 pnpm --filter=@acanthis-dec/epub run check-types
 pnpm --filter=@acanthis-dec/epub run build
@@ -344,6 +360,7 @@ git commit -m "feat(epub): 完成 buildVolumeEpub 与 buildNovelEpub 内存归�
 ### Task 5: `apps/cli` 包脚手架、配置解析与 HTTP 客户端（含媒体 URL 重定基）
 
 **Files:**
+
 - Create: `apps/cli/package.json`
 - Create: `apps/cli/tsconfig.json`
 - Create: `apps/cli/tsdown.config.ts`
@@ -353,6 +370,7 @@ git commit -m "feat(epub): 完成 buildVolumeEpub 与 buildNovelEpub 内存归�
 - Modify: `pnpm-lock.yaml`（通过 `pnpm install` 更新）
 
 **Interfaces:**
+
 - Consumes:
   - `@acanthis-dec/core`: `Novel`, `NovelInfo`, `NovelSearchResult`, `NovelSourceDescriptor`, `Volume`, `Chapter`
   - 第一步服务端 HTTP 路由：`GET /v1/sources`, `GET /v1/:source/novels`, `GET /v1/:source/search`, `GET /v1/:source/novel/:novelId`, `GET /v1/:source/chapter/:chapterId?novelId=`, `GET /v1/:source/cover/novel/:novelId`, `GET /v1/:source/cover/volume/:volumeId`, `GET /v1/:source/illustration/:hash`
@@ -410,6 +428,7 @@ git commit -m "feat(epub): 完成 buildVolumeEpub 与 buildNovelEpub 内存归�
 
 创建临时占位 `apps/cli/src/index.ts`（仅 `export {};` 以便 `tsdown` 在 Task 7 前通过），随后执行：
 Run:
+
 ```bash
 pnpm install
 pnpm --filter=@acanthis-dec/cli run check-types
@@ -441,10 +460,12 @@ git commit -m "feat(cli): 初始化 @acanthis-dec/cli 脚手架、配置管理�
 ### Task 6: `apps/cli` 下载调度与 EPUB 导出引擎（串行章节、并发图片、文件名清洗与容错）
 
 **Files:**
+
 - Create: `apps/cli/src/utils.ts`
 - Create: `apps/cli/src/exporter.ts`
 
 **Interfaces:**
+
 - Consumes: `AcanthisApiClient`, `ApiClientError` (`apps/cli/src/client.ts`), `buildVolumeEpub`, `buildNovelEpub`, `EpubImageAsset`, `EpubChapterData`, `EpubVolumeData` (`@acanthis-dec/epub`), `Novel`, `Volume` (`@acanthis-dec/core`)
 - Produces:
   - `apps/cli/src/utils.ts`:
@@ -470,6 +491,7 @@ git commit -m "feat(cli): 初始化 @acanthis-dec/cli 脚手架、配置管理�
 - [ ] **Step 2: 实现 `apps/cli/src/exporter.ts`**
 
 关键调度与容错逻辑：
+
 1. **获取作品与筛选分卷**：调用 `client.getNovel(options.source, novelId)` 与 `parseVolumeSelection(options.volumes, novel.volumes)`。
 2. **章节串行拉取（`concurrency = 1`）**：
    - 逐章顺序拉取；遇到 `isUnresolvedChapterId(chapter.id)` 时，若 `options.strict` 为 `true` 立即抛错中止，否则触发 `onWarning` 并跳过该章；
@@ -487,6 +509,7 @@ git commit -m "feat(cli): 初始化 @acanthis-dec/cli 脚手架、配置管理�
 - [ ] **Step 3: 类型检查与本地模拟服务端边界实测（覆盖 Review Focus #1、#4、#5）**
 
 Run:
+
 ```bash
 pnpm --filter=@acanthis-dec/cli run check-types
 pnpm --filter=@acanthis-dec/cli exec tsx -e '
@@ -544,6 +567,7 @@ git commit -m "feat(cli): 实现串行拉章、并发去重拉图与容错 EPUB 
 ### Task 7: `apps/cli` 命令体系、交互式向导与可执行入口
 
 **Files:**
+
 - Create: `apps/cli/src/commands/shared.ts`
 - Create: `apps/cli/src/commands/export.ts`
 - Create: `apps/cli/src/commands/search.ts`
@@ -557,6 +581,7 @@ git commit -m "feat(cli): 实现串行拉章、并发去重拉图与容错 EPUB 
 - Create: `apps/cli/README.zh-CN.md`
 
 **Interfaces:**
+
 - Consumes: `loadCliConfig`, `saveCliConfigValue`, `resetCliConfig`, `getConfigFilePath`, `AcanthisApiClient`, `runExport`, `parseNovelIdOrUrl`, `isUnresolvedChapterId`
 - Produces: 可执行入口 `apps/cli/dist/index.mjs`（`acanthis` 主命令、`export`、`search`、`list`、`sources`、`info`、`config`）
 
@@ -580,6 +605,7 @@ git commit -m "feat(cli): 实现串行拉章、并发去重拉图与容错 EPUB 
 - [ ] **Step 3: 类型检查、构建、Lint 与 CLI 全命令端到端实测（覆盖 Review Focus #1、#4、#5）**
 
 Run:
+
 ```bash
 pnpm --filter=@acanthis-dec/cli run check-types
 pnpm --filter=@acanthis-dec/cli run build
@@ -589,6 +615,7 @@ node apps/cli/dist/index.mjs --version
 确认 `apps/cli/dist/index.mjs` 首行为 `#!/usr/bin/env node` 且 `--version` 输出 `0.1.0`。
 
 端到端实测（通过 Node 启动临时测试 HTTP 服务或连接已运行的第一步 `api-server`，验证非 TTY 退出码、`--json` stdout 纯净性、`sources`/`list`/`search`/`info`/`config`/`export`；注意若对接 Task 6 本地 HTTP Mock，`--source` 需与 Mock 路由源名如 `custom` 保持一致，对接真实 `api-server` 则使用 `linovelib`）：
+
 ```bash
 # 1) 非 TTY 无子命令必须打印帮助且退出码为 1（不可阻塞）
 pnpm --filter=@acanthis-dec/cli exec tsx -e '
@@ -621,11 +648,13 @@ git commit -m "feat(cli): 完成全套子命令、交互向导与可执行入口
 ### Task 8: 双轨打包、GitHub Release 工作流、WinGet / Homebrew 清单生成器与 CI 集成
 
 **Files:**
+
 - Create: `apps/cli/scripts/generate-manifests.ts`
 - Create: `.github/workflows/cli-release.yml`
 - Modify: `.github/workflows/ci.yml`
 
 **Interfaces:**
+
 - Consumes: `apps/cli/package.json` (`version`), `SHA256SUMS.txt`
 - Produces:
   - `apps/cli/scripts/generate-manifests.ts`（CLI 脚本：读取 `--version`、`--repo`、`--checksums`、`--out-dir`，生成 `Formula/acanthis.rb` 与 `manifests/c/ConstasJ/Acanthis/<version>/*.yaml`）
@@ -636,6 +665,7 @@ git commit -m "feat(cli): 完成全套子命令、交互向导与可执行入口
 
 输入参数（通过 `node:util` `parseArgs` 解析）：`--version`（去掉前导 `v` 后的 semver，如 `0.1.0`）、`--repo`（默认 `ConstasJ/Acanthis`）、`--checksums`（`SHA256SUMS.txt` 路径）、`--out-dir`（输出目录）。
 读取并校验 5 个归档文件名对应的 64 位十六进制 SHA-256（缺一即报错退出）：
+
 - `acanthis-v${version}-darwin-arm64.tar.gz`
 - `acanthis-v${version}-darwin-x64.tar.gz`
 - `acanthis-v${version}-linux-arm64.tar.gz`
@@ -643,6 +673,7 @@ git commit -m "feat(cli): 完成全套子命令、交互向导与可执行入口
 - `acanthis-v${version}-windows-x64.zip`
 
 确定性产出：
+
 1. `Formula/acanthis.rb`：标准 Ruby Homebrew Formula（`class Acanthis < Formula`），按 `on_macos` / `on_linux` 与 `Hardware::CPU.arm?` / `Hardware::CPU.intel?` 填充对应 `.tar.gz` Release URL 与 `sha256`，包含 `bin.install "acanthis"` 与 `test { assert_match version.to_s, shell_output("#{bin}/acanthis --version") }`。
 2. `manifests/c/ConstasJ/Acanthis/${version}/` 下的 4 份 WinGet Schema 1.6/1.9 清单：
    - `ConstasJ.Acanthis.yaml`（`ManifestType: version`）
@@ -666,12 +697,14 @@ git commit -m "feat(cli): 完成全套子命令、交互向导与可执行入口
 - [ ] **Step 3: 全仓校验、清单脚本实测与可选 Bun 本地编译验证**
 
 Run:
+
 ```bash
 pnpm run format-and-lint
 pnpm run check-types
 pnpm run build
 ```
 清单生成器实测（用模拟 `SHA256SUMS.txt` 验证 5 个产物全部写入且格式正确）：
+
 ```bash
 pnpm --filter=@acanthis-dec/cli exec tsx -e '
 import fs from "node:fs";
@@ -696,6 +729,7 @@ console.log("Manifest generator checks passed");
 '
 ```
 若本机已安装 `bun`，追加执行单二进制实测：
+
 ```bash
 pnpm --filter=@acanthis-dec/cli run build:bin
 ./apps/cli/dist/acanthis --help

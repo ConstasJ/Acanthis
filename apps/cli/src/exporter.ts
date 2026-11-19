@@ -403,7 +403,10 @@ export async function runExport(
 	} else {
 		const baseName = sanitizeFilename(`[${novel.author}] ${novel.title}`);
 		const suffix = selectedAllVolumes ? "" : " (选集)";
-		const targetPath = path.join(options.outputDir, `${baseName}${suffix}.epub`);
+		const targetPath = path.join(
+			options.outputDir,
+			`${baseName}${suffix}.epub`,
+		);
 		const totalChapterCount = fetchedChaptersPerVolume.reduce(
 			(sum, list) => sum + list.length,
 			0,

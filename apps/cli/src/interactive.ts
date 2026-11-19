@@ -44,7 +44,9 @@ function unwrapPrompt<T>(value: T | symbol): T {
 	return value;
 }
 
-async function connectAndSelectSource(initialConfig: ResolvedCliConfig): Promise<{
+async function connectAndSelectSource(
+	initialConfig: ResolvedCliConfig,
+): Promise<{
 	serverUrl: string;
 	token: string | undefined;
 	source: string;
@@ -205,7 +207,9 @@ async function browseLibraryForNovelId(
 		let res: PaginatedNovelsResponse;
 		try {
 			res = await client.listNovels(source, page, pageSize);
-			spin.stop(`Loaded page ${res.page} (${res.items.length} of ${res.total})`);
+			spin.stop(
+				`Loaded page ${res.page} (${res.items.length} of ${res.total})`,
+			);
 		} catch (error) {
 			spin.error("Failed to load cached library");
 			log.error(error instanceof Error ? error.message : String(error));
@@ -455,7 +459,8 @@ export async function runInteractiveWizard(): Promise<void> {
 
 		const selectedVolumeIndices = unwrapPrompt(
 			await multiselect({
-				message: "Select volumes to export (space to toggle, enter to confirm):",
+				message:
+					"Select volumes to export (space to toggle, enter to confirm):",
 				initialValues: novel.volumes.map((_, index) => String(index + 1)),
 				required: true,
 				options: novel.volumes.map((volume, index) => {

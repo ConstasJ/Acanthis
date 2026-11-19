@@ -22,8 +22,7 @@ export const searchCommand = defineCommand({
 		...commonApiArgs,
 	},
 	async run({ args }) {
-		const keyword =
-			typeof args.keyword === "string" ? args.keyword.trim() : "";
+		const keyword = typeof args.keyword === "string" ? args.keyword.trim() : "";
 		if (!keyword) {
 			throw new CliValidationError("Search keyword cannot be empty");
 		}

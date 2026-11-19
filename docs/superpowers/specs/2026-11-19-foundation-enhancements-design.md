@@ -3,6 +3,7 @@
 ## 1. 背景与意图（Intent & Why）
 
 Acanthis 计划在现有的 `@acanthis-dec/api-server` 之外扩展两类新终端应用：
+
 1. **EPUB 电子书导出 CLI**：拉取轻小说分卷、正文与插图，离线打包为标准 EPUB 电子书；
 2. **在线浏览 Web 客户端**：在浏览器中浏览书库、搜索作品、阅读富文本章节与插图。
 
@@ -13,6 +14,7 @@ Acanthis 计划在现有的 `@acanthis-dec/api-server` 之外扩展两类新终�
 ## 2. 目标与非目标（Goals, Non-Goals & Anti-Goals）
 
 ### Goals
+
 1. **可配置 CORS 支持**：为 `@acanthis-dec/api-server` 挂载 CORS 中间件，默认放行跨域请求，支持通过配置文件或环境变量收敛允许的 Origin。
 2. **封闭式正文插图登记、代理与落盘缓存**：在章节出口动态将正文插图重写为服务端受控路由 `GET /v1/linovelib/illustration/:hash`，仅代理已在数据库登记的正文插图 URL，懒下载并持久化缓存至本地磁盘。
 3. **已缓存书库分页接口**：新增 `GET /v1/linovelib/novels`，返回已完整缓存过作品详情的书目列表（过滤搜索占位记录），支持分页与 `style=acanthis|lnreader`。
@@ -20,11 +22,13 @@ Acanthis 计划在现有的 `@acanthis-dec/api-server` 之外扩展两类新终�
 5. **隐藏章节 ID 双向推导**：修复 `@acanthis-dec/linovelib` 目录解析中连续隐藏章节报错与末章无法反推的问题，在“后一章首页 `url_previous` 反推”之外补充“前一章末页 `url_next` 正向链式推导”。
 
 ### Non-Goals
+
 - 本阶段不开发 EPUB 生成器（`packages/epub`）、CLI 应用或 Web 前端应用本身。
 - 不改动已持久化的章节 `.zst` 正文内容格式（磁盘缓存继续保存未改写 `host` 的源站 HTML，确保更换服务端 `host` 配置时无需清空正文缓存）。
 - 不在本阶段额外引入单元测试框架（遵循仓库 `AGENTS.md` 约定，使用包级 `check-types`、`build` 与接口联调验证）。
 
 ### Anti-Goals（绝不触碰的负向边界）
+
 - **禁止开放式图片代理（SSRF 风险）**：绝不接受未在数据库中预先登记的任意外部 URL 进行服务端抓取。
 - **禁止写死源站图床域名白名单**：源站图床 CDN 域名可能随时变更，必须基于章节正文解析出的真实图片 URL 入库授信，而非依赖静态域名列表。
 - **禁止破坏现有 API 响应结构**：现有路由的 JSON Envelope（`{ code, message, data }`）及字段结构保持向后兼容。
@@ -43,13 +47,13 @@ Acanthis 计划在现有的 `@acanthis-dec/api-server` 之外扩展两类新终�
 
 针对影响跨包边界最大的**正文插图代理与缓存机制**，评估了以下两种方案：
 
-| 维度 | 方案 A：入库登记 Hash 路由（已选定） | 方案 B：查询参数透传 + 域名白名单 |
-| --- | --- | --- |
-| 路由形态 | `GET /v1/linovelib/illustration/:hash` | `GET /v1/linovelib/image?url=<encoded>` |
-| 安全性 | 仅抓取正文入库过的 URL，天然零 SSRF | 依赖域名白名单校验，配置不当易演变为开放代理 |
-| 抗站点变更能力 | 源站更换图床 CDN 域名时自动兼容，零配置维护 | 源站换图床即 403，需改配置或发版 |
-| 客户端成本 | 章节 HTML 出口已重写 `src`，Web/CLI/LNReader 零改造直接可用 | 若不重写 HTML 需各客户端自行解析改写 |
-| 实现代价 | 需在 `@acanthis-dec/storage` 新增一张元数据表与 Drizzle 迁移 | 无需数据库迁移，但需维护白名单配置逻辑 |
+| 维度           | 方案 A：入库登记 Hash 路由（已选定）                         | 方案 B：查询参数透传 + 域名白名单            |
+| -------------- | ------------------------------------------------------------ | -------------------------------------------- |
+| 路由形态       | `GET /v1/linovelib/illustration/:hash`                       | `GET /v1/linovelib/image?url=<encoded>`      |
+| 安全性         | 仅抓取正文入库过的 URL，天然零 SSRF                          | 依赖域名白名单校验，配置不当易演变为开放代理 |
+| 抗站点变更能力 | 源站更换图床 CDN 域名时自动兼容，零配置维护                  | 源站换图床即 403，需改配置或发版             |
+| 客户端成本     | 章节 HTML 出口已重写 `src`，Web/CLI/LNReader 零改造直接可用  | 若不重写 HTML 需各客户端自行解析改写         |
+| 实现代价       | 需在 `@acanthis-dec/storage` 新增一张元数据表与 Drizzle 迁移 | 无需数据库迁移，但需维护白名单配置逻辑       |
 
 **用户决策**：采纳 **方案 A**。以一次清晰的 Drizzle 表迁移换取长期免维护的安全性与全客户端开箱即用体验。
 
@@ -58,7 +62,9 @@ Acanthis 计划在现有的 `@acanthis-dec/api-server` 之外扩展两类新终�
 ### 5.1 `@acanthis-dec/storage`：插图存储与书库查询
 
 #### 1) 数据库 Schema 与迁移（`packages/storage/src/table.ts` & `migrations/`）
+
 新增 `illustrationMetadata` 表（表名 `illustration_metadata`）：
+
 - `id`: `integer("id").primaryKey({ autoIncrement: true })`
 - `platform`: `text("platform").notNull()`（如 `"linovelib"`）
 - `urlHash`: `text("url_hash").notNull()` —— 对原始图片 URL 计算 MD5 十六进制摘要（32 位小写 hex，与现有 `getCoverHash` / `getContentHash` 算法保持一致）
@@ -75,15 +81,20 @@ Acanthis 计划在现有的 `@acanthis-dec/api-server` 之外扩展两类新终�
   2. 在 `DatabaseService.addNovelCache` 事务中，更新完分卷与章节（保留已有行的 `contentHash`）后，同步清理该 `novelId` 下已不在本次最新 `volumes` / `chapters` 列表中的残留旧分卷与旧章节行（例如原先的 `TOBEDETERMINED*` 占位行被真实数字 ID 替代后将其删除），确保缓存章节数始终与源站目录严格一致。
 
 #### 2) 文件系统存储（`packages/storage/src/files.ts`）
+
 保持现有 `novels/` 与 `covers/` 目录不变，新增兄弟目录 `illustrations/`：
+
 - 落盘路径：`${basePath}/illustrations/${fileHash.slice(0, 2)}/${fileHash}.${ext}`（复用 `getExtFromContentType`）。
 - 若数据库存在 `fileHash` 但磁盘文件意外缺失，`getIllustrationData` 返回 `undefined`，由上层自动重新抓取并修复落盘。
 
 #### 3) 已缓存书库分页查询（`packages/storage/src/db.ts` & `service.ts`）
+
 由于 `addSearchResult` 与 `addNovelCoverMetadata` 会在 `novels` 表写入 `author = ""`、`status = "unknown"` 的占位行，书库查询必须过滤掉未拉取完整详情的记录：
+
 - 过滤条件：`platform = 指定平台` 且 `status != "unknown"` 且 `author != ""` 且 `name != ""`。
 - 排序规则：按 `updateAt DESC, id DESC` 排列（最近访问/更新的书目优先）。
 - 导出类型与方法签名：
+
   ```ts
   export interface ListNovelsOptions {
   	page: number;
@@ -108,13 +119,17 @@ Acanthis 计划在现有的 `@acanthis-dec/api-server` 之外扩展两类新终�
 ### 5.2 `@acanthis-dec/linovelib`：插图处理与隐藏章节双向推导
 
 #### 1) 章节 HTML 插图提取与重写（`packages/linovelib/src/chapter.ts` 或 `utils.ts`，由包根导出）
+
 将 HTML 结构相关的解析留在 `linovelib` 包内：
+
 - `extractChapterIllustrationUrls(html: string): string[]`：使用 Cheerio 提取章节 HTML 中所有 `img` 标签的 `http://` 或 `https://` `src` 属性并去重（若遇到 `//` 协议相对链接则补全为 `https:`）。
 - `rewriteChapterIllustrations(html: string, mapUrl: (originalUrl: string) => string): string`：在不破坏原有段落与标签结构的前提下（使用 Cheerio 解析容器片段，避免包裹多余的 `<html><body>` 外壳），将上述 `img` 的 `src` 替换为 `mapUrl(originalUrl)`。
 - `LinovelibClient.getIllustration(url: string, referer?: string): Promise<BinaryResponse>`：若启用了登录会话则先调用 `ensureValidSession`，随后复用 `this.getCover(url, referer || "https://www.linovelib.com/")` 拉取图片二进制数据。
 
 #### 2) 目录隐藏章节 ID（`TOBEDETERMINED`）双向推导（`packages/linovelib/src/novel.ts`）
+
 重构 `getNovelVolumes(novelId, title, url, fetchClient, retry, chapterQueue)`：
+
 1. 按全书阅读顺序将所有分卷的章节展平为引用列表 `flatChapters`（保留对 `volumes` 内 `Chapter` 对象的直接引用）。
 2. **第一阶段（反向单跳推导）**：遍历 `flatChapters`，仅当 `current.id === "TOBEDETERMINED"` **且紧邻下一章 `next.id` 已是合法非空章节 ID（非 `"TOBEDETERMINED"`）** 时，才请求下一章首页提取 `url_previous` 回填 `current.id`。这直接修复了原先“连续两章均为 `javascript:cid(0)` 时拼接出非法 URL 导致队列抛错崩溃”的 Bug。
 3. **第二阶段（正向链式推导兜底）**：再次顺序扫描 `flatChapters`，若仍存在 `current.id === "TOBEDETERMINED"`（典型如全书最后一章，或连续隐藏章节中的前序章节）：
@@ -129,7 +144,9 @@ Acanthis 计划在现有的 `@acanthis-dec/api-server` 之外扩展两类新终�
 ### 5.3 `@acanthis-dec/api-server`：配置、中间件与路由升级
 
 #### 1) CORS 与可选全局鉴权配置（`apps/api-server/src/config.ts` & `src/index.ts`）
+
 - `ConfigSchema` 新增顶层 `cors` 与可选 `auth` 配置块：
+
   ```ts
   cors: z
   	.object({
@@ -151,6 +168,7 @@ Acanthis 计划在现有的 `@acanthis-dec/api-server` 之外扩展两类新终�
 - 当配置了 `config.auth?.token` 时，除 `/v1/:platform/cover/*` 与 `/v1/:platform/illustration/*` 二进制图片读取路由外，所有 `/v1/*` JSON 路由均校验 `Authorization: Bearer <token>`（使用 `node:crypto` 的 `timingSafeEqual` 比对），未通过返回 `401` `{ code: 40100, message: "Unauthorized" }`。
 
 #### 2) 多源注册与路由变更（`packages/core` & `apps/api-server`）
+
 - 在 `@acanthis-dec/core` 新增书源描述类型 `NovelSourceDescriptor`（`{ id: string; name: string; capabilities: ("search" | "novels" | "illustrations")[] }`），并在 `api-server` 提供 `GET /v1/sources` 返回当前已挂载的书源列表（初始包含 `linovelib`），供后续 CLI 与 Web 客户端自动发现服务端支持的书源。
 - 统一抽取 `resolveHost(c)` 辅助函数（保持现有逻辑 `config.host ?? c.req.header("host") ?? "http://localhost:5301"`，并去除末尾多余斜杠以防拼接双斜杠）：
 

@@ -28,15 +28,15 @@ function renderNavPoints(
 	for (const entry of entries) {
 		counter.value += 1;
 		const order = counter.value;
-		lines.push(`${indent}<navPoint id="navPoint-${order}" playOrder="${order}">`);
+		lines.push(
+			`${indent}<navPoint id="navPoint-${order}" playOrder="${order}">`,
+		);
 		lines.push(`${indent}\t<navLabel>`);
 		lines.push(`${indent}\t\t<text>${escapeXml(entry.title)}</text>`);
 		lines.push(`${indent}\t</navLabel>`);
 		lines.push(`${indent}\t<content src="${escapeXml(entry.href)}" />`);
 		if (entry.children && entry.children.length > 0) {
-			lines.push(
-				...renderNavPoints(entry.children, indentLevel + 1, counter),
-			);
+			lines.push(...renderNavPoints(entry.children, indentLevel + 1, counter));
 		}
 		lines.push(`${indent}</navPoint>`);
 	}
