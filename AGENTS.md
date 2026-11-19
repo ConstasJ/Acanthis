@@ -56,4 +56,6 @@
 - Prefer small, package-scoped changes; avoid cross-package refactors unless the public types or runtime path require them.
 - Do not add a test framework casually: the repository currently has no tests despite Turbo having a `test` task shape.
 - If adding tests, add the missing package-level test script/config at the same time and document how CI should execute it.
-- Do not commit unless the current conversation explicitly asks. If committing is requested, use Conventional Commits with a concise Chinese summary.
+- 每次改动都要提交：每完成一个独立函数、Bug 修复、小功能或文档改动，并在通过基础语法/类型检查（必要时构建）后，立即在当前 git worktree 提交一次，不要积压未提交的改动。
+- 提交遵循 Conventional Commits：用中文一句话概述改动作为 description，详细改动内容放入 body；每个 commit 保持原子化，包含该主题所有可回滚的改动，但不要越界。
+- 可以 commit，但不要擅自 push；push 前必须获得明确许可。
