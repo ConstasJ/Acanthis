@@ -126,9 +126,14 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Create release PR and publish packages
-        uses: changesets/action@v1
+        # v2 才能读取 changesets CLI v3 的 CHANGESETS_OUTPUT；v1 只解析旧的 "New tag:" 输出，
+        # 会导致 npm 发布成功但 git tag / GitHub Release 全部缺失，进而无法触发 Docker Release。
+        uses: changesets/action@v2
         with:
-          publish: pnpm release
+          # 用 App token 执行 push，tag push 才能触发 Docker Release 工作流
+          github-token: ${{ steps.app-token.outputs.token }}
+          publish-script: pnpm release
+          push-with-git-cli: true
 
   docker-canary:
     name: Publish canary image
