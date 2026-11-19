@@ -95,14 +95,14 @@ export function parseChapterBlocks(
 
 	for (const node of doc.body.childNodes) {
 		if (node.nodeType === Node.TEXT_NODE) {
-			const text = node.textContent;
-			if (!text || !text.trim()) {
+			const trimmed = node.textContent?.trim();
+			if (!trimmed) {
 				continue;
 			}
 			blocks.push({
 				blockIndex: blocks.length,
 				kind: "paragraph",
-				html: escapeHtml(text.trim()),
+				html: escapeHtml(trimmed),
 			});
 			continue;
 		}

@@ -10,7 +10,7 @@ import {
 	Smartphone,
 	Trash2,
 } from "lucide-vue-next";
-import { computed, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { RouterLink } from "vue-router";
 import { rebaseMediaUrl } from "@/api/client";
 import SetupBanner from "@/components/SetupBanner.vue";
@@ -117,10 +117,36 @@ function readerRouteForProgress(progress: ReadingProgress): string {
 function novelDetailRoute(platform: string, novelId: string): string {
 	return `/novel/${encodeURIComponent(platform)}/${encodeURIComponent(novelId)}`;
 }
+
+function handleDocumentClick(event: MouseEvent): void {
+	if (openMenuKey.value === null) {
+		return;
+	}
+	const target = event.target as HTMLElement | null;
+	if (!target?.closest("[data-bookshelf-menu]")) {
+		openMenuKey.value = null;
+	}
+}
+
+function handleDocumentKeyDown(event: KeyboardEvent): void {
+	if (event.key === "Escape" && openMenuKey.value !== null) {
+		openMenuKey.value = null;
+	}
+}
+
+onMounted(() => {
+	document.addEventListener("click", handleDocumentClick);
+	document.addEventListener("keydown", handleDocumentKeyDown);
+});
+
+onBeforeUnmount(() => {
+	document.removeEventListener("click", handleDocumentClick);
+	document.removeEventListener("keydown", handleDocumentKeyDown);
+});
 </script>
 
 <template>
-	<div class="space-y-6" @click="openMenuKey = null">
+	<div class="space-y-6">
 		<SetupBanner />
 
 		<header class="flex items-center justify-between gap-3">
@@ -363,12 +389,16 @@ function novelDetailRoute(platform: string, novelId: string): string {
 					</RouterLink>
 
 					<!-- Card Menu Trigger -->
-					<div class="absolute bottom-2.5 right-1.5">
+					<div class="absolute bottom-2.5 right-1.5" data-bookshelf-menu>
 						<button
 							type="button"
 							aria-label="书架操作菜单"
+							aria-haspopup="menu"
+							:aria-expanded="
+								openMenuKey === makeCompositeKey(item.platform, item.novelId)
+							"
 							class="flex h-7 w-7 items-center justify-center rounded-lg text-[var(--text-muted)] hover:bg-[var(--bg-secondary)] hover:text-[var(--text-primary)]"
-							@click.stop="
+							@click="
 								toggleMenu(makeCompositeKey(item.platform, item.novelId))
 							"
 						>
@@ -379,11 +409,12 @@ function novelDetailRoute(platform: string, novelId: string): string {
 							v-if="
 								openMenuKey === makeCompositeKey(item.platform, item.novelId)
 							"
+							role="menu"
 							class="absolute bottom-8 right-0 z-20 w-32 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] p-1 shadow-lg"
-							@click.stop
 						>
 							<button
 								type="button"
+								role="menuitem"
 								class="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-medium text-red-600 hover:bg-red-500/10"
 								@click="handleRemoveFromBookshelf(item)"
 							>

@@ -553,7 +553,7 @@ function handleScrollContentClick(event: MouseEvent): void {
 		return;
 	}
 	const target = event.target as HTMLElement | null;
-	if (target?.closest("a, button, input, select")) {
+	if (target?.closest("a, button, input, select, nav")) {
 		return;
 	}
 	toggleHud();
@@ -568,7 +568,7 @@ function handlePaginatedClick(event: MouseEvent): void {
 		return;
 	}
 	const target = event.target as HTMLElement | null;
-	if (target?.closest("a, button, input, select")) {
+	if (target?.closest("a, button, input, select, nav")) {
 		return;
 	}
 
@@ -663,6 +663,20 @@ function handleKeyDown(event: KeyboardEvent): void {
 	} else if (event.key === "ArrowLeft" || event.key === "PageUp") {
 		event.preventDefault();
 		goToPage(currentPage.value - 1);
+	}
+}
+
+function handleMainKeyDown(event: KeyboardEvent): void {
+	const target = event.target as HTMLElement | null;
+	if (target?.closest("a, button, input, select, textarea, nav")) {
+		return;
+	}
+	if (event.key === "Enter" || event.key === " ") {
+		if (mode.value === "scroll" && event.key === " ") {
+			return;
+		}
+		event.preventDefault();
+		toggleHud();
 	}
 }
 
@@ -1191,6 +1205,7 @@ onBeforeUnmount(() => {
 			class="mx-auto min-h-screen max-w-3xl pb-24 pt-10"
 			:style="scrollContentStyle"
 			@click="handleScrollContentClick"
+			@keydown="handleMainKeyDown"
 		>
 			<div v-if="blocks.length === 0" class="py-16 text-center text-sm text-[var(--text-muted)]">
 				本章暂无正文内容
@@ -1244,7 +1259,6 @@ onBeforeUnmount(() => {
 			<nav
 				aria-label="章节导航"
 				class="mt-14 flex items-center justify-between gap-2 border-t border-[var(--border-subtle)] pt-6"
-				@click.stop
 			>
 				<button
 					type="button"
@@ -1283,6 +1297,7 @@ onBeforeUnmount(() => {
 			ref="paginatedContainerRef"
 			class="flex h-dvh w-full flex-col overflow-hidden select-none"
 			@click="handlePaginatedClick"
+			@keydown="handleMainKeyDown"
 			@touchstart.passive="handleTouchStart"
 			@touchend.passive="handleTouchEnd"
 		>
@@ -1543,13 +1558,20 @@ onBeforeUnmount(() => {
 		<!-- Table of Contents Drawer -->
 		<div
 			v-if="showToc"
-			class="fixed inset-0 z-50 flex bg-black/50 backdrop-blur-xs"
-			@click="showToc = false"
+			role="dialog"
+			aria-modal="true"
+			aria-label="章节目录"
+			class="fixed inset-0 z-50 flex"
 		>
+			<button
+				type="button"
+				aria-label="关闭目录"
+				class="fixed inset-0 bg-black/50 backdrop-blur-xs"
+				@click="showToc = false"
+			/>
 			<aside
 				aria-label="章节目录"
-				class="flex h-full w-80 max-w-[85vw] flex-col border-r border-[var(--border-subtle)] bg-[var(--bg-elevated)] text-[var(--text-primary)] shadow-2xl"
-				@click.stop
+				class="relative z-10 flex h-full w-80 max-w-[85vw] flex-col border-r border-[var(--border-subtle)] bg-[var(--bg-elevated)] text-[var(--text-primary)] shadow-2xl"
 			>
 				<div
 					class="flex items-center justify-between gap-2 border-b border-[var(--border-subtle)] px-4 py-3.5"
