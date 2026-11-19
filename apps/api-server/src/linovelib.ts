@@ -1,3 +1,4 @@
+import type { Novel } from "@acanthis-dec/core";
 import {
 	extractChapterIllustrationUrls,
 	rewriteChapterIllustrations,
@@ -287,35 +288,70 @@ app.get(
 				"linovelib",
 				novelId,
 			);
-			if (
+			const validCachedNovel =
 				cachedNovel &&
 				cachedNovel.author !== "" &&
 				cachedNovel.status !== "unknown" &&
-				cachedNovel.volumes.length > 0 &&
-				!(await isUpdateNeeded(cachedNovel, linovelibClient))
-			) {
-				cachedNovel.coverUrl = `${host}/v1/linovelib/cover/novel/${novelId}`;
-				cachedNovel.volumes.forEach((volume) => {
+				cachedNovel.volumes.length > 0
+					? cachedNovel
+					: null;
+			const respondWithNovel = (novelData: Novel) => {
+				novelData.coverUrl = `${host}/v1/linovelib/cover/novel/${novelId}`;
+				novelData.volumes.forEach((volume) => {
 					volume.coverUrl = `${host}/v1/linovelib/cover/volume/${volume.id}`;
 				});
 				return c.json({
 					code: 0,
 					message: "Success",
-					data: transformOutputStyleForNovel(cachedNovel, style),
+					data: transformOutputStyleForNovel(novelData, style),
 				});
+			};
+			if (validCachedNovel) {
+				let updateNeeded = false;
+				try {
+					updateNeeded = await isUpdateNeeded(
+						validCachedNovel,
+						linovelibClient,
+						(updateError) => {
+							logger.warn(
+								`Update check failed for cached novel ${novelId}, serving cached novel: ${updateError instanceof Error ? updateError.message : String(updateError)}`,
+							);
+						},
+					);
+				} catch (updateError) {
+					logger.warn(
+						`Update check failed for cached novel ${novelId}, serving cached novel: ${updateError instanceof Error ? updateError.message : String(updateError)}`,
+					);
+				}
+				if (!updateNeeded) {
+					return respondWithNovel(validCachedNovel);
+				}
 			}
-			const novel = await linovelibClient.getNovelInfo(novelId);
-			if (novel) {
+			let novel: Novel | undefined;
+			try {
+				novel = await linovelibClient.getNovelInfo(novelId);
+			} catch (fetchError) {
+				if (validCachedNovel) {
+					logger.warn(
+						`Novel refresh failed for cached novel ${novelId}, serving cached novel: ${fetchError instanceof Error ? fetchError.message : String(fetchError)}`,
+					);
+					return respondWithNovel(validCachedNovel);
+				}
+				throw fetchError;
+			}
+			if (
+				novel &&
+				(!validCachedNovel ||
+					(novel.title.trim() !== "" && novel.volumes.length > 0))
+			) {
 				await storageService.addNovelCache(novel);
-				novel.coverUrl = `${host}/v1/linovelib/cover/novel/${novelId}`;
-				novel.volumes.forEach((volume) => {
-					volume.coverUrl = `${host}/v1/linovelib/cover/volume/${volume.id}`;
-				});
-				return c.json({
-					code: 0,
-					message: "Success",
-					data: transformOutputStyleForNovel(novel, style),
-				});
+				return respondWithNovel(novel);
+			}
+			if (validCachedNovel) {
+				logger.warn(
+					`Novel refresh returned empty result for cached novel ${novelId}, serving cached novel`,
+				);
+				return respondWithNovel(validCachedNovel);
 			}
 			return c.json({ error: "Novel not found" }, 404);
 		} catch (error) {

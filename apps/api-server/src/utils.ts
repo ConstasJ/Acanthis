@@ -89,17 +89,23 @@ export function transformOutputStyleForSearchResult<
 export async function isUpdateNeeded(
 	novel: Novel,
 	linovelibClient: LinovelibClient,
+	onError?: ((error: unknown) => void) | undefined,
 ): Promise<boolean> {
-	const updateInfo = await linovelibClient.getNovelUpdateInfo(novel.id);
-	if (!updateInfo) {
-		return true;
+	try {
+		const updateInfo = await linovelibClient.getNovelUpdateInfo(novel.id);
+		if (!updateInfo) {
+			return true;
+		}
+		const chapterCount = novel.volumes.reduce(
+			(count, volume) => count + volume.chapters.length,
+			0,
+		);
+		return (
+			chapterCount !== updateInfo.chapterCount ||
+			novel.coverUrl !== updateInfo.coverUrl
+		);
+	} catch (error) {
+		onError?.(error);
+		return false;
 	}
-	const chapterCount = novel.volumes.reduce(
-		(count, volume) => count + volume.chapters.length,
-		0,
-	);
-	return (
-		chapterCount !== updateInfo.chapterCount ||
-		novel.coverUrl !== updateInfo.coverUrl
-	);
 }
