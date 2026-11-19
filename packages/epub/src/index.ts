@@ -1,3 +1,4 @@
+export { buildNovelEpub, buildVolumeEpub } from "./archive";
 export type {
 	EpubChapterData,
 	EpubImageAsset,
