@@ -1,5 +1,11 @@
 # @acanthis-dec/browser-fetch
 
+## 1.1.2
+
+### Patch Changes
+
+- 2b43002: 修复 FileCookiesStore 从不持久化的问题：改为懒加载磁盘文件，并在写入/删除/清空后自动落盘，读取时恢复时间字段的 Date 类型
+
 ## 1.1.1
 
 ### Patch Changes
