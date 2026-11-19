@@ -1,0 +1,9 @@
+{
+	"name": "acanthis-web",
+	"installCommand": "pnpm install --filter=@acanthis-dec/web... --frozen-lockfile",
+	"buildCommand": "pnpm --filter=@acanthis-dec/web... run build",
+	"assets": {
+		"directory": "./apps/web/dist",
+		"notFoundStrategy": "singlePageApplication"
+	}
+}

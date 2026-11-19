@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+	<defs>
+		<linearGradient id="acanthis-bg" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+			<stop offset="0%" stop-color="#d97706" />
+			<stop offset="100%" stop-color="#92400e" />
+		</linearGradient>
+	</defs>
+	<rect width="512" height="512" rx="112" fill="url(#acanthis-bg)" />
+	<path
+		d="M116 144C116 126.327 130.327 112 148 112H236C247.046 112 256 120.954 256 132V388C256 376.954 247.046 368 236 368H148C130.327 368 116 353.673 116 336V144Z"
+		fill="#faf9f6"
+	/>
+	<path
+		d="M396 144C396 126.327 381.673 112 364 112H276C264.954 112 256 120.954 256 132V388C256 376.954 264.954 368 276 368H364C381.673 368 396 353.673 396 336V144Z"
+		fill="#f3efe6"
+	/>
+	<rect x="148" y="164" width="72" height="16" rx="8" fill="#d6d3cd" />
+	<rect x="148" y="204" width="72" height="16" rx="8" fill="#d6d3cd" />
+	<rect x="148" y="244" width="52" height="16" rx="8" fill="#d6d3cd" />
+	<rect x="292" y="164" width="72" height="16" rx="8" fill="#d6d3cd" />
+	<rect x="292" y="204" width="72" height="16" rx="8" fill="#d6d3cd" />
+	<path d="M312 112H352V208L332 192L312 208V112Z" fill="#f59e0b" />
+</svg>
