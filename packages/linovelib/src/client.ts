@@ -19,7 +19,7 @@ import { descrambleCoefficientsSchema } from "./coefficients";
 import { getVolumeCoverUrl, novelIdToCoverUrl } from "./cover";
 import type { NovelUpdateInfo } from "./novel";
 import { NovelChapterQueue, NovelInfoQueue } from "./queue";
-import { SearchTicketManager, searchNovels } from "./search";
+import { SearchSession, searchNovels } from "./search";
 import { ensureValidSession } from "./session";
 
 export type SessionOptions =
@@ -63,7 +63,7 @@ export class LinovelibClient {
 	private fetchClient: BrowserFetchClient;
 	private novelChapterQueue: NovelChapterQueue;
 	private novelInfoQueue: NovelInfoQueue;
-	private searchTicketManager: SearchTicketManager;
+	private searchSession: SearchSession;
 	private options?: LinovelibClientOptions;
 	private logger?: Logger | undefined;
 	private isSessionValid?: boolean = undefined;
@@ -155,7 +155,7 @@ export class LinovelibClient {
 			this.novelChapterQueue,
 			this.logger,
 		);
-		this.searchTicketManager = new SearchTicketManager(this.fetchClient);
+		this.searchSession = new SearchSession(this.fetchClient);
 	}
 
 	async getNovelInfo(id: string): Promise<Novel | undefined> {
@@ -185,11 +185,7 @@ export class LinovelibClient {
 				password: this.options.session.password,
 			});
 		}
-		return await searchNovels(
-			keyword,
-			this.fetchClient,
-			this.searchTicketManager,
-		);
+		return await searchNovels(keyword, this.fetchClient, this.searchSession);
 	}
 
 	async getNovelCover(

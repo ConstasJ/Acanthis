@@ -1,6 +1,9 @@
 export { searchNovelsV1 } from "./v1";
+export { SearchTicketManager, searchNovelsV2 } from "./v2";
 export {
-	SearchTicketManager,
-	searchNovelsV2,
-	searchNovelsV2 as searchNovels,
-} from "./v2";
+	SearchRateLimitError,
+	SearchSession,
+	SearchVerificationError,
+	searchNovelsV3,
+	searchNovelsV3 as searchNovels,
+} from "./v3";
