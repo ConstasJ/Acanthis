@@ -1,3 +1,7 @@
+import { normalizeBaseUrl, stripTrailingV1Prefix } from "@/utils/mediaUrl";
+
+export { normalizeBaseUrl, stripTrailingV1Prefix };
+
 export const DEFAULT_API_BASE_URL = "http://localhost:5301";
 
 export const STORAGE_KEYS = {
@@ -8,15 +12,6 @@ export const STORAGE_KEYS = {
 	selectedPlatform: "acanthis.selectedPlatform",
 	lastSyncServerTime: "acanthis.lastSyncServerTime",
 } as const;
-
-export function normalizeBaseUrl(url: string): string {
-	return url.trim().replace(/\/+$/, "");
-}
-
-export function stripTrailingV1Prefix(url: string): string {
-	const normalized = normalizeBaseUrl(url);
-	return normalized.endsWith("/v1") ? normalized.slice(0, -3) : normalized;
-}
 
 function readLocalStorageItem(key: string): string | null {
 	if (typeof localStorage === "undefined") {

@@ -1,0 +1,16 @@
+{
+	"$schema": "https://json.schemastore.org/tsconfig",
+	"extends": "@acanthis-dec/config-typescript/apps.json",
+	"compilerOptions": {
+		"lib": ["ESNext", "WebWorker"],
+		"types": [],
+		"paths": {
+			"@/*": ["./src/*"]
+		}
+	},
+	"include": [
+		"src/workers/**/*.ts",
+		"src/utils/epubHtml.ts",
+		"src/utils/mediaUrl.ts"
+	]
+}

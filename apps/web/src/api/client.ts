@@ -7,11 +7,11 @@ import type {
 	ReadingProgress,
 } from "@acanthis-dec/core";
 import {
-	normalizeBaseUrl,
 	readStoredAuthToken,
 	resolveApiBaseUrl,
 	stripTrailingV1Prefix,
 } from "@/config/runtime";
+import { rebaseMediaUrlWithBase } from "@/utils/mediaUrl";
 
 export interface PaginatedNovelsResponse {
 	items: NovelInfo[];
@@ -59,38 +59,11 @@ export function rebaseMediaUrl(
 	rawUrl: string | null | undefined,
 	apiBaseUrl?: string,
 ): string {
-	if (!rawUrl) {
-		return "";
-	}
-	const trimmed = rawUrl.trim();
-	if (!trimmed) {
-		return "";
-	}
-
 	const resolvedBase =
 		apiBaseUrl !== undefined && apiBaseUrl.trim()
 			? apiBaseUrl
 			: resolveApiBaseUrl();
-	const base = stripTrailingV1Prefix(normalizeBaseUrl(resolvedBase));
-
-	if (trimmed.startsWith("/v1/")) {
-		return `${base}${trimmed}`;
-	}
-
-	let parsed: URL;
-	try {
-		parsed = new URL(trimmed);
-	} catch {
-		return trimmed;
-	}
-
-	const v1Index = parsed.pathname.indexOf("/v1/");
-	if (v1Index === -1) {
-		return trimmed;
-	}
-
-	const v1PathAndQuery = `${parsed.pathname.slice(v1Index)}${parsed.search}`;
-	return `${base}${v1PathAndQuery}`;
+	return rebaseMediaUrlWithBase(rawUrl, resolvedBase);
 }
 
 function parseErrorPayload(

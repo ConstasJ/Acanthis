@@ -28,6 +28,10 @@ import {
 } from "@/api/client";
 import { useNextChapterPrefetch } from "@/composables/useNextChapterPrefetch";
 import { makeChapterCacheKey, webDb } from "@/db/indexedDb";
+import {
+	type EpubExportProgress,
+	exportVolumeEpub,
+} from "@/services/epubExport";
 import { useLibraryStore } from "@/stores/library";
 import {
 	type ReaderMode,
@@ -77,6 +81,9 @@ const showToc = ref<boolean>(false);
 
 const toastMessage = ref<string | null>(null);
 const remoteChapterPrompt = ref<ReadingProgress | null>(null);
+const exporting = ref<boolean>(false);
+const exportProgress = ref<EpubExportProgress | null>(null);
+let exportAbortController: AbortController | null = null;
 
 const scrollContainerRef = ref<HTMLElement | null>(null);
 const paginatedContainerRef = ref<HTMLElement | null>(null);
@@ -666,14 +673,85 @@ function toggleHud(): void {
 	}
 }
 
-function handleExportCurrentVolumeSlot(): void {
-	const volLabel = currentVolumeTitle.value
-		? `「${currentVolumeTitle.value}」`
-		: "当前卷";
-	showToast(
-		`已预留${volLabel} EPUB 导出入口（将于 Task 8 接入 Web Worker 导出）`,
-		3200,
-	);
+function cancelVolumeExport(): void {
+	if (exportAbortController) {
+		exportAbortController.abort();
+		exportAbortController = null;
+	}
+}
+
+async function handleExportCurrentVolumeSlot(): Promise<void> {
+	if (exporting.value) {
+		return;
+	}
+
+	let targetNovel = novel.value;
+	if (!targetNovel && platform.value && novelId.value) {
+		targetNovel = await fetchNovelDetail(
+			platform.value,
+			novelId.value,
+		).catch(() => null);
+		if (targetNovel) {
+			novel.value = targetNovel;
+			void webDb.putNovelCache(targetNovel).catch(() => {});
+		}
+	}
+
+	if (!targetNovel) {
+		showToast("作品目录尚未加载，暂时无法导出 EPUB", 3200);
+		return;
+	}
+
+	const activeVolume =
+		targetNovel.volumes.find((v) => v.id === currentVolumeId.value) ??
+		targetNovel.volumes.find((v) =>
+			v.chapters.some((c) => c.id === chapterId.value),
+		);
+	if (!activeVolume) {
+		showToast("未定位到当前分卷，无法导出 EPUB", 3200);
+		return;
+	}
+
+	const controller = new AbortController();
+	exportAbortController = controller;
+	exporting.value = true;
+	exportProgress.value = {
+		stage: "chapters",
+		completed: 0,
+		total: 1,
+		message: `正在准备导出「${activeVolume.title}」…`,
+	};
+	showToast(`开始导出「${activeVolume.title}」EPUB…`, 2200);
+
+	try {
+		await exportVolumeEpub({
+			apiBaseUrl: settingsStore.apiBaseUrl,
+			authToken: settingsStore.authToken,
+			novel: {
+				...targetNovel,
+				platform: targetNovel.platform || platform.value,
+			},
+			volumeId: activeVolume.id,
+			onProgress: (progress) => {
+				exportProgress.value = progress;
+			},
+			signal: controller.signal,
+		});
+		showToast(`已导出「${activeVolume.title}」EPUB`, 3200);
+	} catch (err) {
+		if (err instanceof Error && err.name === "AbortError") {
+			showToast("已取消 EPUB 导出", 2400);
+		} else {
+			const msg = err instanceof Error ? err.message : "EPUB 导出失败";
+			showToast(`导出失败：${msg}`, 4000);
+		}
+	} finally {
+		if (exportAbortController === controller) {
+			exportAbortController = null;
+		}
+		exporting.value = false;
+		exportProgress.value = null;
+	}
 }
 
 async function navigateToChapter(
@@ -903,6 +981,10 @@ async function loadReaderState(): Promise<void> {
 	}
 }
 
+watch([platform, novelId], () => {
+	cancelVolumeExport();
+});
+
 watch([platform, novelId, chapterId], () => {
 	void loadReaderState();
 });
@@ -938,6 +1020,7 @@ onBeforeRouteLeave(() => {
 
 onBeforeUnmount(() => {
 	loadSequence += 1;
+	cancelVolumeExport();
 	window.removeEventListener("scroll", handleWindowScroll);
 	window.removeEventListener("keydown", handleKeyDown);
 	if (resizeObserver) {
@@ -978,6 +1061,42 @@ onBeforeUnmount(() => {
 			</div>
 		</div>
 
+		<!-- Live Volume EPUB Export Progress Pill -->
+		<div
+			v-if="exporting && exportProgress"
+			role="status"
+			aria-live="polite"
+			class="fixed inset-x-4 top-16 z-40 mx-auto max-w-md rounded-2xl border border-[var(--accent)]/40 bg-[var(--bg-elevated)]/95 p-3 text-xs text-[var(--text-primary)] shadow-xl backdrop-blur"
+		>
+			<div class="flex items-center justify-between gap-2">
+				<span class="truncate font-medium">{{ exportProgress.message }}</span>
+				<div class="flex shrink-0 items-center gap-2">
+					<span class="tabular-nums text-[var(--text-muted)]">
+						{{ exportProgress.completed }} / {{ exportProgress.total }}
+					</span>
+					<button
+						type="button"
+						class="rounded-lg border border-[var(--border-subtle)] px-2 py-0.5 text-[11px] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+						@click="cancelVolumeExport"
+					>
+						取消
+					</button>
+				</div>
+			</div>
+			<div class="mt-2 h-1 w-full overflow-hidden rounded-full bg-[var(--bg-secondary)]">
+				<div
+					class="h-full rounded-full bg-[var(--accent)] transition-all duration-200"
+					:style="{
+						width: `${
+							exportProgress.total > 0
+								? Math.min(100, Math.round((exportProgress.completed / exportProgress.total) * 100))
+								: 0
+						}%`,
+					}"
+				/>
+			</div>
+		</div>
+
 		<!-- Top Auto-Hiding HUD -->
 		<header
 			v-if="showHud"
@@ -1007,11 +1126,14 @@ onBeforeUnmount(() => {
 				<div class="flex shrink-0 items-center gap-1.5">
 					<button
 						type="button"
-						class="inline-flex items-center gap-1 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-primary)] px-2.5 py-1.5 text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+						:disabled="exporting"
+						class="inline-flex items-center gap-1 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-primary)] px-2.5 py-1.5 text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] disabled:opacity-45"
 						@click="handleExportCurrentVolumeSlot"
 					>
 						<Download class="h-3.5 w-3.5" />
-						<span class="hidden sm:inline">导出当前卷 EPUB</span>
+						<span class="hidden sm:inline">{{
+							exporting ? "导出中…" : "导出当前卷 EPUB"
+						}}</span>
 					</button>
 
 					<button

@@ -8,7 +8,7 @@
 		"dev": "vite",
 		"build": "vite build",
 		"preview": "vite preview",
-		"check-types": "vue-tsc --noEmit"
+		"check-types": "vue-tsc --noEmit && tsc -p tsconfig.worker.json --noEmit"
 	},
 	"dependencies": {
 		"@acanthis-dec/core": "workspace:*",

@@ -13,11 +13,17 @@ import {
 	Play,
 	RefreshCw,
 	Square,
+	X,
 } from "lucide-vue-next";
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { RouterLink, useRoute } from "vue-router";
 import { ApiError, fetchNovelDetail, rebaseMediaUrl } from "@/api/client";
 import { webDb } from "@/db/indexedDb";
+import {
+	type EpubExportProgress,
+	exportNovelEpub,
+	exportVolumeEpub,
+} from "@/services/epubExport";
 import { useLibraryStore } from "@/stores/library";
 import { useSettingsStore } from "@/stores/settings";
 import { useSourcesStore } from "@/stores/sources";
@@ -41,6 +47,35 @@ const expandedVolumes = ref<Set<string>>(new Set());
 const batchExportMode = ref<boolean>(false);
 const selectedVolumeIds = ref<Set<string>>(new Set());
 const exportNotice = ref<string | null>(null);
+const exportError = ref<string | null>(null);
+const exporting = ref<boolean>(false);
+const exportProgress = ref<EpubExportProgress | null>(null);
+let exportAbortController: AbortController | null = null;
+
+const exportStageLabel = computed<string>(() => {
+	const stage = exportProgress.value?.stage;
+	if (stage === "chapters") {
+		return "拉取章节";
+	}
+	if (stage === "images") {
+		return "下载图片";
+	}
+	if (stage === "packaging") {
+		return "打包生成";
+	}
+	return "准备导出";
+});
+
+const exportProgressPercent = computed<number>(() => {
+	const progress = exportProgress.value;
+	if (!progress || progress.total <= 0) {
+		return 0;
+	}
+	return Math.min(
+		100,
+		Math.max(0, Math.round((progress.completed / progress.total) * 100)),
+	);
+});
 
 const resolvedPlatform = computed<string>(
 	() => platform.value || novel.value?.platform || "",
@@ -229,33 +264,148 @@ function toggleVolumeSelection(volumeId: string): void {
 	selectedVolumeIds.value = next;
 }
 
+function cancelExport(): void {
+	if (exportAbortController) {
+		exportAbortController.abort();
+		exportAbortController = null;
+	}
+}
+
+async function runExportTask(
+	label: string,
+	executor: (signal: AbortSignal) => Promise<void>,
+): Promise<void> {
+	if (exporting.value) {
+		return;
+	}
+	exportNotice.value = null;
+	exportError.value = null;
+	exportProgress.value = {
+		stage: "chapters",
+		completed: 0,
+		total: 1,
+		message: `正在准备导出「${label}」…`,
+	};
+	exporting.value = true;
+	const controller = new AbortController();
+	exportAbortController = controller;
+
+	try {
+		await executor(controller.signal);
+		exportNotice.value = `已导出「${label}」EPUB 并开始下载`;
+	} catch (err) {
+		if (err instanceof Error && err.name === "AbortError") {
+			exportNotice.value = "已取消 EPUB 导出";
+		} else {
+			exportError.value =
+				err instanceof Error ? err.message : "EPUB 导出失败";
+		}
+	} finally {
+		if (exportAbortController === controller) {
+			exportAbortController = null;
+		}
+		exporting.value = false;
+	}
+}
+
 function handleExportVolumeSlot(volume: Volume): void {
-	exportNotice.value = `已预留单卷 EPUB 导出入口：「${volume.title}」（将于 Task 8 接入 Web Worker 打包下载）`;
+	const current = novel.value;
+	if (!current) {
+		return;
+	}
+	const exportNovel: Novel = {
+		...current,
+		platform: resolvedPlatform.value,
+	};
+	void runExportTask(volume.title, (signal) =>
+		exportVolumeEpub({
+			apiBaseUrl: settingsStore.apiBaseUrl,
+			authToken: settingsStore.authToken,
+			novel: exportNovel,
+			volumeId: volume.id,
+			onProgress: (progress) => {
+				exportProgress.value = progress;
+			},
+			signal,
+		}),
+	);
 }
 
 function handleExportSelectedSlot(): void {
-	const count = selectedVolumeIds.value.size;
-	exportNotice.value =
-		count > 0
-			? `已预留批量 EPUB 导出入口：已选 ${count} 卷（将于 Task 8 接入 Web Worker 打包下载）`
-			: "请先选择至少一卷再导出";
+	const current = novel.value;
+	if (!current) {
+		return;
+	}
+	const orderedIds = current.volumes
+		.filter((v) => selectedVolumeIds.value.has(v.id))
+		.map((v) => v.id);
+	if (orderedIds.length === 0) {
+		exportError.value = "请先选择至少一卷再导出";
+		return;
+	}
+	const exportNovel: Novel = {
+		...current,
+		platform: resolvedPlatform.value,
+	};
+	void runExportTask(`${current.title}（${orderedIds.length} 卷）`, (signal) =>
+		exportNovelEpub({
+			apiBaseUrl: settingsStore.apiBaseUrl,
+			authToken: settingsStore.authToken,
+			novel: exportNovel,
+			volumeIds: orderedIds,
+			onProgress: (progress) => {
+				exportProgress.value = progress;
+			},
+			signal,
+		}),
+	);
 }
 
 function handleExportAllSlot(): void {
-	const total = novel.value?.volumes.length ?? 0;
-	exportNotice.value = `已预留整书 EPUB 导出入口：共 ${total} 卷（将于 Task 8 接入 Web Worker 打包下载）`;
+	const current = novel.value;
+	if (!current) {
+		return;
+	}
+	const allIds = current.volumes.map((v) => v.id);
+	if (allIds.length === 0) {
+		exportError.value = "当前作品暂无可导出分卷";
+		return;
+	}
+	const exportNovel: Novel = {
+		...current,
+		platform: resolvedPlatform.value,
+	};
+	void runExportTask(`${current.title}（全 ${allIds.length} 卷）`, (signal) =>
+		exportNovelEpub({
+			apiBaseUrl: settingsStore.apiBaseUrl,
+			authToken: settingsStore.authToken,
+			novel: exportNovel,
+			volumeIds: allIds,
+			onProgress: (progress) => {
+				exportProgress.value = progress;
+			},
+			signal,
+		}),
+	);
 }
 
 watch([platform, novelId], () => {
+	cancelExport();
 	expandedVolumes.value = new Set();
 	selectedVolumeIds.value = new Set();
 	batchExportMode.value = false;
 	exportNotice.value = null;
+	exportError.value = null;
+	exportProgress.value = null;
 	void loadNovelDetail();
 });
 
 onMounted(() => {
 	void loadNovelDetail();
+});
+
+onBeforeUnmount(() => {
+	cancelExport();
 });
 </script>
 
@@ -414,11 +564,12 @@ onMounted(() => {
 						{{ inBookshelf ? "已在书架" : "加入书架" }}
 					</button>
 
-					<!-- EPUB Export Slots (wired in Task 8) -->
+					<!-- EPUB Export Controls -->
 					<div class="flex flex-wrap items-center gap-2 sm:ml-auto">
 						<button
 							type="button"
-							class="inline-flex items-center gap-1.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-primary)] px-3 py-2 text-xs font-medium text-[var(--text-primary)] hover:bg-[var(--bg-secondary)]"
+							:disabled="exporting"
+							class="inline-flex items-center gap-1.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-primary)] px-3 py-2 text-xs font-medium text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] disabled:opacity-45"
 							@click="handleExportAllSlot"
 						>
 							<Download class="h-3.5 w-3.5" />
@@ -426,7 +577,8 @@ onMounted(() => {
 						</button>
 						<button
 							type="button"
-							class="inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-medium transition-colors"
+							:disabled="exporting"
+							class="inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-medium transition-colors disabled:opacity-45"
 							:class="
 								batchExportMode
 									? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]'
@@ -449,7 +601,7 @@ onMounted(() => {
 					</span>
 					<button
 						type="button"
-						:disabled="selectedVolumeIds.size === 0"
+						:disabled="selectedVolumeIds.size === 0 || exporting"
 						class="inline-flex items-center gap-1.5 rounded-lg bg-[var(--accent)] px-3 py-1.5 font-medium text-white disabled:opacity-40"
 						@click="handleExportSelectedSlot"
 					>
@@ -457,6 +609,53 @@ onMounted(() => {
 						导出所选分卷 EPUB
 					</button>
 				</div>
+
+				<!-- Live Export Progress -->
+				<div
+					v-if="exporting && exportProgress"
+					role="status"
+					aria-live="polite"
+					class="space-y-2 rounded-xl border border-[var(--accent)]/30 bg-[var(--bg-primary)] p-3.5 text-xs"
+				>
+					<div class="flex items-center justify-between gap-2">
+						<div class="flex min-w-0 items-center gap-2">
+							<span
+								class="shrink-0 rounded-md bg-[var(--accent-soft)] px-2 py-0.5 text-[11px] font-medium text-[var(--accent)]"
+							>
+								{{ exportStageLabel }}
+							</span>
+							<span class="truncate font-medium text-[var(--text-primary)]">
+								{{ exportProgress.message }}
+							</span>
+						</div>
+						<div class="flex shrink-0 items-center gap-2">
+							<span class="tabular-nums text-[var(--text-muted)]">
+								{{ exportProgress.completed }} / {{ exportProgress.total }} ({{ exportProgressPercent }}%)
+							</span>
+							<button
+								type="button"
+								class="inline-flex items-center gap-1 rounded-lg border border-[var(--border-subtle)] px-2 py-1 text-[11px] font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+								@click="cancelExport"
+							>
+								<X class="h-3 w-3" />
+								取消导出
+							</button>
+						</div>
+					</div>
+					<div class="h-1.5 w-full overflow-hidden rounded-full bg-[var(--bg-secondary)]">
+						<div
+							class="h-full rounded-full bg-[var(--accent)] transition-all duration-200"
+							:style="{ width: `${exportProgressPercent}%` }"
+						/>
+					</div>
+				</div>
+
+				<p
+					v-if="exportError"
+					class="rounded-xl border border-red-500/30 bg-red-500/10 px-3.5 py-2.5 text-xs text-red-600"
+				>
+					{{ exportError }}
+				</p>
 
 				<p
 					v-if="exportNotice"
@@ -532,7 +731,8 @@ onMounted(() => {
 
 						<button
 							type="button"
-							class="shrink-0 inline-flex items-center gap-1 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-primary)] px-2.5 py-1.5 text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+							:disabled="exporting"
+							class="shrink-0 inline-flex items-center gap-1 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-primary)] px-2.5 py-1.5 text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] disabled:opacity-45"
 							@click.stop="handleExportVolumeSlot(volume)"
 						>
 							<Download class="h-3.5 w-3.5" />
