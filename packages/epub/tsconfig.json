@@ -1,0 +1,6 @@
+{
+	"extends": "@acanthis-dec/config-typescript/libraries.json",
+	"compilerOptions": {
+		"types": []
+	}
+}
