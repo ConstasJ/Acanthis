@@ -2,6 +2,7 @@ import pc from "picocolors";
 import { ApiClientError } from "../client";
 import { CliConfigError, loadCliConfig } from "../config";
 import type { ResolvedCliConfig } from "../types";
+import { VolumeSelectionError } from "../utils";
 
 export const serverTokenArgs = {
 	server: {
@@ -52,6 +53,7 @@ export function getErrorExitCode(error: unknown): number {
 	if (
 		error instanceof CliConfigError ||
 		error instanceof CliValidationError ||
+		error instanceof VolumeSelectionError ||
 		isCittyCliError(error)
 	) {
 		return 2;

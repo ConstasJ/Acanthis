@@ -18,6 +18,18 @@ const TRAILING_NUMERIC_SEGMENT_PATTERN = /^(\d+)(?:\.html)?$/i;
 const RANGE_TOKEN_PATTERN = /^(\d+)-(\d+)$/;
 const INTEGER_TOKEN_PATTERN = /^\d+$/;
 
+export class VolumeSelectionError extends Error {
+	readonly exitCode = 2;
+
+	constructor(message: string, options?: { cause?: unknown }) {
+		super(
+			message,
+			options?.cause !== undefined ? { cause: options.cause } : undefined,
+		);
+		this.name = "VolumeSelectionError";
+	}
+}
+
 const NAMED_HTML_ENTITIES: Readonly<Record<string, string>> = {
 	amp: "&",
 	lt: "<",
@@ -92,8 +104,11 @@ export function parseVolumeSelection(
 	spec: string | undefined,
 	volumes: Volume[],
 ): Volume[] {
-	if (spec === undefined || spec.trim() === "") {
+	if (spec === undefined) {
 		return [...volumes];
+	}
+	if (spec.trim() === "") {
+		throw new VolumeSelectionError("Volume selection cannot be empty");
 	}
 
 	const tokens = spec.split(",");
@@ -102,7 +117,9 @@ export function parseVolumeSelection(
 	for (const rawToken of tokens) {
 		const token = rawToken.trim();
 		if (!token) {
-			throw new Error(`Invalid volume selection "${spec}": empty token`);
+			throw new VolumeSelectionError(
+				`Invalid volume selection "${spec}": empty token`,
+			);
 		}
 
 		const rangeMatch = RANGE_TOKEN_PATTERN.exec(token);
@@ -110,8 +127,10 @@ export function parseVolumeSelection(
 			const start = Number.parseInt(rangeMatch[1], 10);
 			const end = Number.parseInt(rangeMatch[2], 10);
 			if (start < 1 || end < 1 || start > end || end > volumes.length) {
-				throw new Error(
-					`Volume range "${token}" is out of bounds (available: 1-${volumes.length})`,
+				throw new VolumeSelectionError(
+					volumes.length > 0
+						? `Volume range "${token}" is out of bounds (available: 1-${volumes.length})`
+						: `Volume range "${token}" is out of bounds (novel has no volumes)`,
 				);
 			}
 			for (let idx = start - 1; idx <= end - 1; idx += 1) {
@@ -131,8 +150,10 @@ export function parseVolumeSelection(
 				selectedIndices.add(matchedById);
 				continue;
 			}
-			throw new Error(
-				`Volume "${token}" is out of range (available: 1-${volumes.length})`,
+			throw new VolumeSelectionError(
+				volumes.length > 0
+					? `Volume "${token}" is out of range (available: 1-${volumes.length})`
+					: `Volume "${token}" is out of range (novel has no volumes)`,
 			);
 		}
 
@@ -142,7 +163,9 @@ export function parseVolumeSelection(
 			continue;
 		}
 
-		throw new Error(`Invalid or unknown volume selection "${token}"`);
+		throw new VolumeSelectionError(
+			`Invalid or unknown volume selection "${token}"`,
+		);
 	}
 
 	const result: Volume[] = [];

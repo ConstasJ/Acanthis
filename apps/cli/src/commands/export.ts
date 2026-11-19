@@ -8,7 +8,6 @@ import { parseNovelIdOrUrl } from "../utils";
 import {
 	CliValidationError,
 	commonApiArgs,
-	optionalStringArg,
 	resolveCommandConfig,
 	writeJsonOutput,
 	writeProgressLine,
@@ -92,6 +91,16 @@ export const exportCommand = defineCommand({
 			);
 		}
 
+		let volumesSpec: string | undefined;
+		if (args.volumes !== undefined) {
+			if (typeof args.volumes !== "string" || args.volumes.trim() === "") {
+				throw new CliValidationError(
+					"Invalid --volumes (-v) value: volume selection cannot be empty.",
+				);
+			}
+			volumesSpec = args.volumes;
+		}
+
 		const config = await resolveCommandConfig({
 			server: args.server,
 			source: args.source,
@@ -119,7 +128,7 @@ export const exportCommand = defineCommand({
 					token: config.token,
 					outputDir: config.outputDir,
 					mode: effectiveMode,
-					volumes: optionalStringArg(args.volumes),
+					volumes: volumesSpec,
 					illustrations: args.illustrations !== false,
 					strict: Boolean(args.strict),
 					overwrite: Boolean(args.overwrite),
