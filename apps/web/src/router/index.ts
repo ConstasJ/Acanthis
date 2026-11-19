@@ -1,10 +1,4 @@
-import { computed, defineComponent, h } from "vue";
-import {
-	createRouter,
-	createWebHistory,
-	RouterLink,
-	useRoute,
-} from "vue-router";
+import { createRouter, createWebHistory } from "vue-router";
 
 declare module "vue-router" {
 	interface RouteMeta {
@@ -12,55 +6,6 @@ declare module "vue-router" {
 		title?: string;
 	}
 }
-
-const ReaderPlaceholderView = defineComponent({
-	name: "ReaderPlaceholderView",
-	setup() {
-		const route = useRoute();
-		const platform = computed(() => String(route.params.platform ?? ""));
-		const novelId = computed(() => String(route.params.novelId ?? ""));
-		const chapterId = computed(() => String(route.params.chapterId ?? ""));
-
-		return () =>
-			h(
-				"main",
-				{
-					class:
-						"min-h-screen bg-[var(--reader-bg)] text-[var(--reader-text)] flex flex-col items-center justify-center p-6 text-center",
-				},
-				[
-					h(
-						"div",
-						{
-							class:
-								"max-w-md w-full rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] p-6 space-y-4",
-						},
-						[
-							h(
-								"h1",
-								{ class: "text-lg font-semibold text-[var(--text-primary)]" },
-								"沉浸式阅读器加载中",
-							),
-							h(
-								"p",
-								{ class: "text-sm text-[var(--text-secondary)]" },
-								`书源：${platform.value} · 作品：${novelId.value} · 章节：${chapterId.value}`,
-							),
-							h(
-								RouterLink,
-								{
-									to: `/novel/${encodeURIComponent(platform.value)}/${encodeURIComponent(novelId.value)}`,
-									class:
-										"inline-flex items-center justify-center rounded-xl bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white",
-								},
-								() => "返回作品详情",
-							),
-						],
-					),
-				],
-			);
-	},
-});
 
 const router = createRouter({
 	history: createWebHistory(),
@@ -92,7 +37,7 @@ const router = createRouter({
 		{
 			path: "/read/:platform/:novelId/:chapterId",
 			name: "reader",
-			component: ReaderPlaceholderView,
+			component: () => import("@/views/ReaderView.vue"),
 			meta: { immersive: true, title: "阅读" },
 		},
 		{
