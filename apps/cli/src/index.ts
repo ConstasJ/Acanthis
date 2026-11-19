@@ -4,8 +4,8 @@ import {
 	defineCommand,
 	renderUsage,
 	runCommand,
-	showUsage,
 	type SubCommandsDef,
+	showUsage,
 } from "citty";
 import pkg from "../package.json" with { type: "json" };
 import { configCommand } from "./commands/config";
