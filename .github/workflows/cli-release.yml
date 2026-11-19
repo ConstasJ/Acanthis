@@ -178,16 +178,18 @@ jobs:
   update-homebrew:
     name: Update Homebrew Tap
     needs: [build-binaries, release]
-    if: vars.HOMEBREW_TAP_REPO != '' && secrets.PACKAGE_MANAGER_TOKEN != ''
+    if: vars.HOMEBREW_TAP_REPO != ''
     runs-on: ubuntu-latest
     steps:
       - name: Download package manager manifests
+        if: secrets.PACKAGE_MANAGER_TOKEN != ''
         uses: actions/download-artifact@v8
         with:
           name: cli-release-manifests
           path: release-manifests
 
       - name: Checkout Homebrew Tap repository
+        if: secrets.PACKAGE_MANAGER_TOKEN != ''
         uses: actions/checkout@v6
         with:
           repository: ${{ vars.HOMEBREW_TAP_REPO }}
@@ -195,6 +197,7 @@ jobs:
           path: homebrew-tap
 
       - name: Update Formula and push commit
+        if: secrets.PACKAGE_MANAGER_TOKEN != ''
         run: |
           mkdir -p homebrew-tap/Formula
           cp release-manifests/Formula/acanthis.rb homebrew-tap/Formula/acanthis.rb
@@ -212,10 +215,11 @@ jobs:
   submit-winget:
     name: Submit WinGet package update
     needs: [build-binaries, release]
-    if: vars.ENABLE_WINGET_RELEASE == 'true' && secrets.WINGET_TOKEN != ''
+    if: vars.ENABLE_WINGET_RELEASE == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Submit to microsoft/winget-pkgs
+        if: secrets.WINGET_TOKEN != ''
         uses: vedantmgoyal9/winget-releaser@v2
         with:
           identifier: ConstasJ.Acanthis
