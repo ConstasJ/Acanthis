@@ -39,3 +39,11 @@ export type ChapterContent = {
 };
 
 export type NovelStatus = "ongoing" | "completed" | "unknown";
+
+export type SourceCapability = "search" | "novels" | "illustrations";
+
+export interface NovelSourceDescriptor {
+	id: string;
+	name: string;
+	capabilities: SourceCapability[];
+}

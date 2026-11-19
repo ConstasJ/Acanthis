@@ -11,7 +11,9 @@ export type {
 	Novel,
 	NovelInfo,
 	NovelSearchResult,
+	NovelSourceDescriptor,
 	NovelStatus,
+	SourceCapability,
 	Volume,
 } from "./types";
 export { runTimeout } from "./utils";
