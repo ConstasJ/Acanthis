@@ -59,10 +59,7 @@ export function rebaseMediaUrl(
 	rawUrl: string | null | undefined,
 	apiBaseUrl?: string,
 ): string {
-	const resolvedBase =
-		apiBaseUrl !== undefined && apiBaseUrl.trim()
-			? apiBaseUrl
-			: resolveApiBaseUrl();
+	const resolvedBase = apiBaseUrl?.trim() ? apiBaseUrl : resolveApiBaseUrl();
 	return rebaseMediaUrlWithBase(rawUrl, resolvedBase);
 }
 
