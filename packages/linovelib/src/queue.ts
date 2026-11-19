@@ -43,12 +43,12 @@ export class NovelChapterQueue {
 		this.client = client;
 		this.backoff = new SimpleBackoff();
 		this.logger = logger;
-		this.queue.on("add", () => {
+		this.queue.addEventListener("add", () => {
 			this.logger?.debug(
 				`[NovelChapterQueue] 任务已添加，当前排队数: ${this.queue.size} (等待中任务数: ${this.queue.pending})`,
 			);
 		});
-		this.queue.on("next", () => {
+		this.queue.addEventListener("next", () => {
 			this.logger?.debug(
 				`[NovelChapterQueue] 任务完成或超时，开始下一个任务。剩余：${this.queue.size} `,
 			);
@@ -134,12 +134,12 @@ export class NovelInfoQueue {
 		this.backoff = new SimpleBackoff();
 		this.chapterQueue = chapterQueue;
 		this.logger = logger;
-		this.queue.on("add", () => {
+		this.queue.addEventListener("add", () => {
 			this.logger?.debug(
 				`[NovelInfoQueue] 任务已添加，当前排队数: ${this.queue.size} (等待中任务数: ${this.queue.pending})`,
 			);
 		});
-		this.queue.on("next", () => {
+		this.queue.addEventListener("next", () => {
 			this.logger?.debug(
 				`[NovelInfoQueue] 任务完成或超时，开始下一个任务。剩余：${this.queue.size} `,
 			);
