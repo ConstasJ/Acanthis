@@ -1,0 +1,47 @@
+{
+	"name": "@acanthis-dec/cli",
+	"version": "0.1.0",
+	"description": "Dual-mode EPUB export CLI for Acanthis.",
+	"author": "ConstasJ <constasj@qq.com>",
+	"license": "MIT",
+	"type": "module",
+	"packageManager": "pnpm@12.21.0",
+	"bin": {
+		"acanthis": "./dist/index.mjs"
+	},
+	"files": [
+		"dist",
+		"package.json",
+		"README.md",
+		"README.zh-CN.md"
+	],
+	"scripts": {
+		"build": "tsdown",
+		"build:bin": "bun build ./src/index.ts --compile --minify --outfile ./dist/acanthis",
+		"check-types": "tsc --noEmit"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/ConstasJ/Acanthis.git"
+	},
+	"homepage": "https://github.com/ConstasJ/Acanthis#readme",
+	"bugs": {
+		"url": "https://github.com/ConstasJ/Acanthis/issues"
+	},
+	"dependencies": {
+		"@acanthis-dec/core": "workspace:*",
+		"@acanthis-dec/epub": "workspace:*",
+		"@clack/prompts": "^1.0.1",
+		"citty": "^0.2.1",
+		"picocolors": "^1.1.1",
+		"zod": "^4.6.7"
+	},
+	"devDependencies": {
+		"@acanthis-dec/config-tsdown": "workspace:*",
+		"@acanthis-dec/config-typescript": "workspace:*",
+		"@types/node": "catalog:",
+		"tsdown": "catalog:",
+		"tsx": "catalog:",
+		"typescript": "catalog:"
+	}
+}
