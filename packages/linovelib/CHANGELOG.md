@@ -1,5 +1,17 @@
 # @acanthis-dec/linovelib
 
+## 1.2.0
+
+### Minor Changes
+
+- 6c2a0e8: 新增 V3 搜索实现：站点改为图片验证码后，旧 search_guard 验证流程已失效；V3 会串行化搜索、遵守站点 5 秒搜索间隔、自动识别并提交验证码、复用约 30 分钟验证态，并处理验证过期后的分页请求
+
+### Patch Changes
+
+- Updated dependencies [2b43002]
+  - @acanthis-dec/browser-fetch@1.1.2
+  - @acanthis-dec/storage@1.0.8
+
 ## 1.1.2
 
 ### Patch Changes
