@@ -20,6 +20,7 @@ jobs:
       api-server-src: ${{ steps.changes.outputs.api-server-src }}
       packages-src: ${{ steps.changes.outputs.packages-src }}
       api-server: ${{ steps.changes.outputs.api-server }}
+      cli: ${{ steps.changes.outputs.cli }}
       packages: ${{ steps.changes.outputs.packages }}
       ci: ${{ steps.changes.outputs.ci }}
     steps:
@@ -41,6 +42,12 @@ jobs:
               - 'apps/api-server/package.json'
               - 'apps/api-server/tsconfig.json'
               - 'apps/api-server/build.ts'
+            cli:
+              - 'apps/cli/src/**/*.ts'
+              - 'apps/cli/scripts/**/*.ts'
+              - 'apps/cli/package.json'
+              - 'apps/cli/tsconfig.json'
+              - 'apps/cli/tsdown.config.ts'
             packages:
               - 'packages/*/src/**/*.ts'
               - 'packages/*/package.json'
@@ -50,6 +57,7 @@ jobs:
               - '.github/workflows/ci.yml'
               - '.github/workflows/release.yml'
               - '.github/workflows/docker-release.yml'
+              - '.github/workflows/cli-release.yml'
               - 'package.json'
               - 'pnpm-lock.yaml'
   quality:
