@@ -142,11 +142,16 @@ export class DatabaseService {
 		});
 	}
 
+	private async ensureReady(): Promise<void> {
+		await this.readyPromise;
+	}
+
 	async addSearchResult(
 		keyword: string,
 		platform: string,
 		results: NovelSearchResult[],
 	) {
+		await this.ensureReady();
 		await this.db.transaction(async (tx) => {
 			await tx
 				.insert(keywordSearches)
@@ -208,6 +213,7 @@ export class DatabaseService {
 		keyword: string,
 		platform: string,
 	): Promise<DataWithUpdatedAt<NovelSearchResult[] | undefined>> {
+		await this.ensureReady();
 		const minQueryTime = Date.now() - 48 * 60 * 60 * 1000; // 48 hours
 
 		const searchRecord = await this.db.query.keywordSearches
@@ -245,6 +251,7 @@ export class DatabaseService {
 	}
 
 	async addNovelCache(novel: Novel) {
+		await this.ensureReady();
 		await this.db.transaction(async (tx) => {
 			const { id: novelId } = await tx
 				.insert(novels)
@@ -375,6 +382,7 @@ export class DatabaseService {
 		platform: string,
 		platformId: string,
 	): Promise<DataWithUpdatedAt<Novel | null>> {
+		await this.ensureReady();
 		const novelRecord = await this.db.query.novels
 			.findFirst({
 				where: {
@@ -437,6 +445,7 @@ export class DatabaseService {
 		platform: string,
 		platformId: string,
 	): Promise<Volume | undefined> {
+		await this.ensureReady();
 		const volumeRecord = await this.db.query.volumes
 			.findFirst({
 				where: {
@@ -474,6 +483,7 @@ export class DatabaseService {
 	async getChapterFromTitle(
 		title: string,
 	): Promise<Partial<Chapter> | undefined> {
+		await this.ensureReady();
 		const chapterRecord = await this.db.query.chapters
 			.findFirst({
 				where: {
@@ -496,6 +506,7 @@ export class DatabaseService {
 		platform: string,
 		platformId: string,
 	): Promise<Chapter | undefined> {
+		await this.ensureReady();
 		const chapterRecord = await this.db.query.chapters
 			.findFirst({
 				where: {
@@ -530,6 +541,7 @@ export class DatabaseService {
 		chapterId: string,
 		contentHash: string,
 	) {
+		await this.ensureReady();
 		await this.db
 			.update(chapters)
 			.set({ contentHash })
@@ -546,6 +558,7 @@ export class DatabaseService {
 		platform: string,
 		novelId: string,
 	): Promise<NovelCoverMetadata | undefined> {
+		await this.ensureReady();
 		const queryResult = await this.db.query.novelCoverMetadata
 			.findFirst({
 				where: {
@@ -574,6 +587,7 @@ export class DatabaseService {
 	}
 
 	async addNovelCoverMetadata(metadata: NovelCoverMetadata) {
+		await this.ensureReady();
 		const novel =
 			metadata.novelId && metadata.platform
 				? await this.db.query.novels
@@ -622,6 +636,7 @@ export class DatabaseService {
 		platform: string,
 		volumeId: string,
 	): Promise<VolumeCoverMetadata | undefined> {
+		await this.ensureReady();
 		const queryResult = await this.db.query.volumeCoverMetadata
 			.findFirst({
 				where: {
@@ -654,6 +669,7 @@ export class DatabaseService {
 	}
 
 	async addVolumeCoverMetadata(metadata: VolumeCoverMetadata) {
+		await this.ensureReady();
 		const volume =
 			metadata.volumeId && metadata.platform
 				? await this.db.query.volumes
@@ -679,6 +695,7 @@ export class DatabaseService {
 	}
 
 	async getCache<T>(key: string, schema: z.ZodType<T>): Promise<T | null> {
+		await this.ensureReady();
 		const record = await this.db.query.generalCache
 			.findFirst({
 				where: {
@@ -696,6 +713,7 @@ export class DatabaseService {
 	}
 
 	async setCache<T>(key: string, value: T): Promise<void> {
+		await this.ensureReady();
 		await this.db
 			.insert(generalCache)
 			.values({ key, value })
@@ -710,6 +728,7 @@ export class DatabaseService {
 		platform: string,
 		items: string[] | { urlHash: string; originalUrl: string }[],
 	): Promise<void> {
+		await this.ensureReady();
 		const uniqueItems = new Map<
 			string,
 			{ urlHash: string; originalUrl: string }
@@ -770,6 +789,7 @@ export class DatabaseService {
 		platform: string,
 		urlHash: string,
 	): Promise<string | undefined> {
+		await this.ensureReady();
 		const record = await this.db
 			.select({ originalUrl: illustrationMetadata.originalUrl })
 			.from(illustrationMetadata)
@@ -795,6 +815,7 @@ export class DatabaseService {
 		  }
 		| undefined
 	> {
+		await this.ensureReady();
 		return await this.db
 			.select({
 				originalUrl: illustrationMetadata.originalUrl,
@@ -817,6 +838,7 @@ export class DatabaseService {
 		fileHash: string,
 		contentType: string,
 	): Promise<void> {
+		await this.ensureReady();
 		await this.db
 			.update(illustrationMetadata)
 			.set({ fileHash, contentType })
@@ -833,6 +855,7 @@ export class DatabaseService {
 		platform: string,
 		options: ListNovelsOptions,
 	): Promise<PaginatedNovels> {
+		await this.ensureReady();
 		const page = Math.max(1, Math.trunc(options.page));
 		const pageSize = Math.max(1, Math.trunc(options.pageSize));
 		const offset = (page - 1) * pageSize;
@@ -944,7 +967,7 @@ export class DatabaseService {
 	}
 
 	async getSyncState(since?: number): Promise<SyncStateResult> {
-		await this.readyPromise;
+		await this.ensureReady();
 		return await this.db.transaction(async (tx) => {
 			const maxCursor = await this.getMaxSyncCursor(tx);
 
@@ -985,7 +1008,7 @@ export class DatabaseService {
 	async mergeSyncState(
 		input: MergeSyncStateInput,
 	): Promise<MergeSyncStateResult> {
-		await this.readyPromise;
+		await this.ensureReady();
 		return await this.db.transaction(async (tx) => {
 			let lastCursor = await this.getMaxSyncCursor(tx);
 			const nextCursor = () => {
@@ -1139,7 +1162,7 @@ export class DatabaseService {
 
 	async close(logger?: (message: string) => void) {
 		try {
-			await this.readyPromise.catch(() => {});
+			await this.ensureReady().catch(() => {});
 			await this.client.execute("PRAGMA journal_mode = DELETE;");
 			logger?.("WAL写入盘完成，正在关闭数据库连接...");
 		} catch (error) {
