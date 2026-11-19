@@ -20,8 +20,10 @@ WORKDIR /app
 RUN apt update && apt install -y --no-install-recommends \
     ca-certificates
 
+# onnxruntime-node 自带全平台原生库，这里只保留 Linux，避免镜像体积膨胀
 RUN npm init -y && npm pkg set type=module && \
-    npm install @libsql/client koffi isolated-vm
+    npm install @libsql/client koffi isolated-vm onnxruntime-node@1.31.1 && \
+    (find node_modules/onnxruntime-node/bin/napi-v6 -mindepth 1 -maxdepth 1 -type d ! -name linux -exec rm -rf {} + || true)
 
 COPY libcurl-impersonate*.tar.gz /libcurl-impersonate.tar.gz
 
@@ -36,7 +38,10 @@ FROM pre-final AS production
 WORKDIR /app
 
 COPY --from=builder /app/apps/api-server/dist/index.js ./
+COPY --from=builder /app/apps/api-server/dist/captcha_cropped.onnx ./
 COPY --from=builder /app/packages/storage/migrations ./migrations
+
+ENV LINOVELIB_CAPTCHA_MODEL_PATH=/app/captcha_cropped.onnx
 
 EXPOSE 5301
 

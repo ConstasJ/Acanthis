@@ -1,3 +1,5 @@
+import { copyFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
 
 await build({
@@ -16,7 +18,19 @@ await build({
 		"@libsql/client",
 		"isolated-vm",
 		"koffi",
+		"onnxruntime-node",
 	],
 }).catch(() => {
 	process.exit(1);
 });
+
+// 验证码识别模型是运行时从磁盘加载的，需要跟服务端 bundle 放在同一目录。
+await copyFile(
+	fileURLToPath(
+		new URL(
+			"../../packages/linovelib/assets/captcha_cropped.onnx",
+			import.meta.url,
+		),
+	),
+	fileURLToPath(new URL("./dist/captcha_cropped.onnx", import.meta.url)),
+);

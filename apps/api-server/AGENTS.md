@@ -22,8 +22,9 @@ This directory is the deployable HTTP service for Acanthis. It wires configurati
 
 - `pnpm --filter=@acanthis-dec/api-server run dev` runs `tsx watch src/index.ts`.
 - `pnpm --filter=@acanthis-dec/api-server run build` runs `tsx build.ts`, not `tsdown`.
-- `build.ts` bundles `src/index.ts` with esbuild for Node ESM, minifies, writes `dist/index.js`, injects `createRequire`, and externalizes native/runtime-heavy dependencies such as `@libsql/client`, `isolated-vm`, and `koffi`.
-- `Dockerfile` builds from the monorepo, copies the bundled API server plus `packages/storage/migrations`, installs runtime native dependencies in a minimal package, sets `LIBCURL_PATH`, exposes `5301`, and runs `node index.js`.
+- `build.ts` bundles `src/index.ts` with esbuild for Node ESM, minifies, writes `dist/index.js`, injects `createRequire`, and externalizes native/runtime-heavy dependencies such as `@libsql/client`, `isolated-vm`, `koffi`, and `onnxruntime-node`. It also copies the linovelib captcha model (`packages/linovelib/assets/captcha_cropped.onnx`) to `dist/captcha_cropped.onnx`.
+- `Dockerfile` builds from the monorepo, copies the bundled API server plus `packages/storage/migrations`, installs runtime native dependencies in a minimal package (including `onnxruntime-node`, then prunes its non-Linux binaries), sets `LIBCURL_PATH`, exposes `5301`, and runs `node index.js`.
+- The production image also copies `captcha_cropped.onnx` to `/app` and sets `LINOVELIB_CAPTCHA_MODEL_PATH`; without that model or the `onnxruntime-node` native library, search requests fail even though the rest of the API works.
 
 ## Editing guidance
 
