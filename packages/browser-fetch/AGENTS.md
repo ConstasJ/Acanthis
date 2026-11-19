@@ -17,6 +17,7 @@ This package provides the browser-like HTTP layer used by linovelib. It handles 
 
 - Default behavior should continue to look like a modern browser request unless a caller explicitly configures otherwise.
 - Cookie stores are interchangeable through the package types; do not add store-specific assumptions in `BrowserFetchClient`.
+- `FileCookiesStore` lazily loads the cookie file on first access and persists after every mutation (`set`/`delete`/`clear`/`update`). Callers must not need an explicit `load()`/`save()` step; keep the serialized date fields revived as `Date` when reading the file back.
 - FlareSolverr and Cloudflare handling are optional runtime paths. Keep the disabled path simple and avoid requiring FlareSolverr-only dependencies for normal requests.
 - Retries should preserve method/body/header semantics and cookie updates.
 

@@ -15,10 +15,68 @@ import {
 	matchesPath,
 } from "./basic";
 
+type SerializedCookie = Omit<
+	CookieStoreItem,
+	"expires" | "createdAt" | "lastAccessedAt"
+> & {
+	expires?: string | number | Date | undefined;
+	createdAt?: string | number | Date | undefined;
+	lastAccessedAt?: string | number | Date | undefined;
+};
+
+function toDate(value: unknown): Date | undefined {
+	if (value === null || value === undefined) return undefined;
+	const date =
+		value instanceof Date ? value : new Date(value as string | number);
+	return Number.isNaN(date.getTime()) ? undefined : date;
+}
+
+function normalizeCookie(raw: unknown): CookieStoreItem | undefined {
+	if (typeof raw !== "object" || raw === null) return undefined;
+	const candidate = raw as Partial<SerializedCookie>;
+	if (
+		typeof candidate.name !== "string" ||
+		typeof candidate.value !== "string"
+	) {
+		return undefined;
+	}
+
+	const createdAt = toDate(candidate.createdAt) ?? new Date();
+	const sameSite =
+		candidate.sameSite === "Strict" ||
+		candidate.sameSite === "None" ||
+		candidate.sameSite === "Lax"
+			? candidate.sameSite
+			: "Lax";
+
+	return {
+		name: candidate.name,
+		value: candidate.value,
+		domain: typeof candidate.domain === "string" ? candidate.domain : undefined,
+		path: typeof candidate.path === "string" ? candidate.path : undefined,
+		expires: toDate(candidate.expires),
+		maxAge: typeof candidate.maxAge === "number" ? candidate.maxAge : undefined,
+		secure:
+			typeof candidate.secure === "boolean" ? candidate.secure : undefined,
+		httpOnly:
+			typeof candidate.httpOnly === "boolean" ? candidate.httpOnly : undefined,
+		sameSite,
+		createdAt,
+		lastAccessedAt: toDate(candidate.lastAccessedAt) ?? createdAt,
+	};
+}
+
 export class FileCookiesStore implements CookiesStore {
 	[cookieStoreSign] = true as const;
 	private filePath: string;
 	private cookiesCache: Map<string, CookieStoreItem> = new Map();
+	private loadPromise: Promise<void> | null = null;
+	private savePromise: Promise<void> | null = null;
+	private saveQueued = false;
+
+	constructor(filePath: string) {
+		this.filePath = filePath;
+	}
 
 	private async _ensureParentExists(): Promise<void> {
 		try {
@@ -34,27 +92,33 @@ export class FileCookiesStore implements CookiesStore {
 		}
 	}
 
-	async load(): Promise<void> {
+	private async _readFromDisk(): Promise<void> {
 		try {
 			await this._ensureParentExists();
 			if (!existsSync(this.filePath)) {
 				return;
 			}
 			const data = await readFile(this.filePath, "utf-8");
-			const cookies: CookieStoreItem[] = JSON.parse(data);
+			const parsed: unknown = JSON.parse(data);
+			if (!Array.isArray(parsed)) {
+				return;
+			}
 			this.cookiesCache.clear();
-			for (const cookie of cookies) {
-				this.cookiesCache.set(
-					`${cookie.name}:${cookie.domain || ""}:${cookie.path || ""}`,
-					cookie,
-				);
+			for (const raw of parsed) {
+				const cookie = normalizeCookie(raw);
+				if (cookie) {
+					this.cookiesCache.set(
+						makeKey(cookie.name, cookie.domain, cookie.path),
+						cookie,
+					);
+				}
 			}
 		} catch (error) {
 			console.error("Error loading cookies from file:", error);
 		}
 	}
 
-	async save(): Promise<void> {
+	private async _writeToDisk(): Promise<void> {
 		try {
 			await this._ensureParentExists();
 			const cookies = Array.from(this.cookiesCache.values());
@@ -64,14 +128,58 @@ export class FileCookiesStore implements CookiesStore {
 		}
 	}
 
-	constructor(filePath: string) {
-		this.filePath = filePath;
+	/**
+	 * 确保本次会话已经读取过磁盘上的 cookie。
+	 * 构造器是同步的，所以这里做懒加载；所有公开的读写方法都会先等待它。
+	 */
+	private async _ensureLoaded(): Promise<void> {
+		if (!this.loadPromise) {
+			this.loadPromise = this._readFromDisk();
+		}
+		await this.loadPromise;
 	}
+
+	/**
+	 * 把当前缓存写入磁盘；写入期间又发生的修改会在本轮写完后再次落盘。
+	 */
+	private async _persist(): Promise<void> {
+		if (this.savePromise) {
+			this.saveQueued = true;
+			return this.savePromise;
+		}
+
+		this.savePromise = (async () => {
+			try {
+				do {
+					this.saveQueued = false;
+					await this._writeToDisk();
+				} while (this.saveQueued);
+			} finally {
+				this.savePromise = null;
+			}
+		})();
+
+		return this.savePromise;
+	}
+
+	/** 强制从磁盘重新加载 cookie 文件。 */
+	async load(): Promise<void> {
+		this.loadPromise = this._readFromDisk();
+		await this.loadPromise;
+	}
+
+	/** 立即把当前 cookie 缓存写入磁盘。 */
+	async save(): Promise<void> {
+		await this._ensureLoaded();
+		await this._persist();
+	}
+
 	async set(
 		name: string,
 		value: string,
 		options?: CookieOptions,
 	): Promise<void> {
+		await this._ensureLoaded();
 		const key = makeKey(name, options?.domain, options?.path);
 		const cookie: CookieStoreItem = {
 			name,
@@ -87,12 +195,15 @@ export class FileCookiesStore implements CookiesStore {
 			lastAccessedAt: new Date(),
 		};
 		this.cookiesCache.set(key, cookie);
+		await this._persist();
 	}
+
 	async get(
 		name: string,
 		domain?: string,
 		path?: string,
 	): Promise<string | null> {
+		await this._ensureLoaded();
 		const key = makeKey(name, domain, path);
 		const exact = this.cookiesCache.get(key);
 		if (exact) {
@@ -109,11 +220,13 @@ export class FileCookiesStore implements CookiesStore {
 		}
 		return null;
 	}
+
 	async getCookie(
 		name: string,
 		domain?: string,
 		path?: string,
 	): Promise<Cookie | null> {
+		await this._ensureLoaded();
 		const key = makeKey(name, domain, path);
 		const exact = this.cookiesCache.get(key);
 		if (exact) {
@@ -130,10 +243,13 @@ export class FileCookiesStore implements CookiesStore {
 		}
 		return null;
 	}
+
 	async delete(name: string, domain?: string, path?: string): Promise<boolean> {
+		await this._ensureLoaded();
 		const key = makeKey(name, domain, path);
 		if (this.cookiesCache.has(key)) {
 			this.cookiesCache.delete(key);
+			await this._persist();
 			return true;
 		}
 		for (const [key, cookie] of this.cookiesCache.entries()) {
@@ -142,13 +258,17 @@ export class FileCookiesStore implements CookiesStore {
 				continue;
 			if (path && cookie.path && !matchesPath(cookie.path, path)) continue;
 			this.cookiesCache.delete(key);
+			await this._persist();
 			return true;
 		}
 		return false;
 	}
+
 	async clear(domain?: string, path?: string): Promise<void> {
+		await this._ensureLoaded();
 		if (!domain && !path) {
 			this.cookiesCache.clear();
+			await this._persist();
 			return;
 		}
 		for (const [key, cookie] of this.cookiesCache.entries()) {
@@ -160,11 +280,15 @@ export class FileCookiesStore implements CookiesStore {
 			}
 			this.cookiesCache.delete(key);
 		}
+		await this._persist();
 	}
+
 	async has(name: string, domain?: string, path?: string): Promise<boolean> {
 		return (await this.get(name, domain, path)) !== null;
 	}
+
 	async getForUrl(url: string | URL): Promise<Cookie[]> {
+		await this._ensureLoaded();
 		const parsedUrl = url instanceof URL ? url : new URL(url);
 		const hostname = parsedUrl.hostname;
 		const pathname = parsedUrl.pathname || "/";
@@ -205,7 +329,9 @@ export class FileCookiesStore implements CookiesStore {
 		});
 		return result.map(cookieItemToCookie);
 	}
+
 	async update(init: CookiesInit): Promise<void> {
+		await this._ensureLoaded();
 		if (isCookiesStore(init)) {
 			for await (const cookie of init) {
 				await this.set(cookie.name, cookie.value, {
@@ -221,7 +347,7 @@ export class FileCookiesStore implements CookiesStore {
 		} else if (Array.isArray(init)) {
 			for (const item of init) {
 				if (typeof item === "object" && "name" in item && "value" in item) {
-					this.set(item.name, item.value, item);
+					await this.set(item.name, item.value, item);
 				}
 			}
 		} else if (typeof init === "object") {
@@ -236,19 +362,25 @@ export class FileCookiesStore implements CookiesStore {
 			}
 		}
 	}
+
 	[Symbol.asyncIterator](): AsyncIterator<Cookie> {
-		const cookies = Array.from(this.cookiesCache.values()).map(
-			cookieItemToCookie,
-		);
+		let snapshot: Cookie[] | null = null;
 		let index = 0;
 		return {
 			next: async (): Promise<IteratorResult<Cookie>> => {
-				if (index < cookies.length) {
-					// biome-ignore lint/style/noNonNullAssertion: We check index against cookies.length, so this is safe
-					return { value: cookies[index++]!, done: false };
-				} else {
-					return { value: undefined, done: true };
+				if (!snapshot) {
+					await this._ensureLoaded();
+					snapshot = Array.from(this.cookiesCache.values()).map(
+						cookieItemToCookie,
+					);
 				}
+				if (index < snapshot.length) {
+					const cookie = snapshot[index++];
+					if (cookie) {
+						return { value: cookie, done: false };
+					}
+				}
+				return { value: undefined, done: true };
 			},
 		};
 	}
