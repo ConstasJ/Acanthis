@@ -1,5 +1,20 @@
 # @acanthis-dec/api-server
 
+## 1.1.0
+
+### Minor Changes
+
+- 125e219: 新增跨设备书架与阅读进度同步底座：补充 `BookshelfItem` 与 `ReadingProgress` 共享类型、SQLite 同步数据表与 Drizzle 增量迁移、基于客户端 `updatedAt` 时钟钳制 LWW 与服务端单调游标 `serverUpdatedAt` 的软删除合并逻辑，以及受鉴权保护的 `GET/POST /v1/sync/state` 接口
+- 125e219: 补齐多端底座能力：新增书源能力描述与 `/v1/sources` 发现接口、CORS 与可选 `AUTH_TOKEN` Bearer 鉴权、章节插图提取重写与封闭式磁盘缓存代理 `/v1/linovelib/illustration/:hash`、书库分页 `/v1/linovelib/novels`、章节直链 `?novelId=` 兜底、目录隐藏章节 ID 双向推导与事务残留清理，并修复已缓存作品离线降级与冷库迁移初始化竞态问题
+
+### Patch Changes
+
+- Updated dependencies [125e219]
+- Updated dependencies [125e219]
+  - @acanthis-dec/core@1.2.0
+  - @acanthis-dec/storage@1.1.0
+  - @acanthis-dec/linovelib@1.3.0
+
 ## 1.0.9
 
 ### Patch Changes
