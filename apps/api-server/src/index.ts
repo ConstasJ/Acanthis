@@ -5,8 +5,8 @@ import { config } from "./config";
 import LinovelibRoutes from "./linovelib";
 import { createAuthMiddleware, createLoggerMiddleware } from "./middleware";
 import { logger, storageService } from "./services";
-import SourcesRoutes from "./sources";
-import SyncRoutes from "./sync";
+import { createSourcesRoutes } from "./sources";
+import { createSyncRoutes } from "./sync";
 
 const app = new Hono().basePath("/v1");
 
@@ -28,9 +28,12 @@ app.get("/health", (c) =>
 if (config.auth?.token) {
 	app.use("*", createAuthMiddleware(config.auth.token));
 }
-app.route("/sources", SourcesRoutes);
+app.route("/sources", createSourcesRoutes());
 app.route("/linovelib", LinovelibRoutes);
-app.route("/sync", SyncRoutes);
+app.route(
+	"/sync",
+	createSyncRoutes({ storageService, logger, host: config.host }),
+);
 
 const server = serve(
 	{
