@@ -15,6 +15,23 @@ import type {
 	TransportSessionPolicy,
 } from "./types";
 
+const DEFAULT_TIMEOUT_MS = 30_000;
+const DEFAULT_CONNECT_TIMEOUT_MS = 15_000;
+const DEFAULT_LOW_SPEED_LIMIT_BYTES_PER_SEC = 1024;
+const DEFAULT_LOW_SPEED_TIME_SEC = 15;
+const WATCHDOG_GRACE_MS = 5_000;
+
+const RETRYABLE_CURL_ERROR_CODES = new Set<number>([
+	impers.CurlCode.CURLE_WEIRD_SERVER_REPLY,
+	impers.CurlCode.CURLE_HTTP2,
+	impers.CurlCode.CURLE_PARTIAL_FILE,
+	impers.CurlCode.CURLE_NO_CONNECTION_AVAILABLE,
+	impers.CurlCode.CURLE_HTTP2_STREAM,
+	impers.CurlCode.CURLE_HTTP3,
+	impers.CurlCode.CURLE_QUIC_CONNECT_ERROR,
+	impers.CurlCode.CURLE_UNRECOVERABLE_POLL,
+]);
+
 export type SessionOptions = {
 	maxConnections?: number;
 	maxHostConnections?: number;
@@ -43,10 +60,44 @@ class SessionManager {
 	private sessions: Map<string, impers.Session> = new Map();
 	private sharedSession: impers.Session;
 	private sessionOptions: impers.SessionOptions;
+	private activeCounts = new Map<impers.Session, number>();
+	private retiredSessions = new Set<impers.Session>();
 
 	constructor(sessionOptions: SessionOptions) {
 		this.sessionOptions = buildSessionOption(sessionOptions);
 		this.sharedSession = new impers.Session(this.sessionOptions);
+	}
+
+	acquire(session: impers.Session): void {
+		this.activeCounts.set(session, (this.activeCounts.get(session) ?? 0) + 1);
+	}
+
+	release(session: impers.Session): void {
+		const current = this.activeCounts.get(session) ?? 0;
+		if (current <= 1) {
+			this.activeCounts.delete(session);
+			if (this.retiredSessions.delete(session)) {
+				void session.close().catch(() => {});
+			}
+		} else {
+			this.activeCounts.set(session, current - 1);
+		}
+	}
+
+	retireSession(key: TransportSessionKey, session: impers.Session): void {
+		if (session === this.sharedSession) {
+			return;
+		}
+		const keyStr = getKeyFromSessionKey(key);
+		if (this.sessions.get(keyStr) === session) {
+			this.sessions.delete(keyStr);
+		}
+		if ((this.activeCounts.get(session) ?? 0) === 0) {
+			this.retiredSessions.delete(session);
+			void session.close().catch(() => {});
+		} else {
+			this.retiredSessions.add(session);
+		}
 	}
 
 	getSession(
@@ -72,8 +123,13 @@ class SessionManager {
 				return new impers.Session(this.sessionOptions);
 			}
 			case "reset": {
+				const keyStr = getKeyFromSessionKey(key);
+				const existingSession = this.sessions.get(keyStr);
+				if (existingSession) {
+					this.retireSession(key, existingSession);
+				}
 				const newSession = new impers.Session(this.sessionOptions);
-				this.sessions.set(getKeyFromSessionKey(key), newSession);
+				this.sessions.set(keyStr, newSession);
 				return newSession;
 			}
 		}
@@ -93,6 +149,11 @@ class SessionManager {
 			await session.close();
 		}
 		this.sessions.clear();
+		for (const session of this.retiredSessions) {
+			await session.close().catch(() => {});
+		}
+		this.retiredSessions.clear();
+		this.activeCounts.clear();
 	}
 }
 
@@ -109,16 +170,38 @@ export class ImpersTransport implements Transport {
 			profile: request.profile ? request.profile.name : "default",
 			proxy: request.proxy ?? null,
 		};
-		const session = this.sessionManager.getSession(
-			sessionKey,
-			request.session ?? { mode: "reuse", isolation: "per-origin" },
-		);
+		const sessionPolicy = request.session ?? {
+			mode: "reuse",
+			isolation: "per-origin",
+		};
+		const session = this.sessionManager.getSession(sessionKey, sessionPolicy);
+
+		const timeoutMs = request.timeout ?? DEFAULT_TIMEOUT_MS;
+		const rawConnectTimeoutMs =
+			request.connectionTimeout ?? DEFAULT_CONNECT_TIMEOUT_MS;
+		const connectTimeoutMs =
+			timeoutMs > 0 && rawConnectTimeoutMs > 0
+				? Math.min(rawConnectTimeoutMs, timeoutMs)
+				: rawConnectTimeoutMs;
+
+		const curlOptions: Record<number, unknown> = {
+			[impers.CurlOpt.NOSIGNAL]: 1,
+			[impers.CurlOpt.TCP_KEEPALIVE]: 1,
+			[impers.CurlOpt.TCP_KEEPIDLE]: 30,
+			[impers.CurlOpt.TCP_KEEPINTVL]: 15,
+		};
+		if (timeoutMs >= 5_000) {
+			curlOptions[impers.CurlOpt.LOW_SPEED_LIMIT] =
+				DEFAULT_LOW_SPEED_LIMIT_BYTES_PER_SEC;
+			curlOptions[impers.CurlOpt.LOW_SPEED_TIME] = Math.min(
+				DEFAULT_LOW_SPEED_TIME_SEC,
+				Math.floor(timeoutMs / 1000),
+			);
+		}
 
 		const impersRequest: impers.RequestOptions = {
 			headers: request.headers ?? {},
 			cookies: request.cookies ?? {},
-			timeout: request.timeout ?? 60000,
-			connectTimeout: request.connectionTimeout ?? 60000,
 			allowRedirects: request.followRedirects ?? true,
 			maxRedirects: request.maxRedirects ?? 10,
 			impersonate: request.tls?.impersonate
@@ -126,12 +209,37 @@ export class ImpersTransport implements Transport {
 				: request.profile?.impersonate
 					? request.profile.impersonate
 					: "chrome",
+			curlOptions,
 		};
+		if (timeoutMs > 0) {
+			impersRequest.timeout = timeoutMs / 1000;
+		}
+		if (connectTimeoutMs > 0) {
+			impersRequest.connectTimeout = connectTimeoutMs / 1000;
+		}
 		if (request.proxy) {
 			impersRequest.proxy = request.proxy;
 		}
-		if (request.signal) {
+
+		const watchdogController =
+			timeoutMs > 0 ? new AbortController() : undefined;
+		let watchdogTimer: ReturnType<typeof setTimeout> | undefined;
+		if (watchdogController) {
+			watchdogTimer = setTimeout(() => {
+				watchdogController.abort(
+					new Error(`Request timed out after ${timeoutMs}ms`),
+				);
+			}, timeoutMs + WATCHDOG_GRACE_MS);
+		}
+		if (request.signal && watchdogController) {
+			impersRequest.signal = AbortSignal.any([
+				request.signal,
+				watchdogController.signal,
+			]);
+		} else if (request.signal) {
 			impersRequest.signal = request.signal;
+		} else if (watchdogController) {
+			impersRequest.signal = watchdogController.signal;
 		}
 		if (request.tls) {
 			if (request.tls.ja3) {
@@ -187,6 +295,16 @@ export class ImpersTransport implements Transport {
 				break;
 		}
 
+		const retireIfReusable = () => {
+			if (
+				sessionPolicy.mode === "reuse" &&
+				(sessionPolicy.isolation ?? "per-origin") === "per-origin"
+			) {
+				this.sessionManager.retireSession(sessionKey, session);
+			}
+		};
+
+		this.sessionManager.acquire(session);
 		try {
 			const impersResponse = await session.request(
 				request.method,
@@ -194,9 +312,6 @@ export class ImpersTransport implements Transport {
 				impersRequest,
 			);
 			impersResponse.raiseForStatus();
-			if (request.session?.mode === "fresh") {
-				await session.close();
-			}
 			return {
 				url: request.url,
 				finalUrl: impersResponse.url,
@@ -234,16 +349,27 @@ export class ImpersTransport implements Transport {
 				),
 				body: impersResponse.content,
 				elapsedTime: impersResponse.elapsed,
-				reusedSession: request.session?.mode === "reuse",
+				reusedSession: sessionPolicy.mode === "reuse",
 				sessionKey: getKeyFromSessionKey(sessionKey),
 			};
 		} catch (error) {
+			if (watchdogController?.signal.aborted && !request.signal?.aborted) {
+				retireIfReusable();
+				throw new NetworkError(
+					request.url,
+					`Request timed out after ${timeoutMs}ms`,
+				);
+			}
 			if (error instanceof impers.RequestException) {
 				if (
 					error instanceof impers.ConnectionError ||
 					error instanceof impers.Timeout ||
-					error instanceof impers.SSLError
+					error instanceof impers.SSLError ||
+					error instanceof impers.IncompleteRead ||
+					(error instanceof impers.CurlError &&
+						RETRYABLE_CURL_ERROR_CODES.has(error.code))
 				) {
+					retireIfReusable();
 					throw new NetworkError(request.url, error.message);
 				}
 			}
@@ -254,6 +380,14 @@ export class ImpersTransport implements Transport {
 				throw new HttpStatusError(error.statusCode, request.url, responseText);
 			}
 			throw error;
+		} finally {
+			if (watchdogTimer !== undefined) {
+				clearTimeout(watchdogTimer);
+			}
+			this.sessionManager.release(session);
+			if (sessionPolicy.mode === "fresh") {
+				await session.close().catch(() => {});
+			}
 		}
 	}
 

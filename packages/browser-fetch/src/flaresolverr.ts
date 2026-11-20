@@ -1,3 +1,5 @@
+import { FlareSolverrError } from "./errors";
+
 export type FlareSolverrOptions =
 	| {
 			enabled: true;
@@ -39,6 +41,9 @@ export type FlareSolverrReqResponse = {
 	version: string;
 };
 
+const SESSION_COMMAND_TIMEOUT_MS = 15_000;
+const REQUEST_TIMEOUT_BUFFER_MS = 10_000;
+
 export class FlareSolverrClient {
 	host: string;
 	private sessionId: string | undefined;
@@ -53,25 +58,63 @@ export class FlareSolverrClient {
 		this.timeoutMs = options.timeoutMs ?? 60000;
 	}
 
+	private async postCommand<T>(
+		payload: Record<string, unknown>,
+		fetchTimeoutMs: number,
+	): Promise<T> {
+		let response: Response;
+		try {
+			response = await fetch(`${this.host}/v1`, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify(payload),
+				signal: AbortSignal.timeout(fetchTimeoutMs),
+			});
+		} catch (error) {
+			throw new FlareSolverrError(
+				this.host,
+				error instanceof Error ? error.message : String(error),
+			);
+		}
+
+		if (!response.ok) {
+			const text = await response.text().catch(() => "");
+			throw new FlareSolverrError(
+				this.host,
+				`HTTP ${response.status}: ${text || response.statusText}`,
+			);
+		}
+
+		try {
+			return (await response.json()) as T;
+		} catch (error) {
+			throw new FlareSolverrError(
+				this.host,
+				`Invalid JSON response: ${error instanceof Error ? error.message : String(error)}`,
+			);
+		}
+	}
+
 	async listSession(): Promise<string[]> {
-		const response = await fetch(`${this.host}/v1`, {
-			method: "POST",
-			body: JSON.stringify({
+		const data = await this.postCommand<{ sessions: string[] }>(
+			{
 				cmd: "sessions.list",
-			}),
-		});
-		const data = await response.json();
-		return data.sessions as string[];
+			},
+			SESSION_COMMAND_TIMEOUT_MS,
+		);
+		return data.sessions;
 	}
 
 	async createSession(sessionId: string): Promise<void> {
-		await fetch(`${this.host}/v1`, {
-			method: "POST",
-			body: JSON.stringify({
+		await this.postCommand(
+			{
 				cmd: "sessions.create",
 				session: sessionId,
-			}),
-		});
+			},
+			SESSION_COMMAND_TIMEOUT_MS,
+		);
 	}
 
 	async createSessionIfNotExists(sessionId: string): Promise<void> {
@@ -82,47 +125,37 @@ export class FlareSolverrClient {
 	}
 
 	async destroySession(sessionId: string): Promise<void> {
-		await fetch(`${this.host}/v1`, {
-			method: "POST",
-			body: JSON.stringify({
+		await this.postCommand(
+			{
 				cmd: "sessions.destroy",
 				session: sessionId,
-			}),
-		});
+			},
+			SESSION_COMMAND_TIMEOUT_MS,
+		);
 	}
 
 	async get(url: string) {
-		const response = await fetch(`${this.host}/v1`, {
-			method: "POST",
-			headers: {
-				"Content-Type": "application/json",
-			},
-			body: JSON.stringify({
+		return await this.postCommand<FlareSolverrReqResponse>(
+			{
 				cmd: "request.get",
 				session: this.sessionId,
 				url,
 				maxTimeout: this.timeoutMs,
-			}),
-		});
-		const data = (await response.json()) as FlareSolverrReqResponse;
-		return data;
+			},
+			this.timeoutMs + REQUEST_TIMEOUT_BUFFER_MS,
+		);
 	}
 
 	async post(url: string, urlencodedData: Record<string, string>) {
-		const response = await fetch(`${this.host}/v1`, {
-			method: "POST",
-			headers: {
-				"Content-Type": "application/json",
-			},
-			body: JSON.stringify({
+		return await this.postCommand<FlareSolverrReqResponse>(
+			{
 				cmd: "request.post",
 				session: this.sessionId,
 				url,
 				postData: new URLSearchParams(urlencodedData).toString(),
 				maxTimeout: this.timeoutMs,
-			}),
-		});
-		const data = (await response.json()) as FlareSolverrReqResponse;
-		return data;
+			},
+			this.timeoutMs + REQUEST_TIMEOUT_BUFFER_MS,
+		);
 	}
 }

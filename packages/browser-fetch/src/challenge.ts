@@ -1,4 +1,5 @@
 import type { Cookie } from "./cookies";
+import { FlareSolverrError } from "./errors";
 import type { FlareSolverrClient } from "./flaresolverr";
 
 export type AutoSolvePolicy = "auto" | "force-refresh" | "never";
@@ -52,64 +53,34 @@ export async function solveCloudflareChallenge(
 	client: FlareSolverrClient,
 	body?: Record<string, string>,
 ): Promise<Cookie> {
-	switch (method) {
-		case "GET": {
-			const response = await client.get(url);
-			if (
-				response.status !== "ok" &&
-				response.message !== "Challenge solved!"
-			) {
-				throw new Error(
-					`Failed to solve Cloudflare challenge: ${response.message}`,
-				);
-			}
-			const clearance = response.solution.cookies.find((cookie) =>
-				cookie.name.toLowerCase().includes("cf_clearance"),
-			);
-			if (!clearance) {
-				throw new Error(
-					"Failed to find cf_clearance cookie in FlareSolverr response.",
-				);
-			}
-			return {
-				name: clearance.name,
-				value: clearance.value,
-				domain: clearance.domain,
-				path: clearance.path,
-				expires: new Date(clearance.expiry * 1000),
-				httpOnly: clearance.httpOnly,
-				secure: clearance.secure,
-				sameSite: clearance.sameSite ?? "Lax",
-			};
-		}
-		case "POST": {
-			const response = await client.post(url, body ?? {});
-			if (
-				response.status !== "ok" &&
-				response.message !== "Challenge solved!"
-			) {
-				throw new Error(
-					`Failed to solve Cloudflare challenge: ${response.message}`,
-				);
-			}
-			const clearance = response.solution.cookies.find((cookie) =>
-				cookie.name.toLowerCase().includes("cf_clearance"),
-			);
-			if (!clearance) {
-				throw new Error(
-					"Failed to find cf_clearance cookie in FlareSolverr response.",
-				);
-			}
-			return {
-				name: clearance.name,
-				value: clearance.value,
-				domain: clearance.domain,
-				path: clearance.path,
-				expires: new Date(clearance.expiry * 1000),
-				httpOnly: clearance.httpOnly,
-				secure: clearance.secure,
-				sameSite: clearance.sameSite ?? "Lax",
-			};
-		}
+	const response =
+		method === "GET"
+			? await client.get(url)
+			: await client.post(url, body ?? {});
+
+	if (response.status !== "ok" && response.message !== "Challenge solved!") {
+		throw new FlareSolverrError(
+			client.host,
+			`Failed to solve Cloudflare challenge: ${response.message}`,
+		);
 	}
+	const clearance = response.solution.cookies.find((cookie) =>
+		cookie.name.toLowerCase().includes("cf_clearance"),
+	);
+	if (!clearance) {
+		throw new FlareSolverrError(
+			client.host,
+			"Failed to find cf_clearance cookie in FlareSolverr response.",
+		);
+	}
+	return {
+		name: clearance.name,
+		value: clearance.value,
+		domain: clearance.domain,
+		path: clearance.path,
+		expires: new Date(clearance.expiry * 1000),
+		httpOnly: clearance.httpOnly,
+		secure: clearance.secure,
+		sameSite: clearance.sameSite ?? "Lax",
+	};
 }

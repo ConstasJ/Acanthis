@@ -47,6 +47,7 @@ const defaultOptions: BrowserFetchClientOptions = {
 	},
 	requestDefaults: {
 		timeout: 30000,
+		connectionTimeout: 15000,
 		retry: {
 			retries: 0,
 			minRetryDelayMs: 1000,
@@ -204,11 +205,11 @@ export class BrowserFetchClient {
 			body: init.body,
 			profile: this.profile,
 			proxy: this.proxy ?? undefined,
-			timeout: init.timeout ?? this.requestDefaults.timeout ?? 0,
+			timeout: init.timeout ?? this.requestDefaults.timeout ?? 30000,
 			connectionTimeout:
 				init.connectionTimeout ??
 				this.requestDefaults.connectionTimeout ??
-				undefined,
+				15000,
 			followRedirects: init.followRedirects ?? true,
 			maxRedirects: init.maxRedirects ?? 10,
 			session: {
