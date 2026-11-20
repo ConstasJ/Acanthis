@@ -217,9 +217,6 @@ importers:
       '@hono/node-server':
         specifier: ^2.1.9
         version: 2.1.9(hono@4.13.19)
-      '@hono/zod-validator':
-        specifier: ^0.9.1
-        version: 0.9.1(hono@4.13.19)(zod@4.6.7)
       '@scalar/hono-api-reference':
         specifier: ^0.12.23
         version: 0.12.23(hono@4.13.19)
@@ -1510,12 +1507,6 @@ packages:
     peerDependencies:
       '@standard-schema/spec': ^1.0.0
       hono: '>=4.11.2'
-
-  '@hono/zod-validator@0.9.1':
-    resolution: {integrity: sha512-iiv6w0qrIc0arfvCtUqBWsvl4fXjzaTcQcCJTTtCnkawF9HHGE+KjEl0ox3gQJ6rKZEgE3mLExlQCF72M+mNuw==}
-    peerDependencies:
-      hono: '>=4.11.2'
-      zod: ^3.25.0 || ^4.0.0
 
   '@isaacs/cliui@9.0.0':
     resolution: {integrity: sha512-AokJm4tuBHillT+FpMtxQ60n8ObyXBatq7jD2/JA9dxbDDokKQm8KMht5ibGzLVU9IJDIKK4TPKgMHEYMn3lMg==}
@@ -5591,11 +5582,6 @@ snapshots:
     dependencies:
       '@standard-schema/spec': 1.1.0
       hono: 4.13.19
-
-  '@hono/zod-validator@0.9.1(hono@4.13.19)(zod@4.6.7)':
-    dependencies:
-      hono: 4.13.19
-      zod: 4.6.7
 
   '@isaacs/cliui@9.0.0': {}
 

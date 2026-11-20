@@ -12,26 +12,48 @@ import type {
 } from "@acanthis-dec/core";
 import {
 	extractChapterIllustrationUrls,
-	isValidLinovelibRanking,
-	LINOVELIB_CATALOG_ANIME_IDS,
-	LINOVELIB_CATALOG_PROGRESS_IDS,
-	LINOVELIB_CATALOG_REGION_IDS,
-	LINOVELIB_CATALOG_SORT_IDS,
-	LINOVELIB_CATALOG_TAG_IDS,
-	LINOVELIB_CATALOG_UPDATED_IDS,
-	LINOVELIB_CATALOG_WORDS_IDS,
-	LINOVELIB_CHANNEL_IDS,
-	LINOVELIB_RANKING_IDS,
+	type LinovelibClient,
 	rewriteChapterIllustrations,
 } from "@acanthis-dec/linovelib";
-import { getUrlHash } from "@acanthis-dec/storage";
-import { zValidator } from "@hono/zod-validator";
+import { getUrlHash, type StorageService } from "@acanthis-dec/storage";
 import { type Context, Hono } from "hono";
+import { describeRoute, validator } from "hono-openapi";
+import type { Logger } from "winston";
 import z from "zod";
 import { MemoryTtlCache } from "./cache";
-import { config } from "./config";
-import { linovelibClient, logger, storageService } from "./services";
-import { type OutputStyle, outputStyleSchema } from "./types";
+import {
+	apiErrorSchema,
+	bearerSecurity,
+	binaryImageResponse,
+	internalErrorResponse,
+	jsonResponse,
+	legacyErrorSchema,
+	noStoreHeader,
+	unauthorizedResponse,
+	upstreamErrorResponses,
+	validationErrorResponse,
+} from "./schemas/common";
+import {
+	catalogQuerySchema,
+	catalogResponseSchema,
+	chapterParamSchema,
+	chapterQuerySchema,
+	chapterResponseSchema,
+	exploreHomeResponseSchema,
+	exploreSchemaResponseSchema,
+	homeQuerySchema,
+	illustrationParamSchema,
+	novelDetailResponseSchema,
+	novelParamSchema,
+	novelStyleQuerySchema,
+	novelsQuerySchema,
+	novelsResponseSchema,
+	rankingsQuerySchema,
+	rankingsResponseSchema,
+	searchQuerySchema,
+	searchResponseSchema,
+	volumeParamSchema,
+} from "./schemas/linovelib";
 import {
 	isUpdateNeeded,
 	resolveHost,
@@ -39,16 +61,12 @@ import {
 	transformOutputStyleForSearchResult,
 } from "./utils";
 
-const app = new Hono();
-
-const inFlightIllustrations = new Map<
-	string,
-	Promise<{ data: Buffer; mimeType: string } | null>
->();
-
-const homeCache = new MemoryTtlCache<ExploreHomeData>();
-const rankingsCache = new MemoryTtlCache<ExplorePage>();
-const catalogCache = new MemoryTtlCache<ExplorePage>();
+export interface LinovelibRouteDeps {
+	linovelibClient: LinovelibClient;
+	storageService: StorageService;
+	logger: Pick<Logger, "debug" | "info" | "warn" | "error">;
+	host?: string | undefined;
+}
 
 function buildProxiedNovelCoverUrl(novelId: string, host: string): string {
 	return `${host}/v1/linovelib/cover/novel/${novelId}`;
@@ -89,6 +107,7 @@ function rewriteExplorePageCovers(
 
 function handleLinovelibError(
 	c: Context,
+	logger: LinovelibRouteDeps["logger"],
 	error: unknown,
 	notFound?: { code: number; message: string },
 ) {
@@ -187,686 +206,812 @@ function handleLinovelibError(
 	);
 }
 
-const chapterParamSchema = z.object({
-	chapterId: z.string().min(1, "Chapter ID is required"),
-});
+export function createLinovelibRoutes(deps: LinovelibRouteDeps) {
+	const { linovelibClient, storageService, logger } = deps;
+	const app = new Hono();
 
-const chapterQuerySchema = z.object({
-	novelId: z.string().min(1).optional(),
-});
+	const inFlightIllustrations = new Map<
+		string,
+		Promise<{ data: Buffer; mimeType: string } | null>
+	>();
+	const homeCache = new MemoryTtlCache<ExploreHomeData>();
+	const rankingsCache = new MemoryTtlCache<ExplorePage>();
+	const catalogCache = new MemoryTtlCache<ExplorePage>();
 
-const novelParamSchema = z.object({
-	novelId: z.string().min(1, "Novel ID is required"),
-});
-
-const volumeParamSchema = z.object({
-	volumeId: z.string().min(1, "Volume ID is required"),
-});
-
-const illustrationParamSchema = z.object({
-	hash: z.string().regex(/^[a-f0-9]{32}$/i, "Invalid illustration hash"),
-});
-
-const novelsQuerySchema = z.object({
-	page: z.coerce.number().int().min(1).default(1),
-	pageSize: z.coerce.number().int().min(1).max(100).default(20),
-	style: outputStyleSchema.optional(),
-});
-
-const searchQuerySchema = z.object({
-	keyword: z.string().min(1, "Keyword is required"),
-	style: outputStyleSchema.optional(),
-});
-
-function createAllowedStringSchema(
-	allowed: ReadonlySet<string>,
-	defaultValue: string,
-	fieldName: string,
-) {
-	return z
-		.string()
-		.default(defaultValue)
-		.refine((val) => allowed.has(val), {
-			message: `Invalid ${fieldName}`,
-		});
-}
-
-const queryBooleanSchema = z
-	.union([z.boolean(), z.enum(["true", "false", "1", "0"])])
-	.transform((val) => val === true || val === "true" || val === "1")
-	.default(false);
-
-const homeQuerySchema = z.object({
-	channel: createAllowedStringSchema(
-		LINOVELIB_CHANNEL_IDS,
-		"home",
-		"explore channel",
-	),
-});
-
-const rankingsQuerySchema = z
-	.object({
-		rank: createAllowedStringSchema(
-			LINOVELIB_RANKING_IDS,
-			"monthvisit",
-			"ranking id",
-		),
-		full: queryBooleanSchema,
-		page: z.coerce.number().int().min(1).default(1),
-		style: outputStyleSchema.optional(),
-	})
-	.refine((val) => isValidLinovelibRanking(val.rank, val.full), {
-		message: "Selected ranking does not support full=false",
-		path: ["rank"],
-	});
-
-const catalogQuerySchema = z.object({
-	sort: createAllowedStringSchema(
-		LINOVELIB_CATALOG_SORT_IDS,
-		"lastupdate",
-		"catalog sort",
-	),
-	region: createAllowedStringSchema(
-		LINOVELIB_CATALOG_REGION_IDS,
-		"0",
-		"catalog region",
-	),
-	tag: createAllowedStringSchema(LINOVELIB_CATALOG_TAG_IDS, "0", "catalog tag"),
-	progress: createAllowedStringSchema(
-		LINOVELIB_CATALOG_PROGRESS_IDS,
-		"0",
-		"catalog progress",
-	),
-	anime: createAllowedStringSchema(
-		LINOVELIB_CATALOG_ANIME_IDS,
-		"0",
-		"catalog anime",
-	),
-	words: createAllowedStringSchema(
-		LINOVELIB_CATALOG_WORDS_IDS,
-		"0",
-		"catalog words",
-	),
-	updated: createAllowedStringSchema(
-		LINOVELIB_CATALOG_UPDATED_IDS,
-		"0",
-		"catalog updated",
-	),
-	page: z.coerce.number().int().min(1).default(1),
-	style: outputStyleSchema.optional(),
-});
-
-app.get("/explore/schema", (c) => {
-	return c.json(
-		{
-			code: 0,
-			message: "Success",
-			data: linovelibClient.getExploreSchema(),
-		},
-		200,
-		{
-			"Cache-Control": "public, max-age=3600",
+	app.get(
+		"/explore/schema",
+		describeRoute({
+			tags: ["Linovelib"],
+			operationId: "getLinovelibExploreSchema",
+			summary: "获取发现页与书库筛选 Schema",
+			description:
+				"返回哔哩轻小说支持的频道列表、排行榜定义及书库多维筛选项，供客户端动态渲染发现页与筛选条件",
+			security: bearerSecurity,
+			responses: {
+				200: jsonResponse(
+					exploreSchemaResponseSchema,
+					"成功返回频道、榜单及书库筛选定义",
+					{
+						"Cache-Control": {
+							description: "客户端缓存控制策略",
+							schema: { type: "string", examples: ["public, max-age=3600"] },
+						},
+					},
+				),
+				401: unauthorizedResponse,
+			},
+		}),
+		(c) => {
+			return c.json(
+				{
+					code: 0,
+					message: "Success",
+					data: linovelibClient.getExploreSchema(),
+				},
+				200,
+				{
+					"Cache-Control": "public, max-age=3600",
+				},
+			);
 		},
 	);
-});
 
-app.get("/home", zValidator("query", homeQuerySchema), async (c) => {
-	try {
-		const { channel } = c.req.valid("query");
-		const host = resolveHost(c, config.host);
-		const data = await homeCache.getOrLoad(`home:${channel}`, () =>
-			linovelibClient.getExploreHome(channel),
-		);
-		return c.json({
-			code: 0,
-			message: "Success",
-			data: rewriteExploreHomeCovers(data, host),
-		});
-	} catch (error) {
-		return handleLinovelibError(c, error);
-	}
-});
-
-app.get("/rankings", zValidator("query", rankingsQuerySchema), async (c) => {
-	try {
-		const { rank, full, page, style } = c.req.valid("query");
-		const host = resolveHost(c, config.host);
-		const cacheKey = `rankings:${rank}:${full ? "full" : "all"}:${page}`;
-		const data = await rankingsCache.getOrLoad(cacheKey, () =>
-			linovelibClient.getRankings({ rank, full, page }),
-		);
-		const rewritten = rewriteExplorePageCovers(data, host);
-		return c.json({
-			code: 0,
-			message: "Success",
-			data:
-				style === "lnreader"
-					? rewritten.items.map((item) =>
-							transformOutputStyleForSearchResult(item, style),
-						)
-					: rewritten,
-		});
-	} catch (error) {
-		return handleLinovelibError(c, error);
-	}
-});
-
-app.get("/catalog", zValidator("query", catalogQuerySchema), async (c) => {
-	try {
-		const { sort, region, tag, progress, anime, words, updated, page, style } =
-			c.req.valid("query");
-		const host = resolveHost(c, config.host);
-		const cacheKey = `catalog:${sort}:${region}:${tag}:${progress}:${anime}:${words}:${updated}:${page}`;
-		const data = await catalogCache.getOrLoad(cacheKey, () =>
-			linovelibClient.getCatalog({
-				sort,
-				region,
-				tag,
-				progress,
-				anime,
-				words,
-				updated,
-				page,
-			}),
-		);
-		const rewritten = rewriteExplorePageCovers(data, host);
-		return c.json({
-			code: 0,
-			message: "Success",
-			data:
-				style === "lnreader"
-					? rewritten.items.map((item) =>
-							transformOutputStyleForSearchResult(item, style),
-						)
-					: rewritten,
-		});
-	} catch (error) {
-		return handleLinovelibError(c, error);
-	}
-});
-
-app.get(
-	"/chapter/:chapterId",
-	zValidator("param", chapterParamSchema),
-	zValidator("query", chapterQuerySchema),
-	async (c) => {
-		try {
-			const chapterId = c.req.param("chapterId");
-			const { novelId } = c.req.valid("query");
-			let chapterMeta = await storageService.getChapterFromId(
-				"linovelib",
-				chapterId,
-			);
-			if (!chapterMeta && novelId) {
-				if (/^\d+$/.test(novelId)) {
-					try {
-						const novel = await linovelibClient.getNovelInfo(novelId);
-						if (
-							novel &&
-							novel.title.trim() !== "" &&
-							novel.volumes.length > 0
-						) {
-							await storageService.addNovelCache(novel);
-							chapterMeta = await storageService.getChapterFromId(
-								"linovelib",
-								chapterId,
-							);
-						} else {
-							logger.warn(
-								`Novel fallback returned empty/invalid novel for novelId: ${novelId}`,
-							);
-						}
-					} catch (fallbackError) {
-						logger.warn(
-							`Novel fallback failed for novelId ${novelId}: ${fallbackError instanceof Error ? fallbackError.message : String(fallbackError)}`,
-						);
-					}
-				} else {
-					logger.warn(
-						`Ignored non-numeric novelId for chapter fallback: ${novelId}`,
-					);
-				}
-			}
-			if (!chapterMeta) {
-				logger.error(`Chapter meta not found for chapterId: ${chapterId}`);
-				return c.json(
-					{
-						code: 10000,
-						message: "Chapter meta not found",
-					},
-					404,
+	app.get(
+		"/home",
+		describeRoute({
+			tags: ["Linovelib"],
+			operationId: "getLinovelibHome",
+			summary: "获取发现频道首页推荐",
+			description:
+				"按频道 ID 获取哔哩轻小说首页推荐栏目及重写封面代理后的条目列表",
+			security: bearerSecurity,
+			responses: {
+				200: jsonResponse(exploreHomeResponseSchema, "成功返回频道推荐栏目"),
+				400: validationErrorResponse,
+				401: unauthorizedResponse,
+				500: internalErrorResponse,
+				...upstreamErrorResponses,
+			},
+		}),
+		validator("query", homeQuerySchema),
+		async (c) => {
+			try {
+				const { channel } = c.req.valid("query");
+				const host = resolveHost(c, deps.host);
+				const data = await homeCache.getOrLoad(`home:${channel}`, () =>
+					linovelibClient.getExploreHome(channel),
 				);
+				return c.json({
+					code: 0,
+					message: "Success",
+					data: rewriteExploreHomeCovers(data, host),
+				});
+			} catch (error) {
+				return handleLinovelibError(c, logger, error);
 			}
-			if (!chapterMeta.novelId) {
-				logger.error(
-					`Novel ID missing in chapter meta for chapterId: ${chapterId}`,
+		},
+	);
+
+	app.get(
+		"/rankings",
+		describeRoute({
+			tags: ["Linovelib"],
+			operationId: "getLinovelibRankings",
+			summary: "获取排行榜小说列表",
+			description:
+				"按榜单 ID、是否完整榜与页码获取排行结果；部分榜单仅支持 full=true；支持通过 style=acanthis|lnreader 切换返回结构",
+			security: bearerSecurity,
+			responses: {
+				200: jsonResponse(rankingsResponseSchema, "成功返回排行榜数据"),
+				400: validationErrorResponse,
+				401: unauthorizedResponse,
+				500: internalErrorResponse,
+				...upstreamErrorResponses,
+			},
+		}),
+		validator("query", rankingsQuerySchema),
+		async (c) => {
+			try {
+				const { rank, full, page, style } = c.req.valid("query");
+				const host = resolveHost(c, deps.host);
+				const cacheKey = `rankings:${rank}:${full ? "full" : "all"}:${page}`;
+				const data = await rankingsCache.getOrLoad(cacheKey, () =>
+					linovelibClient.getRankings({ rank, full, page }),
 				);
-				return c.json(
-					{
-						code: 10002,
-						message: "Novel ID missing in chapter meta",
-					},
-					404,
-				);
+				const rewritten = rewriteExplorePageCovers(data, host);
+				return c.json({
+					code: 0,
+					message: "Success",
+					data:
+						style === "lnreader"
+							? rewritten.items.map((item) =>
+									transformOutputStyleForSearchResult(item, style),
+								)
+							: rewritten,
+				});
+			} catch (error) {
+				return handleLinovelibError(c, logger, error);
 			}
-			const hash = chapterMeta.contentHash;
-			let rawHtml = hash
-				? await storageService.getNovelContent(hash)
-				: undefined;
-			if (!rawHtml) {
-				rawHtml = await linovelibClient.getChapter(
-					chapterMeta.novelId,
+		},
+	);
+
+	app.get(
+		"/catalog",
+		describeRoute({
+			tags: ["Linovelib"],
+			operationId: "getLinovelibCatalog",
+			summary: "按组合条件筛选书库",
+			description:
+				"按排序、地区/文库、题材标签、连载状态、动画化、字数与更新时间组合分页筛选书库；支持 style=acanthis|lnreader 切换返回结构",
+			security: bearerSecurity,
+			responses: {
+				200: jsonResponse(catalogResponseSchema, "成功返回书库分页数据"),
+				400: validationErrorResponse,
+				401: unauthorizedResponse,
+				500: internalErrorResponse,
+				...upstreamErrorResponses,
+			},
+		}),
+		validator("query", catalogQuerySchema),
+		async (c) => {
+			try {
+				const {
+					sort,
+					region,
+					tag,
+					progress,
+					anime,
+					words,
+					updated,
+					page,
+					style,
+				} = c.req.valid("query");
+				const host = resolveHost(c, deps.host);
+				const cacheKey = `catalog:${sort}:${region}:${tag}:${progress}:${anime}:${words}:${updated}:${page}`;
+				const data = await catalogCache.getOrLoad(cacheKey, () =>
+					linovelibClient.getCatalog({
+						sort,
+						region,
+						tag,
+						progress,
+						anime,
+						words,
+						updated,
+						page,
+					}),
+				);
+				const rewritten = rewriteExplorePageCovers(data, host);
+				return c.json({
+					code: 0,
+					message: "Success",
+					data:
+						style === "lnreader"
+							? rewritten.items.map((item) =>
+									transformOutputStyleForSearchResult(item, style),
+								)
+							: rewritten,
+				});
+			} catch (error) {
+				return handleLinovelibError(c, logger, error);
+			}
+		},
+	);
+
+	app.get(
+		"/chapter/:chapterId",
+		describeRoute({
+			tags: ["Linovelib"],
+			operationId: "getLinovelibChapter",
+			summary: "获取解扰后的章节正文 HTML",
+			description:
+				"获取指定章节的解扰正文 HTML，并将插图 img[src] 重写为 /v1/linovelib/illustration/{hash} 代理路径；若本地尚未缓存该章节元数据，可传入纯数字 novelId 触发小说目录回源兜底",
+			security: bearerSecurity,
+			responses: {
+				200: jsonResponse(chapterResponseSchema, "成功返回章节正文 HTML"),
+				400: validationErrorResponse,
+				401: unauthorizedResponse,
+				404: jsonResponse(
+					z.union([apiErrorSchema, legacyErrorSchema]),
+					"章节元数据缺失（code: 10000）、小说 ID 缺失（code: 10002）或上游未返回章节正文（{ error: 'Chapter not found' }）",
+				),
+				500: internalErrorResponse,
+				...upstreamErrorResponses,
+			},
+		}),
+		validator("param", chapterParamSchema),
+		validator("query", chapterQuerySchema),
+		async (c) => {
+			try {
+				const { chapterId } = c.req.valid("param");
+				const { novelId } = c.req.valid("query");
+				let chapterMeta = await storageService.getChapterFromId(
+					"linovelib",
 					chapterId,
 				);
-				if (rawHtml) {
-					const contentHash = await storageService.setNovelContent(rawHtml);
-					await storageService.addNovelContentHash(
-						"linovelib",
-						chapterId,
-						contentHash,
+				if (!chapterMeta && novelId) {
+					if (/^\d+$/.test(novelId)) {
+						try {
+							const novel = await linovelibClient.getNovelInfo(novelId);
+							if (
+								novel &&
+								novel.title.trim() !== "" &&
+								novel.volumes.length > 0
+							) {
+								await storageService.addNovelCache(novel);
+								chapterMeta = await storageService.getChapterFromId(
+									"linovelib",
+									chapterId,
+								);
+							} else {
+								logger.warn(
+									`Novel fallback returned empty/invalid novel for novelId: ${novelId}`,
+								);
+							}
+						} catch (fallbackError) {
+							logger.warn(
+								`Novel fallback failed for novelId ${novelId}: ${fallbackError instanceof Error ? fallbackError.message : String(fallbackError)}`,
+							);
+						}
+					} else {
+						logger.warn(
+							`Ignored non-numeric novelId for chapter fallback: ${novelId}`,
+						);
+					}
+				}
+				if (!chapterMeta) {
+					logger.error(`Chapter meta not found for chapterId: ${chapterId}`);
+					return c.json(
+						{
+							code: 10000,
+							message: "Chapter meta not found",
+						},
+						404,
 					);
 				}
-			}
-			if (!rawHtml) {
-				return c.json({ error: "Chapter not found" }, 404);
-			}
+				if (!chapterMeta.novelId) {
+					logger.error(
+						`Novel ID missing in chapter meta for chapterId: ${chapterId}`,
+					);
+					return c.json(
+						{
+							code: 10002,
+							message: "Novel ID missing in chapter meta",
+						},
+						404,
+					);
+				}
+				const hash = chapterMeta.contentHash;
+				let rawHtml = hash
+					? await storageService.getNovelContent(hash)
+					: undefined;
+				if (!rawHtml) {
+					rawHtml = await linovelibClient.getChapter(
+						chapterMeta.novelId,
+						chapterId,
+					);
+					if (rawHtml) {
+						const contentHash = await storageService.setNovelContent(rawHtml);
+						await storageService.addNovelContentHash(
+							"linovelib",
+							chapterId,
+							contentHash,
+						);
+					}
+				}
+				if (!rawHtml) {
+					return c.json({ error: "Chapter not found" }, 404);
+				}
 
-			const illustrationUrls = extractChapterIllustrationUrls(rawHtml);
-			if (illustrationUrls.length > 0) {
-				await storageService.registerIllustrations(
-					"linovelib",
-					illustrationUrls,
+				const illustrationUrls = extractChapterIllustrationUrls(rawHtml);
+				if (illustrationUrls.length > 0) {
+					await storageService.registerIllustrations(
+						"linovelib",
+						illustrationUrls,
+					);
+				}
+				const host = resolveHost(c, deps.host);
+				const content = rewriteChapterIllustrations(
+					rawHtml,
+					(url) => `${host}/v1/linovelib/illustration/${getUrlHash(url)}`,
 				);
+				return c.json({
+					code: 0,
+					message: "Success",
+					data: {
+						content,
+					},
+				});
+			} catch (error) {
+				return handleLinovelibError(c, logger, error);
 			}
-			const host = resolveHost(c, config.host);
-			const content = rewriteChapterIllustrations(
-				rawHtml,
-				(url) => `${host}/v1/linovelib/illustration/${getUrlHash(url)}`,
-			);
-			return c.json({
-				code: 0,
-				message: "Success",
-				data: {
-					content,
-				},
-			});
-		} catch (error) {
-			return handleLinovelibError(c, error);
-		}
-	},
-);
+		},
+	);
 
-app.get("/novels", zValidator("query", novelsQuerySchema), async (c) => {
-	try {
-		const { page, pageSize, style } = c.req.valid("query");
-		const host = resolveHost(c, config.host);
-		const paginated = await storageService.listCachedNovels("linovelib", {
-			page,
-			pageSize,
-		});
-		const items = paginated.items.map((novel) =>
-			transformOutputStyleForSearchResult(
-				{
-					...novel,
-					coverUrl: `${host}/v1/linovelib/cover/novel/${novel.id}`,
-				},
-				style,
-			),
-		);
-		return c.json({
-			code: 0,
-			message: "Success",
-			data: {
-				items,
-				total: paginated.total,
-				page: paginated.page,
-				pageSize: paginated.pageSize,
+	app.get(
+		"/novels",
+		describeRoute({
+			tags: ["Linovelib"],
+			operationId: "listLinovelibCachedNovels",
+			summary: "分页查询本地已缓存小说",
+			description:
+				"从本地数据库分页读取已缓存小说列表（不触发上游抓取），支持 style=acanthis|lnreader 切换条目结构",
+			security: bearerSecurity,
+			responses: {
+				200: jsonResponse(novelsResponseSchema, "成功返回分页缓存小说列表"),
+				400: validationErrorResponse,
+				401: unauthorizedResponse,
+				500: internalErrorResponse,
+				...upstreamErrorResponses,
 			},
-		});
-	} catch (error) {
-		return handleLinovelibError(c, error);
-	}
-});
+		}),
+		validator("query", novelsQuerySchema),
+		async (c) => {
+			try {
+				const { page, pageSize, style } = c.req.valid("query");
+				const host = resolveHost(c, deps.host);
+				const paginated = await storageService.listCachedNovels("linovelib", {
+					page,
+					pageSize,
+				});
+				const items = paginated.items.map((novel) =>
+					transformOutputStyleForSearchResult(
+						{
+							...novel,
+							coverUrl: `${host}/v1/linovelib/cover/novel/${novel.id}`,
+						},
+						style,
+					),
+				);
+				return c.json({
+					code: 0,
+					message: "Success",
+					data: {
+						items,
+						total: paginated.total,
+						page: paginated.page,
+						pageSize: paginated.pageSize,
+					},
+				});
+			} catch (error) {
+				return handleLinovelibError(c, logger, error);
+			}
+		},
+	);
 
-app.get(
-	"/illustration/:hash",
-	zValidator("param", illustrationParamSchema),
-	async (c) => {
-		try {
-			const hash = c.req.param("hash").toLowerCase();
-			const cached = await storageService.getIllustrationData(
-				"linovelib",
-				hash,
-			);
-			if (cached) {
-				return c.body(new Uint8Array(cached.data), 200, {
-					"Content-Type": cached.mimeType,
+	app.get(
+		"/illustration/:hash",
+		describeRoute({
+			tags: ["Linovelib"],
+			operationId: "getLinovelibIllustration",
+			summary: "获取章节插图图片代理",
+			description:
+				"根据章节 HTML 中重写后的 32 位 MD5 哈希返回插图二进制流并持久化缓存；在服务端启用 AUTH_TOKEN 时该 GET 接口默认公开可访问",
+			responses: {
+				200: binaryImageResponse("成功返回插图图片二进制流"),
+				400: validationErrorResponse,
+				404: jsonResponse(
+					apiErrorSchema,
+					"插图哈希未注册或回源抓取失败（code: 10003）",
+					noStoreHeader,
+				),
+				500: internalErrorResponse,
+				...upstreamErrorResponses,
+			},
+		}),
+		validator("param", illustrationParamSchema),
+		async (c) => {
+			try {
+				const { hash: rawHash } = c.req.valid("param");
+				const hash = rawHash.toLowerCase();
+				const cached = await storageService.getIllustrationData(
+					"linovelib",
+					hash,
+				);
+				if (cached) {
+					return c.body(new Uint8Array(cached.data), 200, {
+						"Content-Type": cached.mimeType,
+						"Cache-Control": "public, max-age=86400",
+					});
+				}
+
+				let fetchPromise = inFlightIllustrations.get(hash);
+				if (fetchPromise) {
+					logger.debug(`[Illustration] 复用在途回源请求: hash=${hash}`);
+				} else {
+					fetchPromise = (async () => {
+						const sourceUrl = await storageService.getIllustrationSourceUrl(
+							"linovelib",
+							hash,
+						);
+						if (!sourceUrl) {
+							logger.error(
+								`Illustration source URL not found for hash: ${hash}`,
+							);
+							return null;
+						}
+
+						logger.debug(
+							`[Illustration] 缓存未命中，开始回源获取: hash=${hash} url=${sourceUrl}`,
+						);
+						const illustrationData =
+							await linovelibClient.getIllustration(sourceUrl);
+						if (!illustrationData?.data) {
+							logger.error(
+								`Failed to fetch illustration from source URL: ${sourceUrl}`,
+							);
+							return null;
+						}
+
+						const contentType =
+							illustrationData.mimeType || "application/octet-stream";
+						await storageService.setIllustrationData(
+							"linovelib",
+							hash,
+							illustrationData.data,
+							contentType,
+						);
+						return {
+							data: illustrationData.data,
+							mimeType: contentType,
+						};
+					})().finally(() => {
+						inFlightIllustrations.delete(hash);
+					});
+					inFlightIllustrations.set(hash, fetchPromise);
+				}
+
+				const fetched = await fetchPromise;
+				if (!fetched) {
+					return c.json(
+						{
+							code: 10003,
+							message: "Illustration not found",
+						},
+						404,
+						{
+							"Cache-Control": "no-store",
+						},
+					);
+				}
+
+				return c.body(new Uint8Array(fetched.data), 200, {
+					"Content-Type": fetched.mimeType,
 					"Cache-Control": "public, max-age=86400",
 				});
-			}
-
-			let fetchPromise = inFlightIllustrations.get(hash);
-			if (fetchPromise) {
-				logger.debug(`[Illustration] 复用在途回源请求: hash=${hash}`);
-			} else {
-				fetchPromise = (async () => {
-					const sourceUrl = await storageService.getIllustrationSourceUrl(
-						"linovelib",
-						hash,
-					);
-					if (!sourceUrl) {
-						logger.error(`Illustration source URL not found for hash: ${hash}`);
-						return null;
-					}
-
-					logger.debug(
-						`[Illustration] 缓存未命中，开始回源获取: hash=${hash} url=${sourceUrl}`,
-					);
-					const illustrationData =
-						await linovelibClient.getIllustration(sourceUrl);
-					if (!illustrationData?.data) {
-						logger.error(
-							`Failed to fetch illustration from source URL: ${sourceUrl}`,
-						);
-						return null;
-					}
-
-					const contentType =
-						illustrationData.mimeType || "application/octet-stream";
-					await storageService.setIllustrationData(
-						"linovelib",
-						hash,
-						illustrationData.data,
-						contentType,
-					);
-					return {
-						data: illustrationData.data,
-						mimeType: contentType,
-					};
-				})().finally(() => {
-					inFlightIllustrations.delete(hash);
+			} catch (error) {
+				return handleLinovelibError(c, logger, error, {
+					code: 10003,
+					message: "Illustration not found",
 				});
-				inFlightIllustrations.set(hash, fetchPromise);
 			}
+		},
+	);
 
-			const fetched = await fetchPromise;
-			if (!fetched) {
+	app.get(
+		"/novel/:novelId",
+		describeRoute({
+			tags: ["Linovelib"],
+			operationId: "getLinovelibNovel",
+			summary: "获取小说详情与分卷章节目录",
+			description:
+				"获取小说元数据与完整分卷章节目录；已缓存书籍会自动对比上游章节数决定是否刷新（更新失败时优雅降级返回缓存）；支持 style=acanthis|lnreader",
+			security: bearerSecurity,
+			responses: {
+				200: jsonResponse(novelDetailResponseSchema, "成功返回小说详情与目录"),
+				400: validationErrorResponse,
+				401: unauthorizedResponse,
+				404: jsonResponse(
+					legacyErrorSchema,
+					"小说不存在或回源返回空结果（{ error: 'Novel not found' }）",
+				),
+				500: internalErrorResponse,
+				...upstreamErrorResponses,
+			},
+		}),
+		validator("param", novelParamSchema),
+		validator("query", novelStyleQuerySchema),
+		async (c) => {
+			try {
+				const host = resolveHost(c, deps.host);
+				const { novelId } = c.req.valid("param");
+				const { style } = c.req.valid("query");
+				const cachedNovel = await storageService.getNovelCache(
+					"linovelib",
+					novelId,
+				);
+				const validCachedNovel =
+					cachedNovel &&
+					cachedNovel.author !== "" &&
+					cachedNovel.status !== "unknown" &&
+					cachedNovel.volumes.length > 0
+						? cachedNovel
+						: null;
+				const respondWithNovel = (novelData: Novel) => {
+					novelData.coverUrl = `${host}/v1/linovelib/cover/novel/${novelId}`;
+					novelData.volumes.forEach((volume) => {
+						volume.coverUrl = `${host}/v1/linovelib/cover/volume/${volume.id}`;
+					});
+					return c.json({
+						code: 0,
+						message: "Success",
+						data: transformOutputStyleForNovel(novelData, style),
+					});
+				};
+				if (validCachedNovel) {
+					let updateNeeded = false;
+					try {
+						updateNeeded = await isUpdateNeeded(
+							validCachedNovel,
+							linovelibClient,
+							(updateError) => {
+								logger.warn(
+									`Update check failed for cached novel ${novelId}, serving cached novel: ${updateError instanceof Error ? updateError.message : String(updateError)}`,
+								);
+							},
+						);
+					} catch (updateError) {
+						logger.warn(
+							`Update check failed for cached novel ${novelId}, serving cached novel: ${updateError instanceof Error ? updateError.message : String(updateError)}`,
+						);
+					}
+					if (!updateNeeded) {
+						return respondWithNovel(validCachedNovel);
+					}
+				}
+				let novel: Novel | undefined;
+				try {
+					novel = await linovelibClient.getNovelInfo(novelId);
+				} catch (fetchError) {
+					if (validCachedNovel) {
+						logger.warn(
+							`Novel refresh failed for cached novel ${novelId}, serving cached novel: ${fetchError instanceof Error ? fetchError.message : String(fetchError)}`,
+						);
+						return respondWithNovel(validCachedNovel);
+					}
+					throw fetchError;
+				}
+				if (
+					novel &&
+					(!validCachedNovel ||
+						(novel.title.trim() !== "" && novel.volumes.length > 0))
+				) {
+					await storageService.addNovelCache(novel);
+					return respondWithNovel(novel);
+				}
+				if (validCachedNovel) {
+					logger.warn(
+						`Novel refresh returned empty result for cached novel ${novelId}, serving cached novel`,
+					);
+					return respondWithNovel(validCachedNovel);
+				}
+				return c.json({ error: "Novel not found" }, 404);
+			} catch (error) {
+				return handleLinovelibError(c, logger, error);
+			}
+		},
+	);
+
+	app.get(
+		"/cover/novel/:novelId",
+		describeRoute({
+			tags: ["Linovelib"],
+			operationId: "getLinovelibNovelCover",
+			summary: "获取小说封面图片代理",
+			description:
+				"返回指定小说的封面二进制图片并持久化缓存；在服务端启用 AUTH_TOKEN 时该 GET 接口默认公开可访问",
+			responses: {
+				200: binaryImageResponse("成功返回小说封面二进制流"),
+				400: validationErrorResponse,
+				404: jsonResponse(
+					apiErrorSchema,
+					"小说封面未找到或回源失败（code: 10001）",
+					noStoreHeader,
+				),
+				500: internalErrorResponse,
+				...upstreamErrorResponses,
+			},
+		}),
+		validator("param", novelParamSchema),
+		async (c) => {
+			try {
+				const { novelId } = c.req.valid("param");
+				const cachedCover = await storageService.getCoverData(
+					"novel",
+					"linovelib",
+					novelId,
+				);
+				if (cachedCover) {
+					c.header("Content-Type", cachedCover.mimeType);
+					c.header("Cache-Control", "public, max-age=86400");
+					return c.body(new Uint8Array(cachedCover.data));
+				}
+				const novelInfo = await storageService.getNovelCache(
+					"linovelib",
+					novelId,
+				);
+				if (novelInfo?.coverUrl) {
+					const coverData = await linovelibClient.getCover(novelInfo.coverUrl);
+					if (coverData) {
+						await storageService.setCoverData(
+							"novel",
+							novelInfo.coverUrl,
+							coverData.data,
+							coverData.mimeType,
+							"linovelib",
+							novelId,
+						);
+						c.header("Content-Type", coverData.mimeType);
+						c.header("Cache-Control", "public, max-age=86400");
+						return c.body(new Uint8Array(coverData.data));
+					}
+				} else {
+					const { data: coverData, url: coverUrl } =
+						await linovelibClient.getNovelCover(novelId);
+					if (coverData) {
+						await storageService.setCoverData(
+							"novel",
+							coverUrl,
+							coverData.data,
+							coverData.mimeType,
+							"linovelib",
+							novelId,
+						);
+						c.header("Content-Type", coverData.mimeType);
+						c.header("Cache-Control", "public, max-age=86400");
+						return c.body(new Uint8Array(coverData.data));
+					}
+				}
+				logger.error(
+					`Novel ${novelId} not present in database or does not have a cover URL, and failed to fetch cover from source`,
+				);
 				return c.json(
 					{
-						code: 10003,
-						message: "Illustration not found",
+						code: 10001,
+						message: "Cover not found",
 					},
 					404,
 					{
 						"Cache-Control": "no-store",
 					},
 				);
-			}
-
-			return c.body(new Uint8Array(fetched.data), 200, {
-				"Content-Type": fetched.mimeType,
-				"Cache-Control": "public, max-age=86400",
-			});
-		} catch (error) {
-			return handleLinovelibError(c, error, {
-				code: 10003,
-				message: "Illustration not found",
-			});
-		}
-	},
-);
-
-app.get(
-	"/novel/:novelId",
-	zValidator("param", novelParamSchema),
-	zValidator("query", z.object({ style: outputStyleSchema.optional() })),
-	async (c) => {
-		try {
-			const host = resolveHost(c, config.host);
-			const novelId = c.req.param("novelId");
-			const style = c.req.query("style") as OutputStyle | undefined;
-			const cachedNovel = await storageService.getNovelCache(
-				"linovelib",
-				novelId,
-			);
-			const validCachedNovel =
-				cachedNovel &&
-				cachedNovel.author !== "" &&
-				cachedNovel.status !== "unknown" &&
-				cachedNovel.volumes.length > 0
-					? cachedNovel
-					: null;
-			const respondWithNovel = (novelData: Novel) => {
-				novelData.coverUrl = `${host}/v1/linovelib/cover/novel/${novelId}`;
-				novelData.volumes.forEach((volume) => {
-					volume.coverUrl = `${host}/v1/linovelib/cover/volume/${volume.id}`;
+			} catch (error) {
+				return handleLinovelibError(c, logger, error, {
+					code: 10001,
+					message: "Cover not found",
 				});
+			}
+		},
+	);
+
+	app.get(
+		"/cover/volume/:volumeId",
+		describeRoute({
+			tags: ["Linovelib"],
+			operationId: "getLinovelibVolumeCover",
+			summary: "获取分卷封面图片代理",
+			description:
+				"返回指定分卷的封面二进制图片并持久化缓存；在服务端启用 AUTH_TOKEN 时该 GET 接口默认公开可访问",
+			responses: {
+				200: binaryImageResponse("成功返回分卷封面二进制流"),
+				400: validationErrorResponse,
+				404: jsonResponse(
+					apiErrorSchema,
+					"分卷元数据缺失或封面未找到（code: 10001）",
+					noStoreHeader,
+				),
+				500: internalErrorResponse,
+				...upstreamErrorResponses,
+			},
+		}),
+		validator("param", volumeParamSchema),
+		async (c) => {
+			try {
+				const { volumeId } = c.req.valid("param");
+				const cachedCover = await storageService.getCoverData(
+					"volume",
+					"linovelib",
+					volumeId,
+				);
+				if (cachedCover) {
+					c.header("Content-Type", cachedCover.mimeType);
+					c.header("Cache-Control", "public, max-age=86400");
+					return c.body(new Uint8Array(cachedCover.data));
+				}
+				const volumeInfo = await storageService.getVolumeMeta(
+					"linovelib",
+					volumeId,
+				);
+				if (volumeInfo?.coverUrl) {
+					const coverData = await linovelibClient.getCover(volumeInfo.coverUrl);
+					if (coverData) {
+						await storageService.setCoverData(
+							"volume",
+							volumeInfo.coverUrl,
+							coverData.data,
+							coverData.mimeType,
+							"linovelib",
+							volumeId,
+						);
+						c.header("Content-Type", coverData.mimeType);
+						c.header("Cache-Control", "public, max-age=86400");
+						return c.body(new Uint8Array(coverData.data));
+					}
+				}
+				logger.error(
+					`Volume ${volumeId} not present in database or does not have a cover URL`,
+				);
+				return c.json(
+					{
+						code: 10001,
+						message: "Cover not found",
+					},
+					404,
+					{
+						"Cache-Control": "no-store",
+					},
+				);
+			} catch (error) {
+				return handleLinovelibError(c, logger, error, {
+					code: 10001,
+					message: "Cover not found",
+				});
+			}
+		},
+	);
+
+	app.get(
+		"/search",
+		describeRoute({
+			tags: ["Linovelib"],
+			operationId: "searchLinovelibNovels",
+			summary: "按关键词搜索轻小说",
+			description:
+				"按关键词检索哔哩轻小说，优先命中本地缓存，未命中时回源抓取（自动识别搜索验证码）；支持 style=acanthis|lnreader 切换返回结构",
+			security: bearerSecurity,
+			responses: {
+				200: jsonResponse(searchResponseSchema, "成功返回搜索结果列表"),
+				400: validationErrorResponse,
+				401: unauthorizedResponse,
+				500: internalErrorResponse,
+				...upstreamErrorResponses,
+			},
+		}),
+		validator("query", searchQuerySchema),
+		async (c) => {
+			try {
+				const host = resolveHost(c, deps.host);
+				const { keyword, style } = c.req.valid("query");
+				const cachedResults = await storageService.searchNovels(
+					keyword,
+					"linovelib",
+				);
+				if (cachedResults) {
+					return c.json({
+						code: 0,
+						message: "Success",
+						data: cachedResults.map((novel) => {
+							novel.coverUrl = `${host}/v1/linovelib/cover/novel/${novel.id}`;
+							return transformOutputStyleForSearchResult(novel, style);
+						}),
+					});
+				}
+				const results = await linovelibClient.searchNovels(keyword);
+				if (results.length > 0) {
+					await storageService.addSearchResult(keyword, "linovelib", results);
+				}
 				return c.json({
 					code: 0,
 					message: "Success",
-					data: transformOutputStyleForNovel(novelData, style),
+					data: results.map((novel) => {
+						novel.coverUrl = `${host}/v1/linovelib/cover/novel/${novel.id}`;
+						return transformOutputStyleForSearchResult(novel, style);
+					}),
 				});
-			};
-			if (validCachedNovel) {
-				let updateNeeded = false;
-				try {
-					updateNeeded = await isUpdateNeeded(
-						validCachedNovel,
-						linovelibClient,
-						(updateError) => {
-							logger.warn(
-								`Update check failed for cached novel ${novelId}, serving cached novel: ${updateError instanceof Error ? updateError.message : String(updateError)}`,
-							);
-						},
-					);
-				} catch (updateError) {
-					logger.warn(
-						`Update check failed for cached novel ${novelId}, serving cached novel: ${updateError instanceof Error ? updateError.message : String(updateError)}`,
-					);
-				}
-				if (!updateNeeded) {
-					return respondWithNovel(validCachedNovel);
-				}
+			} catch (error) {
+				return handleLinovelibError(c, logger, error);
 			}
-			let novel: Novel | undefined;
-			try {
-				novel = await linovelibClient.getNovelInfo(novelId);
-			} catch (fetchError) {
-				if (validCachedNovel) {
-					logger.warn(
-						`Novel refresh failed for cached novel ${novelId}, serving cached novel: ${fetchError instanceof Error ? fetchError.message : String(fetchError)}`,
-					);
-					return respondWithNovel(validCachedNovel);
-				}
-				throw fetchError;
-			}
-			if (
-				novel &&
-				(!validCachedNovel ||
-					(novel.title.trim() !== "" && novel.volumes.length > 0))
-			) {
-				await storageService.addNovelCache(novel);
-				return respondWithNovel(novel);
-			}
-			if (validCachedNovel) {
-				logger.warn(
-					`Novel refresh returned empty result for cached novel ${novelId}, serving cached novel`,
-				);
-				return respondWithNovel(validCachedNovel);
-			}
-			return c.json({ error: "Novel not found" }, 404);
-		} catch (error) {
-			return handleLinovelibError(c, error);
-		}
-	},
-);
+		},
+	);
 
-app.get(
-	"/cover/novel/:novelId",
-	zValidator("param", novelParamSchema),
-	async (c) => {
-		try {
-			const novelId = c.req.param("novelId");
-			const cachedCover = await storageService.getCoverData(
-				"novel",
-				"linovelib",
-				novelId,
-			);
-			if (cachedCover) {
-				c.header("Content-Type", cachedCover.mimeType);
-				c.header("Cache-Control", "public, max-age=86400");
-				return c.body(new Uint8Array(cachedCover.data));
-			}
-			const novelInfo = await storageService.getNovelCache(
-				"linovelib",
-				novelId,
-			);
-			if (novelInfo?.coverUrl) {
-				const coverData = await linovelibClient.getCover(novelInfo.coverUrl);
-				if (coverData) {
-					await storageService.setCoverData(
-						"novel",
-						novelInfo.coverUrl,
-						coverData.data,
-						coverData.mimeType,
-						"linovelib",
-						novelId,
-					);
-					c.header("Content-Type", coverData.mimeType);
-					c.header("Cache-Control", "public, max-age=86400");
-					return c.body(new Uint8Array(coverData.data));
-				}
-			} else {
-				const { data: coverData, url: coverUrl } =
-					await linovelibClient.getNovelCover(novelId);
-				if (coverData) {
-					await storageService.setCoverData(
-						"novel",
-						coverUrl,
-						coverData.data,
-						coverData.mimeType,
-						"linovelib",
-						novelId,
-					);
-					c.header("Content-Type", coverData.mimeType);
-					c.header("Cache-Control", "public, max-age=86400");
-					return c.body(new Uint8Array(coverData.data));
-				}
-			}
-			logger.error(
-				`Novel ${novelId} not present in database or does not have a cover URL, and failed to fetch cover from source`,
-			);
-			return c.json(
-				{
-					code: 10001,
-					message: "Cover not found",
-				},
-				404,
-				{
-					"Cache-Control": "no-store",
-				},
-			);
-		} catch (error) {
-			return handleLinovelibError(c, error, {
-				code: 10001,
-				message: "Cover not found",
-			});
-		}
-	},
-);
-
-app.get(
-	"/cover/volume/:volumeId",
-	zValidator("param", volumeParamSchema),
-	async (c) => {
-		try {
-			const volumeId = c.req.param("volumeId");
-			const cachedCover = await storageService.getCoverData(
-				"volume",
-				"linovelib",
-				volumeId,
-			);
-			if (cachedCover) {
-				c.header("Content-Type", cachedCover.mimeType);
-				c.header("Cache-Control", "public, max-age=86400");
-				return c.body(new Uint8Array(cachedCover.data));
-			}
-			const volumeInfo = await storageService.getVolumeMeta(
-				"linovelib",
-				volumeId,
-			);
-			if (volumeInfo?.coverUrl) {
-				const coverData = await linovelibClient.getCover(volumeInfo.coverUrl);
-				if (coverData) {
-					await storageService.setCoverData(
-						"volume",
-						volumeInfo.coverUrl,
-						coverData.data,
-						coverData.mimeType,
-						"linovelib",
-						volumeId,
-					);
-					c.header("Content-Type", coverData.mimeType);
-					c.header("Cache-Control", "public, max-age=86400");
-					return c.body(new Uint8Array(coverData.data));
-				}
-			}
-			logger.error(
-				`Volume ${volumeId} not present in database or does not have a cover URL`,
-			);
-			return c.json(
-				{
-					code: 10001,
-					message: "Cover not found",
-				},
-				404,
-				{
-					"Cache-Control": "no-store",
-				},
-			);
-		} catch (error) {
-			return handleLinovelibError(c, error, {
-				code: 10001,
-				message: "Cover not found",
-			});
-		}
-	},
-);
-
-app.get("/search", zValidator("query", searchQuerySchema), async (c) => {
-	try {
-		const host = resolveHost(c, config.host);
-		const keyword = c.req.query("keyword") as string;
-		const style = c.req.query("style") as OutputStyle | undefined;
-		const cachedResults = await storageService.searchNovels(
-			keyword,
-			"linovelib",
-		);
-		if (cachedResults) {
-			return c.json({
-				code: 0,
-				message: "Success",
-				data: cachedResults.map((novel) => {
-					novel.coverUrl = `${host}/v1/linovelib/cover/novel/${novel.id}`;
-					return transformOutputStyleForSearchResult(novel, style);
-				}),
-			});
-		}
-		const results = await linovelibClient.searchNovels(keyword);
-		if (results.length > 0) {
-			await storageService.addSearchResult(keyword, "linovelib", results);
-		}
-		return c.json({
-			code: 0,
-			message: "Success",
-			data: results.map((novel) => {
-				novel.coverUrl = `${host}/v1/linovelib/cover/novel/${novel.id}`;
-				return transformOutputStyleForSearchResult(novel, style);
-			}),
-		});
-	} catch (error) {
-		return handleLinovelibError(c, error);
-	}
-});
-
-export default app;
+	return app;
+}

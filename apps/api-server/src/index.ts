@@ -2,9 +2,9 @@ import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { config } from "./config";
-import LinovelibRoutes from "./linovelib";
+import { createLinovelibRoutes } from "./linovelib";
 import { createAuthMiddleware, createLoggerMiddleware } from "./middleware";
-import { logger, storageService } from "./services";
+import { linovelibClient, logger, storageService } from "./services";
 import { createSourcesRoutes } from "./sources";
 import { createSyncRoutes } from "./sync";
 
@@ -29,7 +29,15 @@ if (config.auth?.token) {
 	app.use("*", createAuthMiddleware(config.auth.token));
 }
 app.route("/sources", createSourcesRoutes());
-app.route("/linovelib", LinovelibRoutes);
+app.route(
+	"/linovelib",
+	createLinovelibRoutes({
+		linovelibClient,
+		storageService,
+		logger,
+		host: config.host,
+	}),
+);
 app.route(
 	"/sync",
 	createSyncRoutes({ storageService, logger, host: config.host }),
