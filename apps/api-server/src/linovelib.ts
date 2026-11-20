@@ -2,6 +2,7 @@ import {
 	CloudflareBlockError,
 	FlareSolverrError,
 	HttpStatusError,
+	NetworkError,
 } from "@acanthis-dec/browser-fetch";
 import type { Novel } from "@acanthis-dec/core";
 import {
@@ -97,6 +98,23 @@ function handleLinovelibError(
 				},
 			);
 		}
+	}
+	if (error instanceof NetworkError) {
+		logger.warn(`Upstream network error for ${error.url}: ${error.message}`);
+		const isTimeout = /timeout|timed out/i.test(error.message);
+		return c.json(
+			{
+				code: 20003,
+				message: isTimeout
+					? "Upstream request timed out, please retry later"
+					: "Upstream network error, please retry later",
+			},
+			isTimeout ? 504 : 502,
+			{
+				"Retry-After": "5",
+				"Cache-Control": "no-store",
+			},
+		);
 	}
 	logger.error(`${error instanceof Error ? error.stack : String(error)}`);
 	return c.json(
@@ -303,7 +321,9 @@ app.get(
 			}
 
 			let fetchPromise = inFlightIllustrations.get(hash);
-			if (!fetchPromise) {
+			if (fetchPromise) {
+				logger.debug(`[Illustration] 复用在途回源请求: hash=${hash}`);
+			} else {
 				fetchPromise = (async () => {
 					const sourceUrl = await storageService.getIllustrationSourceUrl(
 						"linovelib",
@@ -314,6 +334,9 @@ app.get(
 						return null;
 					}
 
+					logger.debug(
+						`[Illustration] 缓存未命中，开始回源获取: hash=${hash} url=${sourceUrl}`,
+					);
 					const illustrationData =
 						await linovelibClient.getIllustration(sourceUrl);
 					if (!illustrationData?.data) {
