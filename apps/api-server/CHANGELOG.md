@@ -1,5 +1,15 @@
 # @acanthis-dec/api-server
 
+## 1.1.2
+
+### Patch Changes
+
+- 986b128: 修复插图与封面回源请求在传输停滞时长时间卡死队列的问题：修正 `ImpersTransport` 向 `impers` 传递 `timeout`/`connectTimeout` 的毫秒与秒单位错配（原会导致超时被放大 1000 倍至 8.33 小时），补充 `TCP_KEEPALIVE`、低速停滞检测、JS 兜底超时、损坏会话回收与瞬态 `CurlError` 映射，加固 `FlareSolverrClient` 请求超时；为 `NovelMediaQueue` 补充显式超时、网络重试上限与全生命周期调试日志；在 API Server 中将上游 `NetworkError` 映射为 `502`/`504`（带 `Cache-Control: no-store`）并补充插图回源调试日志
+- 370745e: 拆分 api-server 运行时基础镜像、精简原生依赖与 libcurl-impersonate 产物，并启用 zstd 镜像层压缩与共享构建缓存，大幅降低每次拉取新版本镜像的增量下载体积。
+- Updated dependencies [986b128]
+  - @acanthis-dec/linovelib@1.3.2
+  - @acanthis-dec/storage@1.1.2
+
 ## 1.1.1
 
 ### Patch Changes
