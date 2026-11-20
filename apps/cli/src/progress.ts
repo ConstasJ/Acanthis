@@ -1027,7 +1027,16 @@ export function createExportProgressRenderer(
 				Math.max(overallRatio, computeOverallRatio(event)),
 			);
 
-			if (performance.now() - lastRenderAt >= RENDER_THROTTLE_MS) {
+			const isMilestone =
+				Boolean(event.volumes) ||
+				(event.phase === "images" &&
+					(event.current === 0 || event.current === event.total)) ||
+				(event.phase === "write" && event.current === event.total);
+
+			if (
+				isMilestone ||
+				performance.now() - lastRenderAt >= RENDER_THROTTLE_MS
+			) {
 				renderFrame();
 			} else {
 				dirty = true;
