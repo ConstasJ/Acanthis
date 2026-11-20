@@ -1,47 +1,51 @@
-FROM node:24-slim AS base
+# syntax=docker/dockerfile:1
+
+ARG RUNTIME_IMAGE=ghcr.io/constasj/acanthis-api-server:runtime
+ARG NODE_BUILDER_IMAGE=node:24-slim@sha256:dc26ae92c9fb15cf6b1d63e20f0944b2efe0f115b20e00be48fb23fceb061c54
+
+FROM --platform=$BUILDPLATFORM ${NODE_BUILDER_IMAGE} AS builder
 
 RUN corepack enable && \
-    corepack prepare pnpm@latest --activate
-
-FROM base AS builder
+	corepack prepare pnpm@12.21.0 --activate
 
 WORKDIR /app
 
-COPY . .
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
+COPY apps/api-server/package.json ./apps/api-server/
+COPY apps/cli/package.json ./apps/cli/
+COPY apps/web/package.json ./apps/web/
+COPY packages/browser-fetch/package.json ./packages/browser-fetch/
+COPY packages/core/package.json ./packages/core/
+COPY packages/deobfuscator/package.json ./packages/deobfuscator/
+COPY packages/epub/package.json ./packages/epub/
+COPY packages/linovelib/package.json ./packages/linovelib/
+COPY packages/storage/package.json ./packages/storage/
+COPY tools/config-tsdown/package.json ./tools/config-tsdown/
+COPY tools/config-typescript/package.json ./tools/config-typescript/
 
-RUN pnpm install --frozen-lockfile
+RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
+	ONNXRUNTIME_NODE_INSTALL=skip pnpm install \
+		--store-dir /pnpm/store \
+		--filter=@acanthis-dec/api-server... \
+		--frozen-lockfile
+
+COPY tools/config-typescript ./tools/config-typescript
+COPY tools/config-tsdown ./tools/config-tsdown
+COPY packages/core ./packages/core
+COPY packages/deobfuscator ./packages/deobfuscator
+COPY packages/browser-fetch ./packages/browser-fetch
+COPY packages/storage ./packages/storage
+COPY packages/linovelib ./packages/linovelib
+COPY apps/api-server ./apps/api-server
 
 RUN pnpm --filter=@acanthis-dec/api-server run build
 
-FROM base AS pre-final
+FROM ${RUNTIME_IMAGE} AS production
 
 WORKDIR /app
 
-RUN apt update && apt install -y --no-install-recommends \
-    ca-certificates
-
-# onnxruntime-node 自带全平台原生库，这里只保留 Linux，避免镜像体积膨胀
-RUN npm init -y && npm pkg set type=module && \
-    npm install @libsql/client koffi isolated-vm onnxruntime-node@1.31.1 && \
-    (find node_modules/onnxruntime-node/bin/napi-v6 -mindepth 1 -maxdepth 1 -type d ! -name linux -exec rm -rf {} + || true)
-
-COPY libcurl-impersonate*.tar.gz /libcurl-impersonate.tar.gz
-
-RUN mkdir -p /usr/local/lib/libcurl-impersonate && \
-    tar -xzf /libcurl-impersonate.tar.gz -C /usr/local/lib/libcurl-impersonate && \
-    rm /libcurl-impersonate.tar.gz
-
-ENV LIBCURL_PATH=/usr/local/lib/libcurl-impersonate/libcurl-impersonate.so
-
-FROM pre-final AS production
-
-WORKDIR /app
-
+COPY packages/storage/migrations ./migrations
 COPY --from=builder /app/apps/api-server/dist/index.js ./
-COPY --from=builder /app/apps/api-server/dist/captcha_cropped.onnx ./
-COPY --from=builder /app/packages/storage/migrations ./migrations
-
-ENV LINOVELIB_CAPTCHA_MODEL_PATH=/app/captcha_cropped.onnx
 
 EXPOSE 5301
 

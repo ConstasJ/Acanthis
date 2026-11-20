@@ -1,0 +1,121 @@
+# syntax=docker/dockerfile:1
+
+ARG NODE_BASE_IMAGE=node:24-slim@sha256:dc26ae92c9fb15cf6b1d63e20f0944b2efe0f115b20e00be48fb23fceb061c54
+
+FROM ${NODE_BASE_IMAGE} AS curl-extractor
+
+ARG TARGETARCH
+ARG LIBCURL_IMPERSONATE_VERSION=v2.3.2
+ARG LIBCURL_IMPERSONATE_SHA256_AMD64=7716be1ec87f13ecc776c211003bd1122c345287829b1f18a494a5467c90ab1e
+ARG LIBCURL_IMPERSONATE_SHA256_ARM64=1cb74a3b5103df020c252f9efef5a779c87380ee6244b365a90a0e4f7086864e
+
+RUN <<'EOF'
+set -eu
+ARCH="${TARGETARCH:-}"
+if [ -z "${ARCH}" ]; then
+	ARCH="$(node -p 'process.arch === "x64" ? "amd64" : process.arch')"
+fi
+
+case "${ARCH}" in
+	amd64)
+		TRIPLE="x86_64-linux-gnu"
+		EXPECTED_SHA256="${LIBCURL_IMPERSONATE_SHA256_AMD64}"
+		;;
+	arm64)
+		TRIPLE="aarch64-linux-gnu"
+		EXPECTED_SHA256="${LIBCURL_IMPERSONATE_SHA256_ARM64}"
+		;;
+	*)
+		echo "Unsupported TARGETARCH: ${ARCH}" >&2
+		exit 1
+		;;
+esac
+
+ASSET="libcurl-impersonate-${LIBCURL_IMPERSONATE_VERSION}.${TRIPLE}.tar.gz"
+URL="https://github.com/lexiforest/curl-impersonate/releases/download/${LIBCURL_IMPERSONATE_VERSION}/${ASSET}"
+ARCHIVE="/tmp/${ASSET}"
+
+node --input-type=module - "${URL}" "${ARCHIVE}" "${EXPECTED_SHA256}" <<'NODE'
+import { createHash } from "node:crypto";
+import { writeFile } from "node:fs/promises";
+
+const [url, archivePath, expectedSha256] = process.argv.slice(2);
+const response = await fetch(url, { redirect: "follow" });
+if (!response.ok) {
+	throw new Error(
+		`Failed to download ${url}: ${response.status} ${response.statusText}`,
+	);
+}
+const buffer = Buffer.from(await response.arrayBuffer());
+const actualSha256 = createHash("sha256").update(buffer).digest("hex");
+if (actualSha256 !== expectedSha256) {
+	throw new Error(
+		`SHA256 mismatch for ${url}: expected ${expectedSha256}, got ${actualSha256}`,
+	);
+}
+await writeFile(archivePath, buffer);
+NODE
+
+mkdir -p /tmp/libcurl-raw /usr/local/lib/libcurl-impersonate
+tar -xzf "${ARCHIVE}" -C /tmp/libcurl-raw
+cp -a /tmp/libcurl-raw/libcurl-impersonate*.so* /usr/local/lib/libcurl-impersonate/
+cp -a /tmp/libcurl-raw/LICENSE* /usr/local/lib/libcurl-impersonate/
+test -e /usr/local/lib/libcurl-impersonate/libcurl-impersonate.so
+rm -rf /tmp/libcurl-raw "${ARCHIVE}"
+EOF
+
+FROM ${NODE_BASE_IMAGE} AS runtime
+
+ARG TARGETARCH
+
+WORKDIR /app
+
+RUN apt-get update && \
+	apt-get install -y --no-install-recommends ca-certificates && \
+	rm -rf /var/lib/apt/lists/*
+
+RUN --mount=type=cache,target=/root/.npm <<'EOF'
+set -eu
+ARCH="${TARGETARCH:-}"
+if [ -z "${ARCH}" ]; then
+	ARCH="$(node -p 'process.arch === "x64" ? "amd64" : process.arch')"
+fi
+
+case "${ARCH}" in
+	amd64) ORT_ARCH="x64" ;;
+	arm64) ORT_ARCH="arm64" ;;
+	*) echo "Unsupported TARGETARCH: ${ARCH}" >&2; exit 1 ;;
+esac
+
+printf '%s\n' '{"name":"acanthis-api-server-runtime","private":true,"type":"module"}' > /app/package.json
+
+ONNXRUNTIME_NODE_INSTALL=skip npm install \
+	--no-audit \
+	--no-fund \
+	--no-save \
+	--package-lock=false \
+	@libsql/client@0.18.0 \
+	koffi@3.3.8 \
+	isolated-vm@7.0.2 \
+	onnxruntime-node@1.31.1
+
+find node_modules/onnxruntime-node/bin/napi-v6 -mindepth 1 -maxdepth 1 -type d ! -name linux -exec rm -rf {} +
+find node_modules/onnxruntime-node/bin/napi-v6/linux -mindepth 1 -maxdepth 1 -type d ! -name "${ORT_ARCH}" -exec rm -rf {} +
+
+if [ -d node_modules/isolated-vm/prebuilds ]; then
+	find node_modules/isolated-vm/prebuilds -mindepth 1 -maxdepth 1 -type d ! -name "linux-${ORT_ARCH}" -exec rm -rf {} +
+	rm -f "node_modules/isolated-vm/prebuilds/linux-${ORT_ARCH}"/*.musl.node
+fi
+
+rm -rf /tmp/*
+EOF
+
+COPY --from=curl-extractor /usr/local/lib/libcurl-impersonate /usr/local/lib/libcurl-impersonate
+COPY packages/linovelib/assets/captcha_cropped.onnx ./captcha_cropped.onnx
+
+ENV LIBCURL_PATH=/usr/local/lib/libcurl-impersonate/libcurl-impersonate.so
+ENV LINOVELIB_CAPTCHA_MODEL_PATH=/app/captcha_cropped.onnx
+
+EXPOSE 5301
+
+VOLUME /app/data
