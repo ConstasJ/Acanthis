@@ -16,20 +16,20 @@ export type FlareSolverrCookie = {
 	value: string;
 	domain: string;
 	path: string;
-	expiry: number;
+	expiry?: number | null;
 	httpOnly: boolean;
 	secure: boolean;
-	sameSite: "Strict" | "Lax" | "None";
+	sameSite?: "Strict" | "Lax" | "None";
 };
 
 export type FlareSolverrSolution = {
 	url: string;
-	status: string;
+	status: number | string;
 	userAgent: string;
 	response: string;
 	cookies: FlareSolverrCookie[];
 	turnstile_token?: string;
-	headers: Record<string, string>;
+	headers?: Record<string, string>;
 };
 
 export type FlareSolverrReqResponse = {

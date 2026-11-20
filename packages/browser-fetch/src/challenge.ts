@@ -1,6 +1,34 @@
 import type { Cookie } from "./cookies";
 import { FlareSolverrError } from "./errors";
-import type { FlareSolverrClient } from "./flaresolverr";
+import type {
+	FlareSolverrClient,
+	FlareSolverrCookie,
+	FlareSolverrSolution,
+} from "./flaresolverr";
+
+export type CloudflareChallengeResult = {
+	clearance: Cookie;
+	cookies: Cookie[];
+	solution: FlareSolverrSolution;
+	status: number;
+	elapsedTime?: number | undefined;
+};
+
+function toCookie(cookie: FlareSolverrCookie): Cookie {
+	return {
+		name: cookie.name,
+		value: cookie.value,
+		domain: cookie.domain,
+		path: cookie.path,
+		expires:
+			typeof cookie.expiry === "number" && cookie.expiry > 0
+				? new Date(cookie.expiry * 1000)
+				: undefined,
+		httpOnly: cookie.httpOnly,
+		secure: cookie.secure,
+		sameSite: cookie.sameSite ?? "Lax",
+	};
+}
 
 export type AutoSolvePolicy = "auto" | "force-refresh" | "never";
 
@@ -52,7 +80,7 @@ export async function solveCloudflareChallenge(
 	method: "GET" | "POST",
 	client: FlareSolverrClient,
 	body?: Record<string, string>,
-): Promise<Cookie> {
+): Promise<CloudflareChallengeResult> {
 	const response =
 		method === "GET"
 			? await client.get(url)
@@ -64,7 +92,8 @@ export async function solveCloudflareChallenge(
 			`Failed to solve Cloudflare challenge: ${response.message}`,
 		);
 	}
-	const clearance = response.solution.cookies.find((cookie) =>
+	const rawCookies = response.solution.cookies ?? [];
+	const clearance = rawCookies.find((cookie) =>
 		cookie.name.toLowerCase().includes("cf_clearance"),
 	);
 	if (!clearance) {
@@ -73,14 +102,20 @@ export async function solveCloudflareChallenge(
 			"Failed to find cf_clearance cookie in FlareSolverr response.",
 		);
 	}
+	const parsedStatus = Number(response.solution.status);
+	const status = Number.isFinite(parsedStatus) ? parsedStatus : 0;
+	const elapsedTime =
+		typeof response.startTimestamp === "number" &&
+		typeof response.endTimestamp === "number" &&
+		response.endTimestamp >= response.startTimestamp
+			? response.endTimestamp - response.startTimestamp
+			: undefined;
+
 	return {
-		name: clearance.name,
-		value: clearance.value,
-		domain: clearance.domain,
-		path: clearance.path,
-		expires: new Date(clearance.expiry * 1000),
-		httpOnly: clearance.httpOnly,
-		secure: clearance.secure,
-		sameSite: clearance.sameSite ?? "Lax",
+		clearance: toCookie(clearance),
+		cookies: rawCookies.map(toCookie),
+		solution: response.solution,
+		status,
+		elapsedTime,
 	};
 }

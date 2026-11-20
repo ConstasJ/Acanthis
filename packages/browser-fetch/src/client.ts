@@ -3,6 +3,7 @@ import pRetry from "p-retry";
 import type z from "zod";
 import {
 	type ChallengeOptions,
+	type CloudflareChallengeResult,
 	detectCloudflareBlock,
 	detectCloudflareChallenge,
 	getDetector,
@@ -16,7 +17,6 @@ import {
 } from "./cookies";
 import {
 	CloudflareBlockError,
-	FlareSolverrError,
 	HttpStatusError,
 	JSONParseError,
 	SchemaValidationError,
@@ -36,6 +36,7 @@ import type {
 } from "./types";
 import {
 	defaultRetryPolicy,
+	extractContentType,
 	iswwwFormUrlEncoded,
 	wwwFormUrlEncodedToRecordStringString,
 } from "./utils";
@@ -133,11 +134,11 @@ export class BrowserFetchClient {
 			});
 	}
 
-	private async _getClearanceToken(
+	private async _solveChallenge(
 		url: string,
 		method: "GET" | "POST",
 		body?: unknown,
-	): Promise<Cookie | null> {
+	): Promise<CloudflareChallengeResult> {
 		if (!this.flareSolverrClient) {
 			throw new Error(
 				"Challenge solver is enabled, but FlareSolverr client is not configured.",
@@ -157,6 +158,67 @@ export class BrowserFetchClient {
 			this.flareSolverrClient,
 			bodyRecord,
 		);
+	}
+
+	private _buildResponseFromFlareSolverr(
+		init: BrowserFetchRequest,
+		result: CloudflareChallengeResult,
+	): BrowserFetchResponse | null {
+		if (init.responseType === "buffer") {
+			return null;
+		}
+		if (result.status < 200 || result.status >= 300) {
+			return null;
+		}
+		const rawBody = result.solution.response;
+		if (
+			typeof rawBody !== "string" ||
+			rawBody.length === 0 ||
+			detectCloudflareChallenge(result.status, rawBody) ||
+			detectCloudflareBlock(result.status, rawBody)
+		) {
+			return null;
+		}
+
+		const headers = new Map<string, string>();
+		let rawContentType: string | undefined;
+		for (const [key, value] of Object.entries(result.solution.headers ?? {})) {
+			headers.set(key, value);
+			if (key.toLowerCase() === "content-type") {
+				rawContentType = value;
+			}
+		}
+
+		const fallbackContentType =
+			init.responseType === "json"
+				? "application/json; charset=utf-8"
+				: "text/html; charset=utf-8";
+		const contentType = extractContentType(
+			rawContentType ?? fallbackContentType,
+		);
+
+		let body: string | unknown = rawBody;
+		if (init.responseType === "json") {
+			const preMatch = rawBody.match(/<pre[^>]*>([\s\S]*?)<\/pre>/i);
+			const candidate = (preMatch?.[1] ?? rawBody).trim();
+			try {
+				body = JSON.parse(candidate);
+			} catch {
+				return null;
+			}
+		} else if (init.responseType === "text" && !contentType.isText) {
+			return null;
+		}
+
+		return {
+			url: result.solution.url || init.url,
+			status: result.status,
+			headers,
+			cookies: result.cookies,
+			body,
+			contentType,
+			elapsedTime: result.elapsedTime,
+		};
 	}
 
 	private async _request(
@@ -183,16 +245,12 @@ export class BrowserFetchClient {
 			this.challengeSolver.autoSolve === "force-refresh"
 		) {
 			const method = init.method === "POST" ? "POST" : "GET";
-			const clearance = await this._getClearanceToken(
+			const challengeResult = await this._solveChallenge(
 				init.url,
 				method,
 				init.body,
 			);
-			if (!clearance) {
-				throw new Error(
-					"Failed to obtain clearance token with 'force-refresh' policy.",
-				);
-			}
+			const clearance = challengeResult.clearance;
 			await this.cookieStore.set("cf_clearance", clearance.value, clearance);
 			cookies.cf_clearance = clearance.value;
 		}
@@ -344,25 +402,26 @@ export class BrowserFetchClient {
 					const detector = getDetector(this.challengeSolver);
 					if (detector(error.status, error.responseText)) {
 						const method = init.method === "POST" ? "POST" : "GET";
-						// Retry the original request after solving the challenge
-						const clearance = await this._getClearanceToken(
+						const challengeResult = await this._solveChallenge(
 							init.url,
 							method,
 							init.body,
 						);
-						if (clearance) {
-							await this.cookieStore.set(
-								"cf_clearance",
-								clearance.value,
-								clearance,
-							);
-							return await this._request(init, true);
-						} else {
-							throw new FlareSolverrError(
-								this.flareSolverrClient?.host ?? "",
-								"Failed to obtain clearance token during auto-solve.",
-							);
+						const clearance = challengeResult.clearance;
+						await this.cookieStore.set(
+							"cf_clearance",
+							clearance.value,
+							clearance,
+						);
+						const directResponse = this._buildResponseFromFlareSolverr(
+							init,
+							challengeResult,
+						);
+						if (directResponse !== null) {
+							return directResponse;
 						}
+						// Fall back to replaying the original request (e.g. binary response or non-2xx solution)
+						return await this._request(init, true);
 					}
 				}
 				if (
@@ -481,12 +540,8 @@ export class BrowserFetchClient {
 		if (cookies.findIndex((cookie) => cookie.name === "cf_clearance") !== -1) {
 			return;
 		}
-		const clearance = await this._getClearanceToken(url, method, body);
-		if (clearance) {
-			await this.cookieStore.set("cf_clearance", clearance.value, clearance);
-		} else {
-			throw new Error("Failed to obtain clearance token.");
-		}
+		const { clearance } = await this._solveChallenge(url, method, body);
+		await this.cookieStore.set("cf_clearance", clearance.value, clearance);
 	}
 
 	async refreshClearance(
@@ -494,12 +549,8 @@ export class BrowserFetchClient {
 		method: "GET" | "POST",
 		body?: unknown,
 	): Promise<void> {
-		const clearance = await this._getClearanceToken(url, method, body);
-		if (clearance) {
-			await this.cookieStore.set("cf_clearance", clearance.value, clearance);
-		} else {
-			throw new Error("Failed to obtain clearance token.");
-		}
+		const { clearance } = await this._solveChallenge(url, method, body);
+		await this.cookieStore.set("cf_clearance", clearance.value, clearance);
 	}
 
 	async getCookies(url: string): Promise<Cookie[]> {
