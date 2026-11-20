@@ -18,7 +18,7 @@ import { getChapter } from "./chapter";
 import { descrambleCoefficientsSchema } from "./coefficients";
 import { getVolumeCoverUrl, novelIdToCoverUrl } from "./cover";
 import type { NovelUpdateInfo } from "./novel";
-import { NovelChapterQueue, NovelInfoQueue } from "./queue";
+import { NovelChapterQueue, NovelInfoQueue, NovelMediaQueue } from "./queue";
 import { SearchSession, searchNovels } from "./search";
 import { ensureValidSession } from "./session";
 
@@ -63,10 +63,12 @@ export class LinovelibClient {
 	private fetchClient: BrowserFetchClient;
 	private novelChapterQueue: NovelChapterQueue;
 	private novelInfoQueue: NovelInfoQueue;
+	private novelMediaQueue: NovelMediaQueue;
 	private searchSession: SearchSession;
 	private options?: LinovelibClientOptions;
 	private logger?: Logger | undefined;
 	private isSessionValid?: boolean = undefined;
+	private sessionCheckPromise: Promise<boolean> | null = null;
 
 	constructor(
 		options?: LinovelibClientOptions,
@@ -155,48 +157,50 @@ export class LinovelibClient {
 			this.novelChapterQueue,
 			this.logger,
 		);
+		this.novelMediaQueue = new NovelMediaQueue(this.fetchClient, this.logger);
 		this.searchSession = new SearchSession(this.fetchClient);
 	}
 
-	async getNovelInfo(id: string): Promise<Novel | undefined> {
-		if (this.options?.session.enabled && !this.isSessionValid) {
-			this.isSessionValid = await ensureValidSession(this.fetchClient, {
-				username: this.options.session.username,
-				password: this.options.session.password,
-			});
+	private async ensureSession(): Promise<void> {
+		if (!this.options?.session.enabled || this.isSessionValid) {
+			return;
 		}
+		if (!this.sessionCheckPromise) {
+			const { username, password } = this.options.session;
+			this.sessionCheckPromise = ensureValidSession(this.fetchClient, {
+				username,
+				password,
+			})
+				.then((valid) => {
+					this.isSessionValid = valid;
+					return valid;
+				})
+				.finally(() => {
+					this.sessionCheckPromise = null;
+				});
+		}
+		await this.sessionCheckPromise;
+	}
+
+	async getNovelInfo(id: string): Promise<Novel | undefined> {
+		await this.ensureSession();
 		return await this.novelInfoQueue.fetchNovelInfo(id);
 	}
 
 	async getNovelUpdateInfo(id: string): Promise<NovelUpdateInfo | null> {
-		if (this.options?.session.enabled && !this.isSessionValid) {
-			this.isSessionValid = await ensureValidSession(this.fetchClient, {
-				username: this.options.session.username,
-				password: this.options.session.password,
-			});
-		}
+		await this.ensureSession();
 		return await this.novelInfoQueue.fetchNovelUpdateInfo(id);
 	}
 
 	async searchNovels(keyword: string): Promise<NovelSearchResult[]> {
-		if (this.options?.session.enabled && !this.isSessionValid) {
-			this.isSessionValid = await ensureValidSession(this.fetchClient, {
-				username: this.options.session.username,
-				password: this.options.session.password,
-			});
-		}
+		await this.ensureSession();
 		return await searchNovels(keyword, this.fetchClient, this.searchSession);
 	}
 
 	async getNovelCover(
 		id: string,
 	): Promise<{ data: BinaryResponse; url: string }> {
-		if (this.options?.session.enabled && !this.isSessionValid) {
-			this.isSessionValid = await ensureValidSession(this.fetchClient, {
-				username: this.options.session.username,
-				password: this.options.session.password,
-			});
-		}
+		await this.ensureSession();
 		const coverUrl = await novelIdToCoverUrl(id);
 		const coverData = await this.getCover(
 			coverUrl,
@@ -209,12 +213,7 @@ export class LinovelibClient {
 		novelId: string,
 		volumeId: string,
 	): Promise<{ data: BinaryResponse; url: string }> {
-		if (this.options?.session.enabled && !this.isSessionValid) {
-			this.isSessionValid = await ensureValidSession(this.fetchClient, {
-				username: this.options.session.username,
-				password: this.options.session.password,
-			});
-		}
+		await this.ensureSession();
 		const coverUrl = await getVolumeCoverUrl(
 			volumeId,
 			novelId,
@@ -228,23 +227,17 @@ export class LinovelibClient {
 	}
 
 	async getCover(url: string, referer?: string): Promise<BinaryResponse> {
-		return await this.fetchClient.binary(url, {
-			headers: {
-				Referer: referer || "https://www.linovelib.com/",
-			},
-		});
+		return await this.novelMediaQueue.fetchImage(
+			url,
+			referer || "https://www.linovelib.com/",
+		);
 	}
 
 	async getIllustration(
 		url: string,
 		referer?: string,
 	): Promise<BinaryResponse> {
-		if (this.options?.session.enabled && !this.isSessionValid) {
-			this.isSessionValid = await ensureValidSession(this.fetchClient, {
-				username: this.options.session.username,
-				password: this.options.session.password,
-			});
-		}
+		await this.ensureSession();
 		return await this.getCover(url, referer || "https://www.linovelib.com/");
 	}
 
@@ -252,12 +245,7 @@ export class LinovelibClient {
 		novelId: string,
 		chapterId: string,
 	): Promise<string | undefined> {
-		if (this.options?.session.enabled && !this.isSessionValid) {
-			this.isSessionValid = await ensureValidSession(this.fetchClient, {
-				username: this.options.session.username,
-				password: this.options.session.password,
-			});
-		}
+		await this.ensureSession();
 		const cachedJsVersion = this.storage
 			? ((await this.storage.getCache("chapterlog_js_version", z.string())) ??
 				undefined)
