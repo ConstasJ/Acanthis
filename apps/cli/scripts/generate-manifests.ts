@@ -22,6 +22,7 @@ const SEMVER_REGEX = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
 const REPO_REGEX = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
 const SHA256_LINE_REGEX = /^([0-9a-fA-F]{64})\s+\*?(?:.*[/\\])?([^\s/\\]+)$/;
 const SHA256_HEX_REGEX = /^[0-9a-f]{64}$/;
+const WINGET_MANIFEST_VERSION = "1.28.0";
 
 function normalizeVersion(rawVersion: string): string {
 	const stripped = rawVersion.trim().replace(/^v/i, "");
@@ -196,13 +197,13 @@ function renderHomebrewFormula(
 function renderWingetVersionManifest(version: string): string {
 	return [
 		"# Created using Acanthis generate-manifests.ts",
-		"# yaml-language-server: $schema=https://aka.ms/winget-manifest.version.1.9.0.schema.json",
+		`# yaml-language-server: $schema=https://aka.ms/winget-manifest.version.${WINGET_MANIFEST_VERSION}.schema.json`,
 		"",
 		"PackageIdentifier: ConstasJ.Acanthis",
 		`PackageVersion: ${version}`,
 		"DefaultLocale: en-US",
 		"ManifestType: version",
-		"ManifestVersion: 1.9.0",
+		`ManifestVersion: ${WINGET_MANIFEST_VERSION}`,
 		"",
 	].join("\n");
 }
@@ -216,7 +217,7 @@ function renderWingetDefaultLocaleManifest(
 	const encodedTag = encodeURIComponent(tag);
 	return [
 		"# Created using Acanthis generate-manifests.ts",
-		"# yaml-language-server: $schema=https://aka.ms/winget-manifest.defaultLocale.1.9.0.schema.json",
+		`# yaml-language-server: $schema=https://aka.ms/winget-manifest.defaultLocale.${WINGET_MANIFEST_VERSION}.schema.json`,
 		"",
 		"PackageIdentifier: ConstasJ.Acanthis",
 		`PackageVersion: ${version}`,
@@ -237,7 +238,7 @@ function renderWingetDefaultLocaleManifest(
 		"  - light-novel",
 		`ReleaseNotesUrl: https://github.com/${repo}/releases/tag/${encodedTag}`,
 		"ManifestType: defaultLocale",
-		"ManifestVersion: 1.9.0",
+		`ManifestVersion: ${WINGET_MANIFEST_VERSION}`,
 		"",
 	].join("\n");
 }
@@ -251,7 +252,7 @@ function renderWingetZhCnLocaleManifest(
 	const encodedTag = encodeURIComponent(tag);
 	return [
 		"# Created using Acanthis generate-manifests.ts",
-		"# yaml-language-server: $schema=https://aka.ms/winget-manifest.locale.1.9.0.schema.json",
+		`# yaml-language-server: $schema=https://aka.ms/winget-manifest.locale.${WINGET_MANIFEST_VERSION}.schema.json`,
 		"",
 		"PackageIdentifier: ConstasJ.Acanthis",
 		`PackageVersion: ${version}`,
@@ -267,7 +268,7 @@ function renderWingetZhCnLocaleManifest(
 		"Description: Acanthis 双模 EPUB 3.0 导出命令行工具，连接 Acanthis API 服务端浏览、搜索、检查并将轻小说按分卷或整书合集导出为标准 EPUB 3.0 电子书。",
 		`ReleaseNotesUrl: https://github.com/${repo}/releases/tag/${encodedTag}`,
 		"ManifestType: locale",
-		"ManifestVersion: 1.9.0",
+		`ManifestVersion: ${WINGET_MANIFEST_VERSION}`,
 		"",
 	].join("\n");
 }
@@ -279,7 +280,7 @@ function renderWingetInstallerManifest(
 ): string {
 	return [
 		"# Created using Acanthis generate-manifests.ts",
-		"# yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.9.0.schema.json",
+		`# yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.${WINGET_MANIFEST_VERSION}.schema.json`,
 		"",
 		"PackageIdentifier: ConstasJ.Acanthis",
 		`PackageVersion: ${version}`,
@@ -293,7 +294,7 @@ function renderWingetInstallerManifest(
 		`    InstallerUrl: ${releaseBaseUrl}/acanthis-v${version}-windows-x64.zip`,
 		`    InstallerSha256: ${windowsX64Sha}`,
 		"ManifestType: installer",
-		"ManifestVersion: 1.9.0",
+		`ManifestVersion: ${WINGET_MANIFEST_VERSION}`,
 		"",
 	].join("\n");
 }
