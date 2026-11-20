@@ -1,8 +1,4 @@
-import z from "zod";
-
-export const outputStyleSchema = z.enum(["acanthis", "lnreader"]);
-
-export type OutputStyle = z.infer<typeof outputStyleSchema>;
+export { type OutputStyle, outputStyleSchema } from "./schemas/common";
 
 export type ChapterItem = {
 	name: string;
