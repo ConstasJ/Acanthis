@@ -70,6 +70,7 @@ jobs:
               - 'pnpm-lock.yaml'
               - 'pnpm-workspace.yaml'
               - '.github/actions/ensure-api-server-runtime/**'
+              - '.github/scripts/api-server-build-hash.mjs'
               - '.github/workflows/canary.yml'
             web:
               - 'apps/web/**'
@@ -111,6 +112,17 @@ jobs:
         id: runtime
         uses: ./.github/actions/ensure-api-server-runtime
 
+      - name: Compute api-server build hash
+        id: build_hash
+        env:
+          RUNTIME_IMAGE: ${{ steps.runtime.outputs.image }}
+        run: |
+          set -euo pipefail
+          BUILD_HASH="$(node .github/scripts/api-server-build-hash.mjs --runtime-image "${RUNTIME_IMAGE}")"
+          echo "hash=${BUILD_HASH}" >> "$GITHUB_OUTPUT"
+          echo "tag=build-${BUILD_HASH}" >> "$GITHUB_OUTPUT"
+          echo "Computed api-server build tag: build-${BUILD_HASH}"
+
       - name: Extract Docker metadata
         id: meta
         uses: docker/metadata-action@v6
@@ -119,6 +131,7 @@ jobs:
           tags: |
             type=raw,value=canary
             type=sha,prefix=canary-,format=short
+            type=raw,value=${{ steps.build_hash.outputs.tag }}
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v7

@@ -88,6 +88,26 @@ jobs:
         id: runtime
         uses: ./.github/actions/ensure-api-server-runtime
 
+      - name: Check promotable canary build
+        id: promote
+        env:
+          RUNTIME_IMAGE: ${{ steps.runtime.outputs.image }}
+        run: |
+          set -euo pipefail
+          BUILD_HASH="$(node .github/scripts/api-server-build-hash.mjs --runtime-image "${RUNTIME_IMAGE}")"
+          BUILD_TAG="build-${BUILD_HASH}"
+          CANDIDATE_REF="ghcr.io/constasj/acanthis-api-server:${BUILD_TAG}"
+          echo "tag=${BUILD_TAG}" >> "$GITHUB_OUTPUT"
+
+          if DIGEST="$(docker buildx imagetools inspect "${CANDIDATE_REF}" --format '{{json .Manifest.Digest}}' 2>/dev/null | tr -d '"\r\n')" && [ -n "${DIGEST}" ] && [ "${DIGEST}" != "null" ]; then
+            echo "Found matching build ${CANDIDATE_REF}@${DIGEST}; skipping Buildx build and promoting via crane."
+            echo "can_promote=true" >> "$GITHUB_OUTPUT"
+            echo "source_ref=${CANDIDATE_REF}@${DIGEST}" >> "$GITHUB_OUTPUT"
+          else
+            echo "No matching build found for ${CANDIDATE_REF}; falling back to full Buildx build."
+            echo "can_promote=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Extract Docker metadata
         id: meta
         uses: docker/metadata-action@v6
@@ -101,14 +121,33 @@ jobs:
             type=semver,pattern={{major}},value=${{ steps.version.outputs.VERSION }}
             type=raw,value=latest,enable=${{ steps.version.outputs.is_prerelease == 'false' }}
 
+      - name: Set up crane
+        if: steps.promote.outputs.can_promote == 'true'
+        uses: imjasonh/setup-crane@v0.7
+        with:
+          version: v0.22.1
+
+      - name: Promote existing image with release metadata
+        if: steps.promote.outputs.can_promote == 'true'
+        env:
+          SOURCE_REF: ${{ steps.promote.outputs.source_ref }}
+          PRIMARY_REPO: ghcr.io/constasj/acanthis-api-server
+          PLATFORM: linux/amd64
+          TAGS: ${{ steps.meta.outputs.tags }}
+          LABELS: ${{ steps.meta.outputs.labels }}
+        run: node .github/scripts/promote-api-server-image.mjs
+
       - name: Build and push Docker image
+        if: steps.promote.outputs.can_promote != 'true'
         uses: docker/build-push-action@v7
         with:
           context: .
           file: apps/api-server/Dockerfile
           platforms: linux/amd64
           build-args: RUNTIME_IMAGE=${{ steps.runtime.outputs.image }}
-          tags: ${{ steps.meta.outputs.tags }}
+          tags: |
+            ${{ steps.meta.outputs.tags }}
+            ghcr.io/constasj/acanthis-api-server:${{ steps.promote.outputs.tag }}
           labels: ${{ steps.meta.outputs.labels }}
           outputs: type=registry,oci-mediatypes=true,compression=zstd,compression-level=6
           cache-from: type=registry,ref=ghcr.io/constasj/acanthis-api-server:buildcache
