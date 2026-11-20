@@ -1,6 +1,6 @@
 {
 	"name": "@acanthis-dec/cli",
-	"version": "0.0.0",
+	"version": "0.1.0",
 	"description": "Dual-mode EPUB export CLI for Acanthis.",
 	"author": "ConstasJ <constasj@qq.com>",
 	"license": "MIT",
