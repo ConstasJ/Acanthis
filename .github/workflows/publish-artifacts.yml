@@ -35,6 +35,9 @@ jobs:
       (github.event_name == 'push' && startsWith(github.ref_name, '@acanthis-dec/api-server@')) ||
       (github.event_name == 'workflow_dispatch' && inputs.target == 'api-server')
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.VERSION }}
+      is_prerelease: ${{ steps.version.outputs.is_prerelease }}
     permissions:
       contents: read
       packages: write
@@ -153,12 +156,38 @@ jobs:
           cache-from: type=registry,ref=ghcr.io/constasj/acanthis-api-server:buildcache
           cache-to: type=registry,ref=ghcr.io/constasj/acanthis-api-server:buildcache,mode=max,oci-mediatypes=true,compression=zstd,compression-level=6,image-manifest=true
 
+  api-server-deploy:
+    name: Deploy api-server via Baletta
+    needs: api-server-docker
+    if: >-
+      needs.api-server-docker.result == 'success' &&
+      needs.api-server-docker.outputs.is_prerelease == 'false'
+    runs-on: ubuntu-latest
+    env:
+      BALETTA_API_KEY: ${{ secrets.BALETTA_API_KEY }}
+    steps:
+      - name: Skip deployment when Baletta secret is not configured
+        if: env.BALETTA_API_KEY == ''
+        run: echo "BALETTA_API_KEY is not configured; skipping Baletta deployment."
+
+      - name: Trigger Baletta deployment
+        if: env.BALETTA_API_KEY != ''
+        uses: constasj/baletta-action@v1
+        with:
+          api-url: ${{ vars.BALETTA_API_URL || 'https://api.infini-fantasy.com/baletta' }}
+          api-key: ${{ secrets.BALETTA_API_KEY }}
+          project: ${{ vars.BALETTA_PROJECT || 'acanthis' }}
+          retry-attempts: 3
+
   web-static:
     name: Publish web static archive
     if: >-
       (github.event_name == 'push' && startsWith(github.ref_name, '@acanthis-dec/web@')) ||
       (github.event_name == 'workflow_dispatch' && inputs.target == 'web')
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+      is_prerelease: ${{ steps.meta.outputs.is_prerelease }}
     permissions:
       contents: write
     steps:
@@ -204,8 +233,14 @@ jobs:
             TAG="@acanthis-dec/web@${VERSION}"
           fi
 
+          IS_PRERELEASE=false
+          if [[ "${VERSION}" == *-* ]]; then
+            IS_PRERELEASE=true
+          fi
+
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "is_prerelease=${IS_PRERELEASE}" >> "$GITHUB_OUTPUT"
 
       - name: Package static distribution archive
         run: |
@@ -229,6 +264,55 @@ jobs:
           files: |
             release-artifacts/acanthis-web-v*.zip
             release-artifacts/SHA256SUMS.txt
+
+  web-esa-pages:
+    name: Deploy web to Aliyun ESA Pages
+    needs: web-static
+    if: >-
+      needs.web-static.result == 'success' &&
+      needs.web-static.outputs.is_prerelease == 'false'
+    runs-on: ubuntu-latest
+    env:
+      ESA_ACCESS_KEY_ID: ${{ secrets.ESA_ACCESS_KEY_ID }}
+      ESA_ACCESS_KEY_SECRET: ${{ secrets.ESA_ACCESS_KEY_SECRET }}
+      ESA_NO_UPDATE_CHECK: "1"
+    steps:
+      - name: Skip deployment when ESA credentials are not configured
+        if: env.ESA_ACCESS_KEY_ID == '' || env.ESA_ACCESS_KEY_SECRET == ''
+        run: echo "ESA_ACCESS_KEY_ID / ESA_ACCESS_KEY_SECRET not configured; skipping ESA Pages deployment."
+
+      - name: Checkout repository
+        if: env.ESA_ACCESS_KEY_ID != '' && env.ESA_ACCESS_KEY_SECRET != ''
+        uses: actions/checkout@v6
+
+      - name: Set up pnpm
+        if: env.ESA_ACCESS_KEY_ID != '' && env.ESA_ACCESS_KEY_SECRET != ''
+        uses: pnpm/action-setup@v6
+
+      - name: Set up Node.js
+        if: env.ESA_ACCESS_KEY_ID != '' && env.ESA_ACCESS_KEY_SECRET != ''
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        if: env.ESA_ACCESS_KEY_ID != '' && env.ESA_ACCESS_KEY_SECRET != ''
+        run: pnpm install --filter=@acanthis-dec/web... --frozen-lockfile
+
+      - name: Build web client for ESA Pages
+        if: env.ESA_ACCESS_KEY_ID != '' && env.ESA_ACCESS_KEY_SECRET != ''
+        env:
+          VITE_DEFAULT_API_BASE_URL: ${{ vars.ESA_DEFAULT_API_BASE_URL || 'https://api.infini-fantasy.com/acanthis' }}
+        run: pnpm --filter=@acanthis-dec/web... run build
+
+      - name: Deploy to Aliyun ESA Pages
+        if: env.ESA_ACCESS_KEY_ID != '' && env.ESA_ACCESS_KEY_SECRET != ''
+        run: |
+          pnpm dlx esa-cli@1 deploy \
+            --environment production \
+            --no-preview \
+            --description "Release @acanthis-dec/web@${{ needs.web-static.outputs.version }}"
 
   web-docker:
     name: Publish web Docker image
