@@ -7,6 +7,9 @@ import {
 } from "@acanthis-dec/browser-fetch";
 import type {
 	DescrambleCoefficients,
+	ExploreHomeData,
+	ExplorePage,
+	ExploreSchema,
 	Novel,
 	NovelSearchResult,
 } from "@acanthis-dec/core";
@@ -17,8 +20,21 @@ import z from "zod";
 import { getChapter } from "./chapter";
 import { descrambleCoefficientsSchema } from "./coefficients";
 import { getVolumeCoverUrl, novelIdToCoverUrl } from "./cover";
+import {
+	getCatalog,
+	getExploreHome,
+	getRankings,
+	LINOVELIB_EXPLORE_SCHEMA,
+	type LinovelibCatalogOptions,
+	type LinovelibRankingOptions,
+} from "./explore";
 import type { NovelUpdateInfo } from "./novel";
-import { NovelChapterQueue, NovelInfoQueue, NovelMediaQueue } from "./queue";
+import {
+	NovelChapterQueue,
+	NovelExploreQueue,
+	NovelInfoQueue,
+	NovelMediaQueue,
+} from "./queue";
 import { SearchSession, searchNovels } from "./search";
 import { ensureValidSession } from "./session";
 
@@ -64,6 +80,7 @@ export class LinovelibClient {
 	private novelChapterQueue: NovelChapterQueue;
 	private novelInfoQueue: NovelInfoQueue;
 	private novelMediaQueue: NovelMediaQueue;
+	private novelExploreQueue: NovelExploreQueue;
 	private searchSession: SearchSession;
 	private options?: LinovelibClientOptions;
 	private logger?: Logger | undefined;
@@ -158,6 +175,10 @@ export class LinovelibClient {
 			this.logger,
 		);
 		this.novelMediaQueue = new NovelMediaQueue(this.fetchClient, this.logger);
+		this.novelExploreQueue = new NovelExploreQueue(
+			this.fetchClient,
+			this.logger,
+		);
 		this.searchSession = new SearchSession(this.fetchClient);
 	}
 
@@ -269,5 +290,21 @@ export class LinovelibClient {
 			await this.storage.setCache("coefficients", result.coefficients);
 		}
 		return result?.content;
+	}
+
+	getExploreSchema(): ExploreSchema {
+		return LINOVELIB_EXPLORE_SCHEMA;
+	}
+
+	async getExploreHome(channel?: string): Promise<ExploreHomeData> {
+		return await getExploreHome(channel, this.novelExploreQueue);
+	}
+
+	async getRankings(options: LinovelibRankingOptions): Promise<ExplorePage> {
+		return await getRankings(options, this.novelExploreQueue);
+	}
+
+	async getCatalog(options?: LinovelibCatalogOptions): Promise<ExplorePage> {
+		return await getCatalog(options, this.novelExploreQueue);
 	}
 }
