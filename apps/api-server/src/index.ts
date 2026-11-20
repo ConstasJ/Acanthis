@@ -19,6 +19,12 @@ app.use(
 		allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
 	}),
 );
+app.get("/health", (c) =>
+	c.json({
+		status: "ok",
+		timestamp: new Date().toISOString(),
+	}),
+);
 if (config.auth?.token) {
 	app.use("*", createAuthMiddleware(config.auth.token));
 }
