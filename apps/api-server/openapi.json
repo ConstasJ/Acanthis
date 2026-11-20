@@ -1625,7 +1625,8 @@
 									"type": "string",
 									"enum": ["0", "1", "true", "false"]
 								}
-							]
+							],
+							"default": false
 						},
 						"description": "是否请求完整榜单（true/1 为完整榜，false/0 为总榜）；部分榜单仅支持 full=true"
 					},

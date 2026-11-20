@@ -37,12 +37,30 @@ import {
 	outputStyleSchema,
 } from "./common";
 
+type RequireAllTrue<T extends readonly true[]> = T;
+
 type AssertSameKeys<A, B> = [
 	Exclude<keyof A, keyof B>,
 	Exclude<keyof B, keyof A>,
 ] extends [never, never]
-	? true
-	: never;
+	? {
+			[K in keyof A & keyof B]-?: [Exclude<A[K], undefined>] extends [
+				readonly (infer AU)[],
+			]
+				? [Exclude<B[K], undefined>] extends [readonly (infer BU)[]]
+					? [AU] extends [string | number | boolean | null | undefined]
+						? [AU] extends [BU]
+							? true
+							: false
+						: AssertSameKeys<AU, BU>
+					: false
+				: [Exclude<A[K], undefined>] extends [Exclude<B[K], undefined>]
+					? true
+					: false;
+		}[keyof A & keyof B] extends true
+		? true
+		: false
+	: false;
 
 function createAllowedEnumSchema(
 	allowed: ReadonlySet<string>,
@@ -64,9 +82,9 @@ function createAllowedEnumSchema(
 
 const queryBooleanSchema = z
 	.union([z.boolean(), z.enum(["true", "false", "1", "0"])])
+	.meta({ default: false })
 	.transform((val) => val === true || val === "true" || val === "1")
-	.default(false)
-	.meta({ default: false });
+	.default(false);
 
 export const chapterParamSchema = z.object({
 	chapterId: z.string().min(1, "Chapter ID is required").describe("章节 ID"),
@@ -381,22 +399,24 @@ export const explorePageSchema = z
 	})
 	.meta({ id: "ExplorePage" });
 
-export type _CoreSchemaKeyChecks = [
-	AssertSameKeys<z.infer<typeof novelSearchResultSchema>, NovelSearchResult>,
-	AssertSameKeys<z.infer<typeof novelInfoSchema>, NovelInfo>,
-	AssertSameKeys<z.infer<typeof chapterSchema>, Chapter>,
-	AssertSameKeys<z.infer<typeof volumeSchema>, Volume>,
-	AssertSameKeys<z.infer<typeof novelSchema>, Novel>,
-	AssertSameKeys<
-		z.infer<typeof exploreChannelOptionSchema>,
-		ExploreChannelOption
-	>,
-	AssertSameKeys<z.infer<typeof exploreSchemaDataSchema>, ExploreSchema>,
-	AssertSameKeys<z.infer<typeof exploreNovelItemSchema>, ExploreNovelItem>,
-	AssertSameKeys<z.infer<typeof exploreSectionSchema>, ExploreSection>,
-	AssertSameKeys<z.infer<typeof exploreHomeDataSchema>, ExploreHomeData>,
-	AssertSameKeys<z.infer<typeof explorePageSchema>, ExplorePage>,
-];
+export type _CoreSchemaKeyChecks = RequireAllTrue<
+	[
+		AssertSameKeys<z.infer<typeof novelSearchResultSchema>, NovelSearchResult>,
+		AssertSameKeys<z.infer<typeof novelInfoSchema>, NovelInfo>,
+		AssertSameKeys<z.infer<typeof chapterSchema>, Chapter>,
+		AssertSameKeys<z.infer<typeof volumeSchema>, Volume>,
+		AssertSameKeys<z.infer<typeof novelSchema>, Novel>,
+		AssertSameKeys<
+			z.infer<typeof exploreChannelOptionSchema>,
+			ExploreChannelOption
+		>,
+		AssertSameKeys<z.infer<typeof exploreSchemaDataSchema>, ExploreSchema>,
+		AssertSameKeys<z.infer<typeof exploreNovelItemSchema>, ExploreNovelItem>,
+		AssertSameKeys<z.infer<typeof exploreSectionSchema>, ExploreSection>,
+		AssertSameKeys<z.infer<typeof exploreHomeDataSchema>, ExploreHomeData>,
+		AssertSameKeys<z.infer<typeof explorePageSchema>, ExplorePage>,
+	]
+>;
 
 export const paginatedNovelsDataSchema = z
 	.object({
