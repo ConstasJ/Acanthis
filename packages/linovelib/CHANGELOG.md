@@ -1,5 +1,13 @@
 # @acanthis-dec/linovelib
 
+## 1.4.1
+
+### Patch Changes
+
+- Updated dependencies [728d7cd]
+  - @acanthis-dec/browser-fetch@1.1.5
+  - @acanthis-dec/storage@1.1.4
+
 ## 1.4.0
 
 ### Minor Changes
