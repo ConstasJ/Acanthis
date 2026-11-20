@@ -3,6 +3,7 @@ import type { MergeSyncStateInput } from "@acanthis-dec/storage";
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import z from "zod";
+import { config } from "./config";
 import { logger, storageService } from "./services";
 import { resolveHost } from "./utils";
 
@@ -77,7 +78,7 @@ function normalizeProgressCover(
 app.get("/state", zValidator("query", syncQuerySchema), async (c) => {
 	try {
 		const { since } = c.req.valid("query");
-		const host = resolveHost(c);
+		const host = resolveHost(c, config.host);
 		const state = await storageService.getSyncState(since);
 		return c.json({
 			code: 0,
@@ -107,7 +108,7 @@ app.get("/state", zValidator("query", syncQuerySchema), async (c) => {
 app.post("/state", zValidator("json", syncPushSchema), async (c) => {
 	try {
 		const { bookshelf, progress } = c.req.valid("json");
-		const host = resolveHost(c);
+		const host = resolveHost(c, config.host);
 		const mergeInput: MergeSyncStateInput = {};
 		if (bookshelf !== undefined) {
 			mergeInput.bookshelf = bookshelf;

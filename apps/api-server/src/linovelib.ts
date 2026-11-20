@@ -29,6 +29,7 @@ import { zValidator } from "@hono/zod-validator";
 import { type Context, Hono } from "hono";
 import z from "zod";
 import { MemoryTtlCache } from "./cache";
+import { config } from "./config";
 import { linovelibClient, logger, storageService } from "./services";
 import { type OutputStyle, outputStyleSchema } from "./types";
 import {
@@ -312,7 +313,7 @@ app.get("/explore/schema", (c) => {
 app.get("/home", zValidator("query", homeQuerySchema), async (c) => {
 	try {
 		const { channel } = c.req.valid("query");
-		const host = resolveHost(c);
+		const host = resolveHost(c, config.host);
 		const data = await homeCache.getOrLoad(`home:${channel}`, () =>
 			linovelibClient.getExploreHome(channel),
 		);
@@ -329,7 +330,7 @@ app.get("/home", zValidator("query", homeQuerySchema), async (c) => {
 app.get("/rankings", zValidator("query", rankingsQuerySchema), async (c) => {
 	try {
 		const { rank, full, page, style } = c.req.valid("query");
-		const host = resolveHost(c);
+		const host = resolveHost(c, config.host);
 		const cacheKey = `rankings:${rank}:${full ? "full" : "all"}:${page}`;
 		const data = await rankingsCache.getOrLoad(cacheKey, () =>
 			linovelibClient.getRankings({ rank, full, page }),
@@ -354,7 +355,7 @@ app.get("/catalog", zValidator("query", catalogQuerySchema), async (c) => {
 	try {
 		const { sort, region, tag, progress, anime, words, updated, page, style } =
 			c.req.valid("query");
-		const host = resolveHost(c);
+		const host = resolveHost(c, config.host);
 		const cacheKey = `catalog:${sort}:${region}:${tag}:${progress}:${anime}:${words}:${updated}:${page}`;
 		const data = await catalogCache.getOrLoad(cacheKey, () =>
 			linovelibClient.getCatalog({
@@ -477,7 +478,7 @@ app.get(
 					illustrationUrls,
 				);
 			}
-			const host = resolveHost(c);
+			const host = resolveHost(c, config.host);
 			const content = rewriteChapterIllustrations(
 				rawHtml,
 				(url) => `${host}/v1/linovelib/illustration/${getUrlHash(url)}`,
@@ -498,7 +499,7 @@ app.get(
 app.get("/novels", zValidator("query", novelsQuerySchema), async (c) => {
 	try {
 		const { page, pageSize, style } = c.req.valid("query");
-		const host = resolveHost(c);
+		const host = resolveHost(c, config.host);
 		const paginated = await storageService.listCachedNovels("linovelib", {
 			page,
 			pageSize,
@@ -621,7 +622,7 @@ app.get(
 	zValidator("query", z.object({ style: outputStyleSchema.optional() })),
 	async (c) => {
 		try {
-			const host = resolveHost(c);
+			const host = resolveHost(c, config.host);
 			const novelId = c.req.param("novelId");
 			const style = c.req.query("style") as OutputStyle | undefined;
 			const cachedNovel = await storageService.getNovelCache(
@@ -834,7 +835,7 @@ app.get(
 
 app.get("/search", zValidator("query", searchQuerySchema), async (c) => {
 	try {
-		const host = resolveHost(c);
+		const host = resolveHost(c, config.host);
 		const keyword = c.req.query("keyword") as string;
 		const style = c.req.query("style") as OutputStyle | undefined;
 		const cachedResults = await storageService.searchNovels(

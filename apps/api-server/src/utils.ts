@@ -1,12 +1,11 @@
 import type { Novel, NovelSearchResult, NovelStatus } from "@acanthis-dec/core";
 import type { LinovelibClient } from "@acanthis-dec/linovelib";
 import type { Context } from "hono";
-import { config } from "./config";
 import type { LNReaderNovel, LNReaderNovelItem, OutputStyle } from "./types";
 
 export function resolveHost(
 	c: Context,
-	configuredHost: string | undefined = config.host,
+	configuredHost?: string | undefined,
 ): string {
 	const rawHost =
 		configuredHost?.trim() ||

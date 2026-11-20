@@ -3,14 +3,14 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { config } from "./config";
 import LinovelibRoutes from "./linovelib";
-import { createAuthMiddleware, loggerMiddleware } from "./middleware";
+import { createAuthMiddleware, createLoggerMiddleware } from "./middleware";
 import { logger, storageService } from "./services";
 import SourcesRoutes from "./sources";
 import SyncRoutes from "./sync";
 
 const app = new Hono().basePath("/v1");
 
-app.use(loggerMiddleware);
+app.use(createLoggerMiddleware(logger));
 app.use(
 	"*",
 	cors({

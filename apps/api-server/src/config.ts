@@ -112,6 +112,15 @@ export const ConfigSchema = z.object({
 		})
 		.optional()
 		.describe("API 鉴权配置"),
+	docs: z
+		.object({
+			enabled: z
+				.boolean()
+				.default(true)
+				.describe("是否启用 OpenAPI 契约与 Scalar 文档页面"),
+		})
+		.default({ enabled: true })
+		.describe("API 文档配置"),
 });
 
 export type Config = z.infer<typeof ConfigSchema>;
@@ -204,6 +213,12 @@ export function getConfig(): Config {
 		const rawAuthToken = process.env.AUTH_TOKEN?.trim();
 		if (rawAuthToken) {
 			envConfig.auth = { token: rawAuthToken };
+		}
+		const rawDocsEnabled = process.env.DOCS_ENABLED?.trim();
+		if (rawDocsEnabled) {
+			envConfig.docs = {
+				enabled: rawDocsEnabled.toLowerCase() === "true",
+			};
 		}
 		const mergeConfig = deepmergeCustom({ mergeArrays: false });
 		const mergedRaw = mergeConfig(fileConfig, envConfig);

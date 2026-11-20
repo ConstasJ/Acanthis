@@ -2,7 +2,6 @@ import { createHash, timingSafeEqual } from "node:crypto";
 import { getConnInfo } from "@hono/node-server/conninfo";
 import type { Context } from "hono";
 import { createMiddleware } from "hono/factory";
-import { logger } from "./services";
 
 function parseClientIp(c: Context): string {
 	const aliRealClientIp =
@@ -24,13 +23,17 @@ function parseClientIp(c: Context): string {
 	return getConnInfo(c).remote.address ?? "unknown";
 }
 
-export const loggerMiddleware = createMiddleware(async (c, next) => {
-	const start = Date.now();
-	await next();
-	const end = Date.now();
-	const logMessage = `method=${c.req.method} path=${c.req.path} status=${c.res.status} duration=${end - start}ms ip=${parseClientIp(c)}`;
-	logger.info(logMessage);
-});
+export function createLoggerMiddleware(logger: {
+	info: (message: string) => unknown;
+}) {
+	return createMiddleware(async (c, next) => {
+		const start = Date.now();
+		await next();
+		const end = Date.now();
+		const logMessage = `method=${c.req.method} path=${c.req.path} status=${c.res.status} duration=${end - start}ms ip=${parseClientIp(c)}`;
+		logger.info(logMessage);
+	});
+}
 
 const PUBLIC_BINARY_PATH_REGEX = /^\/v1\/[^/]+\/(cover|illustration)\//;
 

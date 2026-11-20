@@ -27,10 +27,12 @@
 		"@constasj/impers": "0.0.8",
 		"@hono/node-server": "^2.1.9",
 		"@hono/zod-validator": "^0.9.1",
+		"@scalar/hono-api-reference": "^0.12.23",
 		"better-sqlite3": "^13.2.0",
 		"deepmerge-ts": "^8.0.2",
 		"dotenv": "^18.0.10",
 		"hono": "^4.13.19",
+		"hono-openapi": "^1.6.0",
 		"isolated-vm": "^7.0.2",
 		"js-yaml": "^5.5.0",
 		"koffi": "3.3.8",
@@ -38,8 +40,8 @@
 		"zod": "^4.6.7"
 	},
 	"devDependencies": {
-		"@acanthis-dec/config-typescript": "workspace:*",
 		"@acanthis-dec/browser-fetch": "workspace:*",
+		"@acanthis-dec/config-typescript": "workspace:*",
 		"@types/js-yaml": "^4.0.9",
 		"@types/node": "catalog:",
 		"esbuild": "^0.28.2",
