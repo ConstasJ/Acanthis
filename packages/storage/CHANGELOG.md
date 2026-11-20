@@ -1,5 +1,12 @@
 # @acanthis-dec/storage
 
+## 1.1.3
+
+### Patch Changes
+
+- Updated dependencies [e33a4c1]
+  - @acanthis-dec/core@1.3.0
+
 ## 1.1.2
 
 ### Patch Changes

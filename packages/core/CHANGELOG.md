@@ -1,5 +1,11 @@
 # @acanthis-dec/core
 
+## 1.3.0
+
+### Minor Changes
+
+- e33a4c1: 新增桌面端源站发现能力（全站首页、16 个出版社文库专题、13 个排行榜含完本榜与 7 维书库筛选），并升级 Web 端发现页为 Schema 驱动的四视图浏览体验。
+
 ## 1.2.0
 
 ### Minor Changes
