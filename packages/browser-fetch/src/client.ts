@@ -4,6 +4,7 @@ import type z from "zod";
 import {
 	type ChallengeOptions,
 	detectCloudflareBlock,
+	detectCloudflareChallenge,
 	getDetector,
 	solveCloudflareChallenge,
 } from "./challenge";
@@ -159,6 +160,7 @@ export class BrowserFetchClient {
 
 	private async _request(
 		init: BrowserFetchRequest,
+		challengeRetried = false,
 	): Promise<BrowserFetchResponse> {
 		const storedCookies = await this.cookieStore.getForUrl(init.url);
 		const cookies: Record<string, string> = {};
@@ -332,7 +334,12 @@ export class BrowserFetchClient {
 			return browserFetchResponse;
 		} catch (error) {
 			if (error instanceof HttpStatusError) {
-				if (this.challengeSolver && this.challengeSolver.autoSolve === "auto") {
+				if (
+					this.flareSolverrClient &&
+					!challengeRetried &&
+					this.challengeSolver &&
+					this.challengeSolver.autoSolve === "auto"
+				) {
 					const detector = getDetector(this.challengeSolver);
 					if (detector(error.status, error.responseText)) {
 						const method = init.method === "POST" ? "POST" : "GET";
@@ -348,7 +355,7 @@ export class BrowserFetchClient {
 								clearance.value,
 								clearance,
 							);
-							return await this._request(init);
+							return await this._request(init, true);
 						} else {
 							throw new FlareSolverrError(
 								this.flareSolverrClient?.host ?? "",
@@ -357,7 +364,10 @@ export class BrowserFetchClient {
 						}
 					}
 				}
-				if (detectCloudflareBlock(error.status, error.responseText)) {
+				if (
+					detectCloudflareBlock(error.status, error.responseText) ||
+					detectCloudflareChallenge(error.status, error.responseText)
+				) {
 					throw new CloudflareBlockError(init.url);
 				}
 				throw error;
