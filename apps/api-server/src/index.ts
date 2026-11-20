@@ -1,47 +1,14 @@
 import { serve } from "@hono/node-server";
-import { Hono } from "hono";
-import { cors } from "hono/cors";
+import { createApp } from "./app";
 import { config } from "./config";
-import { createLinovelibRoutes } from "./linovelib";
-import { createAuthMiddleware, createLoggerMiddleware } from "./middleware";
 import { linovelibClient, logger, storageService } from "./services";
-import { createSourcesRoutes } from "./sources";
-import { createSyncRoutes } from "./sync";
 
-const app = new Hono().basePath("/v1");
-
-app.use(createLoggerMiddleware(logger));
-app.use(
-	"*",
-	cors({
-		origin: config.cors.origin,
-		allowHeaders: ["Content-Type", "Authorization"],
-		allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-	}),
-);
-app.get("/health", (c) =>
-	c.json({
-		status: "ok",
-		timestamp: new Date().toISOString(),
-	}),
-);
-if (config.auth?.token) {
-	app.use("*", createAuthMiddleware(config.auth.token));
-}
-app.route("/sources", createSourcesRoutes());
-app.route(
-	"/linovelib",
-	createLinovelibRoutes({
-		linovelibClient,
-		storageService,
-		logger,
-		host: config.host,
-	}),
-);
-app.route(
-	"/sync",
-	createSyncRoutes({ storageService, logger, host: config.host }),
-);
+const app = createApp({
+	config,
+	logger,
+	storageService,
+	linovelibClient,
+});
 
 const server = serve(
 	{

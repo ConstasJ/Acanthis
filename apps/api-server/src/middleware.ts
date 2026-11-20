@@ -20,7 +20,11 @@ function parseClientIp(c: Context): string {
 	if (xRealIp) {
 		return xRealIp.trim() ?? "unknown";
 	}
-	return getConnInfo(c).remote.address ?? "unknown";
+	try {
+		return getConnInfo(c).remote.address ?? "unknown";
+	} catch {
+		return "unknown";
+	}
 }
 
 export function createLoggerMiddleware(logger: {
