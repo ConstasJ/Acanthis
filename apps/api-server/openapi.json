@@ -2231,84 +2231,6 @@
 								}
 							}
 						}
-					},
-					"502": {
-						"description": "上游服务返回 5xx 或发生网络连接失败（code: 20003）",
-						"headers": {
-							"Retry-After": {
-								"description": "发生网络异常时建议等待的重试秒数（如 5）",
-								"schema": {
-									"type": "string",
-									"examples": ["5"]
-								}
-							},
-							"Cache-Control": {
-								"description": "禁止缓存失败响应",
-								"schema": {
-									"type": "string",
-									"examples": ["no-store"]
-								}
-							}
-						},
-						"content": {
-							"application/json": {
-								"schema": {
-									"$ref": "#/components/schemas/ApiError"
-								}
-							}
-						}
-					},
-					"503": {
-						"description": "上游触发 Cloudflare 拦截、上游 429 限流（code: 20001）或 FlareSolverr 验证失败（code: 20002），建议按 Retry-After 重试",
-						"headers": {
-							"Retry-After": {
-								"description": "建议客户端等待的重试秒数（固定为 15）",
-								"schema": {
-									"type": "string",
-									"examples": ["15"]
-								}
-							},
-							"Cache-Control": {
-								"description": "禁止缓存失败响应",
-								"schema": {
-									"type": "string",
-									"examples": ["no-store"]
-								}
-							}
-						},
-						"content": {
-							"application/json": {
-								"schema": {
-									"$ref": "#/components/schemas/ApiError"
-								}
-							}
-						}
-					},
-					"504": {
-						"description": "上游请求超时（code: 20003），建议按 Retry-After 重试",
-						"headers": {
-							"Retry-After": {
-								"description": "建议客户端等待的重试秒数（固定为 5）",
-								"schema": {
-									"type": "string",
-									"examples": ["5"]
-								}
-							},
-							"Cache-Control": {
-								"description": "禁止缓存失败响应",
-								"schema": {
-									"type": "string",
-									"examples": ["no-store"]
-								}
-							}
-						},
-						"content": {
-							"application/json": {
-								"schema": {
-									"$ref": "#/components/schemas/ApiError"
-								}
-							}
-						}
 					}
 				},
 				"parameters": [
@@ -2498,7 +2420,7 @@
 						"name": "hash",
 						"schema": {
 							"type": "string",
-							"pattern": "^[a-f0-9]{32}$"
+							"pattern": "^[a-fA-F0-9]{32}$"
 						},
 						"required": true,
 						"description": "插图原图 URL 的 32 位十六进制 MD5 哈希"

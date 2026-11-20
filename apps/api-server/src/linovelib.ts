@@ -545,7 +545,6 @@ export function createLinovelibRoutes(deps: LinovelibRouteDeps) {
 				400: validationErrorResponse,
 				401: unauthorizedResponse,
 				500: internalErrorResponse,
-				...upstreamErrorResponses,
 			},
 		}),
 		validator("query", novelsQuerySchema),

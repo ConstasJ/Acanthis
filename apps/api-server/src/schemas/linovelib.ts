@@ -31,36 +31,13 @@ import {
 } from "@acanthis-dec/linovelib";
 import z from "zod";
 import {
+	type AssertSameKeys,
 	createSuccessEnvelopeSchema,
 	lnReaderNovelItemSchema,
 	lnReaderNovelSchema,
 	outputStyleSchema,
+	type RequireAllTrue,
 } from "./common";
-
-type RequireAllTrue<T extends readonly true[]> = T;
-
-type AssertSameKeys<A, B> = [
-	Exclude<keyof A, keyof B>,
-	Exclude<keyof B, keyof A>,
-] extends [never, never]
-	? {
-			[K in keyof A & keyof B]-?: [Exclude<A[K], undefined>] extends [
-				readonly (infer AU)[],
-			]
-				? [Exclude<B[K], undefined>] extends [readonly (infer BU)[]]
-					? [AU] extends [string | number | boolean | null | undefined]
-						? [AU] extends [BU]
-							? true
-							: false
-						: AssertSameKeys<AU, BU>
-					: false
-				: [Exclude<A[K], undefined>] extends [Exclude<B[K], undefined>]
-					? true
-					: false;
-		}[keyof A & keyof B] extends true
-		? true
-		: false
-	: false;
 
 function createAllowedEnumSchema(
 	allowed: ReadonlySet<string>,
@@ -115,7 +92,7 @@ export const volumeParamSchema = z.object({
 export const illustrationParamSchema = z.object({
 	hash: z
 		.string()
-		.regex(/^[a-f0-9]{32}$/i, "Invalid illustration hash")
+		.regex(/^[a-fA-F0-9]{32}$/, "Invalid illustration hash")
 		.describe("插图原图 URL 的 32 位十六进制 MD5 哈希"),
 });
 

@@ -5,6 +5,32 @@ import type {
 } from "hono-openapi";
 import { resolver } from "hono-openapi";
 import z from "zod";
+import type { ChapterItem, LNReaderNovel, LNReaderNovelItem } from "../types";
+
+export type RequireAllTrue<T extends readonly true[]> = T;
+
+export type AssertSameKeys<A, B> = [
+	Exclude<keyof A, keyof B>,
+	Exclude<keyof B, keyof A>,
+] extends [never, never]
+	? {
+			[K in keyof A & keyof B]-?: [Exclude<A[K], undefined>] extends [
+				readonly (infer AU)[],
+			]
+				? [Exclude<B[K], undefined>] extends [readonly (infer BU)[]]
+					? [AU] extends [string | number | boolean | null | undefined]
+						? [AU] extends [BU]
+							? true
+							: false
+						: AssertSameKeys<AU, BU>
+					: false
+				: [Exclude<A[K], undefined>] extends [Exclude<B[K], undefined>]
+					? true
+					: false;
+		}[keyof A & keyof B] extends true
+		? true
+		: false
+	: false;
 
 export const outputStyleSchema = z
 	.enum(["acanthis", "lnreader"])
@@ -84,6 +110,14 @@ export const lnReaderNovelSchema = lnReaderNovelItemSchema
 			.describe("扁平化后的章节列表"),
 	})
 	.meta({ id: "LNReaderNovel" });
+
+export type _LNReaderSchemaChecks = RequireAllTrue<
+	[
+		AssertSameKeys<z.infer<typeof lnReaderChapterItemSchema>, ChapterItem>,
+		AssertSameKeys<z.infer<typeof lnReaderNovelItemSchema>, LNReaderNovelItem>,
+		AssertSameKeys<z.infer<typeof lnReaderNovelSchema>, LNReaderNovel>,
+	]
+>;
 
 export function createSuccessEnvelopeSchema<T extends z.ZodType>(
 	dataSchema: T,
