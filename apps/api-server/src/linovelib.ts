@@ -4,15 +4,31 @@ import {
 	HttpStatusError,
 	NetworkError,
 } from "@acanthis-dec/browser-fetch";
-import type { Novel } from "@acanthis-dec/core";
+import type {
+	ExploreHomeData,
+	ExploreNovelItem,
+	ExplorePage,
+	Novel,
+} from "@acanthis-dec/core";
 import {
 	extractChapterIllustrationUrls,
+	isValidLinovelibRanking,
+	LINOVELIB_CATALOG_ANIME_IDS,
+	LINOVELIB_CATALOG_PROGRESS_IDS,
+	LINOVELIB_CATALOG_REGION_IDS,
+	LINOVELIB_CATALOG_SORT_IDS,
+	LINOVELIB_CATALOG_TAG_IDS,
+	LINOVELIB_CATALOG_UPDATED_IDS,
+	LINOVELIB_CATALOG_WORDS_IDS,
+	LINOVELIB_CHANNEL_IDS,
+	LINOVELIB_RANKING_IDS,
 	rewriteChapterIllustrations,
 } from "@acanthis-dec/linovelib";
 import { getUrlHash } from "@acanthis-dec/storage";
 import { zValidator } from "@hono/zod-validator";
 import { type Context, Hono } from "hono";
 import z from "zod";
+import { MemoryTtlCache } from "./cache";
 import { linovelibClient, logger, storageService } from "./services";
 import { type OutputStyle, outputStyleSchema } from "./types";
 import {
@@ -28,6 +44,47 @@ const inFlightIllustrations = new Map<
 	string,
 	Promise<{ data: Buffer; mimeType: string } | null>
 >();
+
+const homeCache = new MemoryTtlCache<ExploreHomeData>();
+const rankingsCache = new MemoryTtlCache<ExplorePage>();
+const catalogCache = new MemoryTtlCache<ExplorePage>();
+
+function buildProxiedNovelCoverUrl(novelId: string, host: string): string {
+	return `${host}/v1/linovelib/cover/novel/${novelId}`;
+}
+
+function rewriteExploreItemCover(
+	item: ExploreNovelItem,
+	host: string,
+): ExploreNovelItem {
+	return {
+		...item,
+		coverUrl: buildProxiedNovelCoverUrl(item.id, host),
+	};
+}
+
+function rewriteExploreHomeCovers(
+	home: ExploreHomeData,
+	host: string,
+): ExploreHomeData {
+	return {
+		...home,
+		sections: home.sections.map((section) => ({
+			...section,
+			items: section.items.map((item) => rewriteExploreItemCover(item, host)),
+		})),
+	};
+}
+
+function rewriteExplorePageCovers(
+	page: ExplorePage,
+	host: string,
+): ExplorePage {
+	return {
+		...page,
+		items: page.items.map((item) => rewriteExploreItemCover(item, host)),
+	};
+}
 
 function handleLinovelibError(
 	c: Context,
@@ -158,6 +215,173 @@ const novelsQuerySchema = z.object({
 const searchQuerySchema = z.object({
 	keyword: z.string().min(1, "Keyword is required"),
 	style: outputStyleSchema.optional(),
+});
+
+function createAllowedStringSchema(
+	allowed: ReadonlySet<string>,
+	defaultValue: string,
+	fieldName: string,
+) {
+	return z
+		.string()
+		.default(defaultValue)
+		.refine((val) => allowed.has(val), {
+			message: `Invalid ${fieldName}`,
+		});
+}
+
+const queryBooleanSchema = z
+	.union([z.boolean(), z.enum(["true", "false", "1", "0"])])
+	.transform((val) => val === true || val === "true" || val === "1")
+	.default(false);
+
+const homeQuerySchema = z.object({
+	channel: createAllowedStringSchema(
+		LINOVELIB_CHANNEL_IDS,
+		"home",
+		"explore channel",
+	),
+});
+
+const rankingsQuerySchema = z
+	.object({
+		rank: createAllowedStringSchema(
+			LINOVELIB_RANKING_IDS,
+			"monthvisit",
+			"ranking id",
+		),
+		full: queryBooleanSchema,
+		page: z.coerce.number().int().min(1).default(1),
+		style: outputStyleSchema.optional(),
+	})
+	.refine((val) => isValidLinovelibRanking(val.rank, val.full), {
+		message: "Selected ranking does not support full=false",
+		path: ["rank"],
+	});
+
+const catalogQuerySchema = z.object({
+	sort: createAllowedStringSchema(
+		LINOVELIB_CATALOG_SORT_IDS,
+		"lastupdate",
+		"catalog sort",
+	),
+	region: createAllowedStringSchema(
+		LINOVELIB_CATALOG_REGION_IDS,
+		"0",
+		"catalog region",
+	),
+	tag: createAllowedStringSchema(LINOVELIB_CATALOG_TAG_IDS, "0", "catalog tag"),
+	progress: createAllowedStringSchema(
+		LINOVELIB_CATALOG_PROGRESS_IDS,
+		"0",
+		"catalog progress",
+	),
+	anime: createAllowedStringSchema(
+		LINOVELIB_CATALOG_ANIME_IDS,
+		"0",
+		"catalog anime",
+	),
+	words: createAllowedStringSchema(
+		LINOVELIB_CATALOG_WORDS_IDS,
+		"0",
+		"catalog words",
+	),
+	updated: createAllowedStringSchema(
+		LINOVELIB_CATALOG_UPDATED_IDS,
+		"0",
+		"catalog updated",
+	),
+	page: z.coerce.number().int().min(1).default(1),
+	style: outputStyleSchema.optional(),
+});
+
+app.get("/explore/schema", (c) => {
+	return c.json(
+		{
+			code: 0,
+			message: "Success",
+			data: linovelibClient.getExploreSchema(),
+		},
+		200,
+		{
+			"Cache-Control": "public, max-age=3600",
+		},
+	);
+});
+
+app.get("/home", zValidator("query", homeQuerySchema), async (c) => {
+	try {
+		const { channel } = c.req.valid("query");
+		const host = resolveHost(c);
+		const data = await homeCache.getOrLoad(`home:${channel}`, () =>
+			linovelibClient.getExploreHome(channel),
+		);
+		return c.json({
+			code: 0,
+			message: "Success",
+			data: rewriteExploreHomeCovers(data, host),
+		});
+	} catch (error) {
+		return handleLinovelibError(c, error);
+	}
+});
+
+app.get("/rankings", zValidator("query", rankingsQuerySchema), async (c) => {
+	try {
+		const { rank, full, page, style } = c.req.valid("query");
+		const host = resolveHost(c);
+		const cacheKey = `rankings:${rank}:${full ? "full" : "all"}:${page}`;
+		const data = await rankingsCache.getOrLoad(cacheKey, () =>
+			linovelibClient.getRankings({ rank, full, page }),
+		);
+		const rewritten = rewriteExplorePageCovers(data, host);
+		return c.json({
+			code: 0,
+			message: "Success",
+			data:
+				style === "lnreader"
+					? rewritten.items.map((item) =>
+							transformOutputStyleForSearchResult(item, style),
+						)
+					: rewritten,
+		});
+	} catch (error) {
+		return handleLinovelibError(c, error);
+	}
+});
+
+app.get("/catalog", zValidator("query", catalogQuerySchema), async (c) => {
+	try {
+		const { sort, region, tag, progress, anime, words, updated, page, style } =
+			c.req.valid("query");
+		const host = resolveHost(c);
+		const cacheKey = `catalog:${sort}:${region}:${tag}:${progress}:${anime}:${words}:${updated}:${page}`;
+		const data = await catalogCache.getOrLoad(cacheKey, () =>
+			linovelibClient.getCatalog({
+				sort,
+				region,
+				tag,
+				progress,
+				anime,
+				words,
+				updated,
+				page,
+			}),
+		);
+		const rewritten = rewriteExplorePageCovers(data, host);
+		return c.json({
+			code: 0,
+			message: "Success",
+			data:
+				style === "lnreader"
+					? rewritten.items.map((item) =>
+							transformOutputStyleForSearchResult(item, style),
+						)
+					: rewritten,
+		});
+	} catch (error) {
+		return handleLinovelibError(c, error);
+	}
 });
 
 app.get(

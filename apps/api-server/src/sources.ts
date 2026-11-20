@@ -5,7 +5,7 @@ const SOURCES: NovelSourceDescriptor[] = [
 	{
 		id: "linovelib",
 		name: "哔哩轻小说",
-		capabilities: ["search", "novels", "illustrations"],
+		capabilities: ["search", "novels", "illustrations", "explore"],
 	},
 ];
 
