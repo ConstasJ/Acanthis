@@ -1,0 +1,98 @@
+name: Ensure api-server runtime base image
+description: Resolve or build the shared zstd runtime base image for api-server
+
+inputs:
+  image:
+    description: Target repository for the runtime base image
+    required: false
+    default: ghcr.io/constasj/acanthis-api-server
+  platforms:
+    description: Target platforms for the runtime base image
+    required: false
+    default: linux/amd64
+  force-rebuild:
+    description: Bypass cache and force rebuilding the runtime base image
+    required: false
+    default: "false"
+
+outputs:
+  image:
+    description: Immutable runtime base image reference with digest
+    value: ${{ steps.resolve.outputs.image }}
+  tag:
+    description: Runtime tag derived from Dockerfile.runtime and model hashes
+    value: ${{ steps.check.outputs.runtime_tag }}
+  rebuilt:
+    description: Whether the runtime image was built in this run
+    value: ${{ steps.check.outputs.should_build }}
+
+runs:
+  using: composite
+  steps:
+    - name: Check existing runtime base image
+      id: check
+      shell: bash
+      run: |
+        set -euo pipefail
+        RUNTIME_HASH="$(sha256sum apps/api-server/Dockerfile.runtime packages/linovelib/assets/captcha_cropped.onnx | sha256sum | cut -c1-12)"
+        RUNTIME_TAG="runtime-${RUNTIME_HASH}"
+        RUNTIME_REF="${{ inputs.image }}:${RUNTIME_TAG}"
+
+        echo "runtime_tag=${RUNTIME_TAG}" >> "$GITHUB_OUTPUT"
+        echo "runtime_ref=${RUNTIME_REF}" >> "$GITHUB_OUTPUT"
+
+        if [ "${{ inputs.force-rebuild }}" != "true" ]; then
+          if DIGEST="$(docker buildx imagetools inspect "${RUNTIME_REF}" --format '{{json .Manifest.Digest}}' 2>/dev/null | tr -d '"\r\n')" && [ -n "${DIGEST}" ] && [ "${DIGEST}" != "null" ]; then
+            echo "Reusing existing runtime base image: ${RUNTIME_REF}@${DIGEST}"
+            echo "should_build=false" >> "$GITHUB_OUTPUT"
+            echo "digest=${DIGEST}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+        fi
+
+        echo "Building runtime base image: ${RUNTIME_REF}"
+        echo "should_build=true" >> "$GITHUB_OUTPUT"
+
+    - name: Build and push runtime base image
+      id: build
+      if: steps.check.outputs.should_build == 'true'
+      uses: docker/build-push-action@v7
+      with:
+        context: .
+        file: apps/api-server/Dockerfile.runtime
+        platforms: ${{ inputs.platforms }}
+        no-cache: ${{ inputs.force-rebuild == 'true' }}
+        tags: |
+          ${{ inputs.image }}:${{ steps.check.outputs.runtime_tag }}
+          ${{ inputs.image }}:runtime
+        labels: |
+          org.opencontainers.image.title=Acanthis API Server Runtime
+          org.opencontainers.image.description=Prebuilt runtime base image for Acanthis API Server
+          org.opencontainers.image.source=https://github.com/${{ github.repository }}
+          org.opencontainers.image.licenses=MIT
+          org.opencontainers.image.revision=${{ github.sha }}
+        outputs: type=registry,oci-mediatypes=true,compression=zstd,compression-level=6,force-compression=true
+        cache-from: type=registry,ref=${{ inputs.image }}:runtime-buildcache
+        cache-to: type=registry,ref=${{ inputs.image }}:runtime-buildcache,mode=max,oci-mediatypes=true,compression=zstd,compression-level=6,image-manifest=true
+
+    - name: Resolve runtime base image digest
+      id: resolve
+      shell: bash
+      run: |
+        set -euo pipefail
+        RUNTIME_REF="${{ steps.check.outputs.runtime_ref }}"
+        if [ "${{ steps.check.outputs.should_build }}" = "true" ]; then
+          DIGEST="$(printf '%s' "${{ steps.build.outputs.digest }}" | tr -d '"\r\n')"
+          if [ -z "${DIGEST}" ]; then
+            DIGEST="$(docker buildx imagetools inspect "${RUNTIME_REF}" --format '{{json .Manifest.Digest}}' | tr -d '"\r\n')"
+          fi
+        else
+          DIGEST="${{ steps.check.outputs.digest }}"
+        fi
+
+        if [ -z "${DIGEST}" ] || [ "${DIGEST}" = "null" ]; then
+          echo "Failed to resolve digest for ${RUNTIME_REF}" >&2
+          exit 1
+        fi
+
+        echo "image=${RUNTIME_REF}@${DIGEST}" >> "$GITHUB_OUTPUT"
