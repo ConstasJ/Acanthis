@@ -1,5 +1,8 @@
 import type {
 	BookshelfItem,
+	ExploreHomeData,
+	ExplorePage,
+	ExploreSchema,
 	Novel,
 	NovelInfo,
 	NovelSearchResult,
@@ -94,13 +97,21 @@ function parseErrorPayload(
 	};
 }
 
-function isAbortError(error: unknown): boolean {
+export function isAbortError(error: unknown): boolean {
 	return (
 		typeof error === "object" &&
 		error !== null &&
 		"name" in error &&
 		(error as { name: unknown }).name === "AbortError"
 	);
+}
+
+function buildSignalOptions(signal?: AbortSignal): { signal?: AbortSignal } {
+	const requestOptions: { signal?: AbortSignal } = {};
+	if (signal !== undefined) {
+		requestOptions.signal = signal;
+	}
+	return requestOptions;
 }
 
 async function requestJson<T>(
@@ -237,13 +248,75 @@ export async function searchNovels(
 ): Promise<NovelSearchResult[]> {
 	const params = new URLSearchParams({ keyword });
 	const encodedPlatform = encodeURIComponent(platform);
-	const requestOptions: { signal?: AbortSignal } = {};
-	if (signal !== undefined) {
-		requestOptions.signal = signal;
-	}
 	return await requestJson<NovelSearchResult[]>(
 		`/v1/${encodedPlatform}/search?${params.toString()}`,
-		requestOptions,
+		buildSignalOptions(signal),
+	);
+}
+
+export async function fetchExploreSchema(
+	platform: string,
+	signal?: AbortSignal,
+): Promise<ExploreSchema> {
+	const encodedPlatform = encodeURIComponent(platform);
+	return await requestJson<ExploreSchema>(
+		`/v1/${encodedPlatform}/explore/schema`,
+		buildSignalOptions(signal),
+	);
+}
+
+export async function fetchExploreHome(
+	platform: string,
+	channel?: string,
+	signal?: AbortSignal,
+): Promise<ExploreHomeData> {
+	const encodedPlatform = encodeURIComponent(platform);
+	const params = new URLSearchParams();
+	const trimmedChannel = channel?.trim();
+	if (trimmedChannel) {
+		params.set("channel", trimmedChannel);
+	}
+	const query = params.toString();
+	return await requestJson<ExploreHomeData>(
+		`/v1/${encodedPlatform}/home${query ? `?${query}` : ""}`,
+		buildSignalOptions(signal),
+	);
+}
+
+export async function fetchExploreRankings(
+	platform: string,
+	params: { rank: string; full: boolean; page: number },
+	signal?: AbortSignal,
+): Promise<ExplorePage> {
+	const encodedPlatform = encodeURIComponent(platform);
+	const searchParams = new URLSearchParams({
+		rank: params.rank,
+		full: String(params.full),
+		page: String(params.page),
+	});
+	return await requestJson<ExplorePage>(
+		`/v1/${encodedPlatform}/rankings?${searchParams.toString()}`,
+		buildSignalOptions(signal),
+	);
+}
+
+export async function fetchExploreCatalog(
+	platform: string,
+	params: Record<string, string | number>,
+	signal?: AbortSignal,
+): Promise<ExplorePage> {
+	const encodedPlatform = encodeURIComponent(platform);
+	const searchParams = new URLSearchParams();
+	for (const [key, value] of Object.entries(params)) {
+		const normalized = String(value).trim();
+		if (normalized) {
+			searchParams.set(key, normalized);
+		}
+	}
+	const query = searchParams.toString();
+	return await requestJson<ExplorePage>(
+		`/v1/${encodedPlatform}/catalog${query ? `?${query}` : ""}`,
+		buildSignalOptions(signal),
 	);
 }
 
