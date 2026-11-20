@@ -272,42 +272,54 @@ jobs:
       needs.web-static.result == 'success' &&
       needs.web-static.outputs.is_prerelease == 'false'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     env:
-      ESA_ACCESS_KEY_ID: ${{ secrets.ESA_ACCESS_KEY_ID }}
-      ESA_ACCESS_KEY_SECRET: ${{ secrets.ESA_ACCESS_KEY_SECRET }}
+      ALIYUN_OIDC_PROVIDER_ARN: ${{ secrets.ALIYUN_OIDC_PROVIDER_ARN }}
+      ALIYUN_ESA_ROLE_ARN: ${{ secrets.ALIYUN_ESA_ROLE_ARN }}
       ESA_NO_UPDATE_CHECK: "1"
     steps:
-      - name: Skip deployment when ESA credentials are not configured
-        if: env.ESA_ACCESS_KEY_ID == '' || env.ESA_ACCESS_KEY_SECRET == ''
-        run: echo "ESA_ACCESS_KEY_ID / ESA_ACCESS_KEY_SECRET not configured; skipping ESA Pages deployment."
+      - name: Skip deployment when Aliyun OIDC secrets are not configured
+        if: env.ALIYUN_OIDC_PROVIDER_ARN == '' || env.ALIYUN_ESA_ROLE_ARN == ''
+        run: echo "ALIYUN_OIDC_PROVIDER_ARN / ALIYUN_ESA_ROLE_ARN not configured; skipping ESA Pages deployment."
 
       - name: Checkout repository
-        if: env.ESA_ACCESS_KEY_ID != '' && env.ESA_ACCESS_KEY_SECRET != ''
+        if: env.ALIYUN_OIDC_PROVIDER_ARN != '' && env.ALIYUN_ESA_ROLE_ARN != ''
         uses: actions/checkout@v6
 
+      - name: Configure Alibaba Cloud STS credentials via OIDC
+        if: env.ALIYUN_OIDC_PROVIDER_ARN != '' && env.ALIYUN_ESA_ROLE_ARN != ''
+        uses: aliyun/configure-aliyun-credentials-action@v1
+        with:
+          oidc-provider-arn: ${{ secrets.ALIYUN_OIDC_PROVIDER_ARN }}
+          role-to-assume: ${{ secrets.ALIYUN_ESA_ROLE_ARN }}
+          role-session-name: acanthis-web-esa-cd
+          audience: ${{ vars.ALIYUN_OIDC_AUDIENCE || 'sts.aliyuncs.com' }}
+
       - name: Set up pnpm
-        if: env.ESA_ACCESS_KEY_ID != '' && env.ESA_ACCESS_KEY_SECRET != ''
+        if: env.ALIYUN_OIDC_PROVIDER_ARN != '' && env.ALIYUN_ESA_ROLE_ARN != ''
         uses: pnpm/action-setup@v6
 
       - name: Set up Node.js
-        if: env.ESA_ACCESS_KEY_ID != '' && env.ESA_ACCESS_KEY_SECRET != ''
+        if: env.ALIYUN_OIDC_PROVIDER_ARN != '' && env.ALIYUN_ESA_ROLE_ARN != ''
         uses: actions/setup-node@v6
         with:
           node-version: 24
           cache: pnpm
 
       - name: Install dependencies
-        if: env.ESA_ACCESS_KEY_ID != '' && env.ESA_ACCESS_KEY_SECRET != ''
+        if: env.ALIYUN_OIDC_PROVIDER_ARN != '' && env.ALIYUN_ESA_ROLE_ARN != ''
         run: pnpm install --filter=@acanthis-dec/web... --frozen-lockfile
 
       - name: Build web client for ESA Pages
-        if: env.ESA_ACCESS_KEY_ID != '' && env.ESA_ACCESS_KEY_SECRET != ''
+        if: env.ALIYUN_OIDC_PROVIDER_ARN != '' && env.ALIYUN_ESA_ROLE_ARN != ''
         env:
           VITE_DEFAULT_API_BASE_URL: ${{ vars.ESA_DEFAULT_API_BASE_URL || 'https://api.infini-fantasy.com/acanthis' }}
         run: pnpm --filter=@acanthis-dec/web... run build
 
       - name: Deploy to Aliyun ESA Pages
-        if: env.ESA_ACCESS_KEY_ID != '' && env.ESA_ACCESS_KEY_SECRET != ''
+        if: env.ALIYUN_OIDC_PROVIDER_ARN != '' && env.ALIYUN_ESA_ROLE_ARN != ''
         run: |
           pnpm dlx esa-cli@1 deploy \
             --environment production \
