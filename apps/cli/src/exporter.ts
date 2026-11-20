@@ -1,6 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import type { Volume } from "@acanthis-dec/core";
+import type { Novel, Volume } from "@acanthis-dec/core";
 import {
 	buildNovelEpub,
 	buildVolumeEpub,
@@ -22,16 +22,37 @@ import {
 const RETRY_DELAYS_MS = [500, 1000, 2000] as const;
 const MEDIA_DOWNLOAD_CONCURRENCY = 4;
 
+export interface ExportVolumePlan {
+	index: number;
+	id: string;
+	title: string;
+	chapterTotal: number;
+}
+
 export interface ExportProgressEvent {
 	phase: "novel" | "chapters" | "images" | "pack" | "write";
 	current: number;
 	total: number;
 	message: string;
+	novelTitle?: string | undefined;
+	volumes?: readonly ExportVolumePlan[] | undefined;
+	volumeIndex?: number | undefined;
+	volumeCount?: number | undefined;
+	volumeId?: string | undefined;
+	volumeTitle?: string | undefined;
+	volumeCurrent?: number | undefined;
+	volumeTotal?: number | undefined;
+	chapterTitle?: string | undefined;
+	chapterStatus?: "fetching" | "fetched" | "skipped" | "failed" | undefined;
+	volumeMediaTotals?: readonly number[] | undefined;
+	affectedVolumeIndices?: readonly number[] | undefined;
+	skipped?: boolean | undefined;
 }
 
 export interface ExportRunnerCallbacks {
 	onProgress?: ((event: ExportProgressEvent) => void) | undefined;
 	onWarning?: ((message: string) => void) | undefined;
+	prefetchedNovel?: Novel | undefined;
 }
 
 interface MediaDownloadTask {
@@ -39,6 +60,7 @@ interface MediaDownloadTask {
 	isNovelCover: boolean;
 	isVolumeCover: boolean;
 	isIllustration: boolean;
+	volumeIndices: Set<number>;
 }
 
 function sleep(ms: number): Promise<void> {
@@ -109,19 +131,18 @@ export async function runExport(
 	};
 
 	const novelId = parseNovelIdOrUrl(options.novelIdOrUrl);
-	emitProgress({
-		phase: "novel",
-		current: 0,
-		total: 1,
-		message: `Fetching novel ${novelId}`,
-	});
-	const novel = await client.getNovel(options.source, novelId);
-	emitProgress({
-		phase: "novel",
-		current: 1,
-		total: 1,
-		message: `Loaded novel: ${novel.title}`,
-	});
+	let novel: Novel;
+	if (callbacks?.prefetchedNovel && callbacks.prefetchedNovel.id === novelId) {
+		novel = callbacks.prefetchedNovel;
+	} else {
+		emitProgress({
+			phase: "novel",
+			current: 0,
+			total: 1,
+			message: `Fetching novel ${novelId}`,
+		});
+		novel = await client.getNovel(options.source, novelId);
+	}
 
 	const selectedVolumes: Volume[] = parseVolumeSelection(
 		options.volumes,
@@ -141,6 +162,23 @@ export async function runExport(
 		(sum, volume) => sum + volume.chapters.length,
 		0,
 	);
+	const volumePlans: ExportVolumePlan[] = selectedVolumes.map(
+		(volume, index) => ({
+			index,
+			id: volume.id,
+			title: volume.title,
+			chapterTotal: volume.chapters.length,
+		}),
+	);
+	emitProgress({
+		phase: "novel",
+		current: 1,
+		total: 1,
+		novelTitle: novel.title,
+		volumes: volumePlans,
+		message: `Loaded novel: ${novel.title} (${selectedVolumes.length} volume(s), ${totalChapters} chapter(s))`,
+	});
+
 	const fetchedChaptersPerVolume: EpubChapterData[][] = selectedVolumes.map(
 		() => [],
 	);
@@ -155,23 +193,49 @@ export async function runExport(
 			continue;
 		}
 
-		for (const chapter of volume.chapters) {
-			processedChapters += 1;
+		const volumeChapterTotal = volume.chapters.length;
+		let volumeProcessedChapters = 0;
 
+		for (const chapter of volume.chapters) {
 			if (isUnresolvedChapterId(chapter.id)) {
 				const msg = `Unresolved chapter "${chapter.title}" (${chapter.id}) in volume "${volume.title}"`;
 				if (options.strict) {
 					throw new Error(`Strict mode aborted: ${msg}`);
 				}
+				processedChapters += 1;
+				volumeProcessedChapters += 1;
 				emitWarning(`Skipped ${msg}`);
 				emitProgress({
 					phase: "chapters",
 					current: processedChapters,
 					total: totalChapters,
-					message: `Skipped unresolved chapter: ${chapter.title}`,
+					volumeIndex: vIdx,
+					volumeCount: selectedVolumes.length,
+					volumeId: volume.id,
+					volumeTitle: volume.title,
+					volumeCurrent: volumeProcessedChapters,
+					volumeTotal: volumeChapterTotal,
+					chapterTitle: chapter.title,
+					chapterStatus: "skipped",
+					message: `[${volume.title}] Skipped unresolved chapter: ${chapter.title}`,
 				});
 				continue;
 			}
+
+			emitProgress({
+				phase: "chapters",
+				current: processedChapters,
+				total: totalChapters,
+				volumeIndex: vIdx,
+				volumeCount: selectedVolumes.length,
+				volumeId: volume.id,
+				volumeTitle: volume.title,
+				volumeCurrent: volumeProcessedChapters,
+				volumeTotal: volumeChapterTotal,
+				chapterTitle: chapter.title,
+				chapterStatus: "fetching",
+				message: `[${volume.title}] Fetching (${volumeProcessedChapters + 1}/${volumeChapterTotal}): ${chapter.title}`,
+			});
 
 			try {
 				const content = await withExponentialBackoff(() =>
@@ -187,16 +251,28 @@ export async function runExport(
 						volumeIllustUrls.push(imgUrl);
 					}
 				}
+				processedChapters += 1;
+				volumeProcessedChapters += 1;
 				emitProgress({
 					phase: "chapters",
 					current: processedChapters,
 					total: totalChapters,
-					message: `Fetched chapter: ${chapter.title}`,
+					volumeIndex: vIdx,
+					volumeCount: selectedVolumes.length,
+					volumeId: volume.id,
+					volumeTitle: volume.title,
+					volumeCurrent: volumeProcessedChapters,
+					volumeTotal: volumeChapterTotal,
+					chapterTitle: chapter.title,
+					chapterStatus: "fetched",
+					message: `[${volume.title}] Fetched (${volumeProcessedChapters}/${volumeChapterTotal}): ${chapter.title}`,
 				});
 			} catch (error) {
 				if (isAuthError(error) || options.strict) {
 					throw error;
 				}
+				processedChapters += 1;
+				volumeProcessedChapters += 1;
 				emitWarning(
 					`Skipped chapter "${chapter.title}" (${chapter.id}): ${formatErrorMessage(error)}`,
 				);
@@ -204,7 +280,15 @@ export async function runExport(
 					phase: "chapters",
 					current: processedChapters,
 					total: totalChapters,
-					message: `Failed chapter: ${chapter.title}`,
+					volumeIndex: vIdx,
+					volumeCount: selectedVolumes.length,
+					volumeId: volume.id,
+					volumeTitle: volume.title,
+					volumeCurrent: volumeProcessedChapters,
+					volumeTotal: volumeChapterTotal,
+					chapterTitle: chapter.title,
+					chapterStatus: "failed",
+					message: `[${volume.title}] Failed (${volumeProcessedChapters}/${volumeChapterTotal}): ${chapter.title}`,
 				});
 			}
 		}
@@ -214,6 +298,7 @@ export async function runExport(
 	const registerMediaTask = (
 		rawUrl: string | null | undefined,
 		role: "novelCover" | "volumeCover" | "illustration",
+		volumeIndex?: number,
 	): void => {
 		const trimmed = rawUrl?.trim();
 		if (!trimmed) {
@@ -226,8 +311,12 @@ export async function runExport(
 				isNovelCover: false,
 				isVolumeCover: false,
 				isIllustration: false,
+				volumeIndices: new Set<number>(),
 			};
 			mediaTaskMap.set(trimmed, task);
+		}
+		if (volumeIndex !== undefined) {
+			task.volumeIndices.add(volumeIndex);
 		}
 		if (role === "novelCover") {
 			task.isNovelCover = true;
@@ -239,18 +328,30 @@ export async function runExport(
 	};
 
 	registerMediaTask(novel.coverUrl, "novelCover");
-	for (const volume of selectedVolumes) {
-		registerMediaTask(volume.coverUrl, "volumeCover");
-	}
-	if (options.illustrations !== false) {
-		for (const urls of illustrationUrlsPerVolume) {
-			for (const imgUrl of urls) {
-				registerMediaTask(imgUrl, "illustration");
+	for (let vIdx = 0; vIdx < selectedVolumes.length; vIdx += 1) {
+		const volume = selectedVolumes[vIdx];
+		if (!volume) {
+			continue;
+		}
+		registerMediaTask(volume.coverUrl, "volumeCover", vIdx);
+		if (options.illustrations !== false) {
+			const urls = illustrationUrlsPerVolume[vIdx];
+			if (urls) {
+				for (const imgUrl of urls) {
+					registerMediaTask(imgUrl, "illustration", vIdx);
+				}
 			}
 		}
 	}
 
 	const mediaTasks = [...mediaTaskMap.values()];
+	const volumeMediaTotals: number[] = selectedVolumes.map(() => 0);
+	for (const task of mediaTasks) {
+		for (const idx of task.volumeIndices) {
+			volumeMediaTotals[idx] = (volumeMediaTotals[idx] ?? 0) + 1;
+		}
+	}
+	const volumeMediaDone: number[] = selectedVolumes.map(() => 0);
 	const assetByRawUrl = new Map<string, EpubImageAsset>();
 	let downloadedMediaCount = 0;
 
@@ -259,7 +360,8 @@ export async function runExport(
 			phase: "images",
 			current: 0,
 			total: mediaTasks.length,
-			message: `Downloading ${mediaTasks.length} media assets`,
+			volumeMediaTotals,
+			message: `Downloading ${mediaTasks.length} media asset(s)`,
 		});
 
 		await withConcurrencyLimit(
@@ -301,12 +403,38 @@ export async function runExport(
 					);
 				} finally {
 					downloadedMediaCount += 1;
-					emitProgress({
-						phase: "images",
-						current: downloadedMediaCount,
-						total: mediaTasks.length,
-						message: `Downloaded media (${downloadedMediaCount}/${mediaTasks.length})`,
-					});
+					const affected = [...task.volumeIndices];
+					for (const idx of affected) {
+						volumeMediaDone[idx] = (volumeMediaDone[idx] ?? 0) + 1;
+					}
+					const primaryVolIdx = affected[0];
+					const primaryVol =
+						primaryVolIdx !== undefined
+							? selectedVolumes[primaryVolIdx]
+							: undefined;
+					if (primaryVol !== undefined && primaryVolIdx !== undefined) {
+						emitProgress({
+							phase: "images",
+							current: downloadedMediaCount,
+							total: mediaTasks.length,
+							volumeIndex: primaryVolIdx,
+							volumeCount: selectedVolumes.length,
+							volumeId: primaryVol.id,
+							volumeTitle: primaryVol.title,
+							volumeCurrent: volumeMediaDone[primaryVolIdx] ?? 0,
+							volumeTotal: volumeMediaTotals[primaryVolIdx] ?? 0,
+							affectedVolumeIndices: affected,
+							message: `[${primaryVol.title}] Downloaded media (${downloadedMediaCount}/${mediaTasks.length})`,
+						});
+					} else {
+						emitProgress({
+							phase: "images",
+							current: downloadedMediaCount,
+							total: mediaTasks.length,
+							affectedVolumeIndices: affected,
+							message: `Downloaded media (${downloadedMediaCount}/${mediaTasks.length})`,
+						});
+					}
 				}
 			},
 		);
@@ -339,6 +467,17 @@ export async function runExport(
 
 			if (!options.overwrite && (await fileExists(targetPath))) {
 				emitWarning(`Skipped existing file: ${targetPath}`);
+				emitProgress({
+					phase: "write",
+					current: vIdx + 1,
+					total: totalSteps,
+					volumeIndex: vIdx,
+					volumeCount: totalSteps,
+					volumeId: volume.id,
+					volumeTitle: volume.title,
+					skipped: true,
+					message: `[${volume.title}] Skipped existing file`,
+				});
 				files.push({
 					path: targetPath,
 					title: displayTitle,
@@ -353,7 +492,11 @@ export async function runExport(
 				phase: "pack",
 				current: vIdx + 1,
 				total: totalSteps,
-				message: `Packing volume: ${volume.title}`,
+				volumeIndex: vIdx,
+				volumeCount: totalSteps,
+				volumeId: volume.id,
+				volumeTitle: volume.title,
+				message: `[${volume.title}] Packing EPUB`,
 			});
 
 			const volumeCover = volume.coverUrl?.trim()
@@ -388,7 +531,11 @@ export async function runExport(
 				phase: "write",
 				current: vIdx + 1,
 				total: totalSteps,
-				message: `Writing ${targetPath}`,
+				volumeIndex: vIdx,
+				volumeCount: totalSteps,
+				volumeId: volume.id,
+				volumeTitle: volume.title,
+				message: `[${volume.title}] Writing ${path.basename(targetPath)}`,
 			});
 			await fs.writeFile(targetPath, epubBytes);
 
@@ -414,6 +561,13 @@ export async function runExport(
 
 		if (!options.overwrite && (await fileExists(targetPath))) {
 			emitWarning(`Skipped existing file: ${targetPath}`);
+			emitProgress({
+				phase: "write",
+				current: 1,
+				total: 1,
+				skipped: true,
+				message: `Skipped existing file: ${path.basename(targetPath)}`,
+			});
 			files.push({
 				path: targetPath,
 				title: novel.title,
