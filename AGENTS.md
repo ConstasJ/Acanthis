@@ -47,12 +47,13 @@
 - The API server is different: `apps/api-server/build.ts` uses esbuild to bundle `src/index.ts` to `dist/index.js` with a `createRequire` banner and explicit externals for native/runtime-heavy modules.
 - CI runs lint, affected type checks, and affected builds.
 - Docker publishing has two channels:
-  - `docker-canary` publishes GHCR `ghcr.io/constasj/acanthis-api-server` tags `canary` and `canary-<shortsha>` from `master` path changes.
+  - `docker-canary` publishes GHCR `ghcr.io/constasj/acanthis-api-server` tags `canary`, `canary-<shortsha>`, and `build-<hash12>` from `master` path changes.
   - `docker-release` (`api-server-docker` in `publish-artifacts.yml`) publishes GHCR and Docker Hub `constasj0721/acanthis-api-server` semver/latest tags from `@acanthis-dec/api-server@*` tags or manual dispatch.
 - `api-server` Docker images are split into two files:
   - `apps/api-server/Dockerfile.runtime` builds the prebuilt zstd runtime base image (`node:24-slim` pinned by digest, `ca-certificates`, CPU-only native dependencies with `ONNXRUNTIME_NODE_INSTALL=skip` and architecture-pruned `onnxruntime-node`/`isolated-vm` binaries, SHA256-verified `libcurl-impersonate.so`, and `captcha_cropped.onnx`).
   - `apps/api-server/Dockerfile` builds `dist/index.js` in `builder` and layers only `packages/storage/migrations` and `dist/index.js` onto `RUNTIME_IMAGE`.
   - CI workflows (`.github/workflows/canary.yml`, `.github/workflows/publish-artifacts.yml`, and `.github/workflows/api-server-runtime.yml`) resolve or build the immutable `runtime-<hash12>@sha256:...` base via `.github/actions/ensure-api-server-runtime` and share `ghcr.io/constasj/acanthis-api-server:buildcache` with zstd OCI compression. Keep `Dockerfile`, `Dockerfile.runtime`, and workflow expectations aligned.
+  - `canary.yml` computes a deterministic `build-<hash12>` tag via `.github/scripts/api-server-build-hash.mjs` (combining the resolved `RUNTIME_IMAGE` digest and build inputs with `package.json` `version` fields stripped and `*.md` excluded); when `publish-artifacts.yml` finds an existing `build-<hash12>` tag in GHCR, it skips Buildx and promotes that image with updated Release OCI labels via `crane mutate` (`.github/scripts/promote-api-server-image.mjs`) to GHCR and Docker Hub with zero layer re-uploads, falling back to a full Buildx build when missing.
 
 ## Change discipline
 
