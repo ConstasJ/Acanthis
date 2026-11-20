@@ -31,7 +31,10 @@ jobs:
     name: Detect canary targets
     if: >-
       github.event_name == 'workflow_dispatch' ||
-      !startsWith(github.event.head_commit.message, 'Version Packages')
+      !(
+        startsWith(github.event.head_commit.message, 'Version Packages') ||
+        contains(github.event.head_commit.message, '/changeset-release/master')
+      )
     runs-on: ubuntu-latest
     outputs:
       api-server: ${{ github.event_name == 'workflow_dispatch' && (inputs.api-server && 'true' || 'false') || steps.filter.outputs.api-server }}

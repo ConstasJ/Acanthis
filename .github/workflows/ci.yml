@@ -34,7 +34,10 @@ jobs:
     name: Quality
     if: >-
       github.head_ref != 'changeset-release/master' &&
-      !(github.event_name == 'push' && startsWith(github.event.head_commit.message, 'Version Packages'))
+      !(github.event_name == 'push' && (
+        startsWith(github.event.head_commit.message, 'Version Packages') ||
+        contains(github.event.head_commit.message, '/changeset-release/master')
+      ))
     runs-on: ubuntu-latest
     env:
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
