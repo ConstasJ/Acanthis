@@ -504,3 +504,97 @@ export class NovelMediaQueue {
 		return await taskPromise;
 	}
 }
+
+const DEFAULT_EXPLORE_DELAY_MIN_MS = 300;
+const DEFAULT_EXPLORE_DELAY_MAX_MS = 600;
+const DEFAULT_EXPLORE_RETRIES = 2;
+
+export class NovelExploreQueue {
+	private queue: PQueue;
+	private client: BrowserFetchClient;
+	private logger?: Logger | undefined;
+	private nextAvailableTime = 0;
+
+	constructor(client: BrowserFetchClient, logger?: Logger) {
+		this.queue = new PQueue({ concurrency: 2 });
+		this.client = client;
+		this.logger = logger;
+		this.queue.addEventListener("add", () => {
+			this.logger?.debug(
+				`[NovelExploreQueue] 任务已添加，当前排队数: ${this.queue.size} (执行中: ${this.queue.pending})`,
+			);
+		});
+		this.queue.addEventListener("next", () => {
+			this.logger?.debug(
+				`[NovelExploreQueue] 任务已结束，剩余排队数: ${this.queue.size} (执行中: ${this.queue.pending})`,
+			);
+		});
+	}
+
+	private async _sleep(ms: number): Promise<void> {
+		return new Promise((resolve) => setTimeout(resolve, ms));
+	}
+
+	private getThrottleDelay(): number {
+		return (
+			DEFAULT_EXPLORE_DELAY_MIN_MS +
+			Math.random() *
+				(DEFAULT_EXPLORE_DELAY_MAX_MS - DEFAULT_EXPLORE_DELAY_MIN_MS)
+		);
+	}
+
+	async fetchPage(url: string): Promise<string> {
+		return await this.queue.add(async () => {
+			const delay = this.getThrottleDelay();
+			const now = Date.now();
+			const scheduledAt = Math.max(now, this.nextAvailableTime);
+			this.nextAvailableTime = scheduledAt + delay;
+			const waitTime = scheduledAt - now;
+			if (waitTime > 0) {
+				this.logger?.debug(
+					`[NovelExploreQueue] 请求过快，等待 ${Math.floor(waitTime)}ms`,
+				);
+				await this._sleep(waitTime);
+			}
+
+			this.logger?.debug(`[NovelExploreQueue] 开始抓取页面: ${url}`);
+
+			const retry: RetryOptions = {
+				retries: DEFAULT_EXPLORE_RETRIES,
+				factor: 2,
+				minRetryDelayMs: 500,
+				maxRetryDelayMs: 3000,
+				randomize: true,
+				onFailedAttempt: async (ctx) => {
+					if (ctx.error instanceof CloudflareBlockError) {
+						this.logger?.warn(
+							`[NovelExploreQueue] 页面触发 Cloudflare 拦截 (${url}): ${ctx.error.message}`,
+						);
+						return;
+					}
+					if (defaultRetryPolicy(ctx)) {
+						if (ctx.retriesLeft > 0) {
+							this.logger?.warn(
+								`[NovelExploreQueue] 页面请求异常 (${url})，第 ${ctx.attemptNumber} 次失败，即将重试: ${ctx.error.message}`,
+							);
+						} else {
+							this.logger?.error(
+								`[NovelExploreQueue] 页面请求重试次数已达上限 (${ctx.attemptNumber} 次, ${url}): ${ctx.error.message}`,
+							);
+						}
+					}
+				},
+				shouldRetry: async (ctx) => {
+					if (ctx.error instanceof CloudflareBlockError) {
+						return false;
+					}
+					return defaultRetryPolicy(ctx);
+				},
+			};
+
+			const response = await this.client.text(url, { retry });
+			this.logger?.debug(`[NovelExploreQueue] 页面获取成功: ${url}`);
+			return response.data ?? "";
+		});
+	}
+}
