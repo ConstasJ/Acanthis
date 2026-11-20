@@ -26,6 +26,7 @@ import {
 } from "./client";
 import { loadCliConfig, saveCliConfigValue } from "./config";
 import { runExport } from "./exporter";
+import { createExportProgressRenderer } from "./progress";
 import type { ExportMode, ResolvedCliConfig } from "./types";
 import { isUnresolvedChapterId, parseNovelIdOrUrl } from "./utils";
 
@@ -522,8 +523,13 @@ export async function runInteractiveWizard(): Promise<void> {
 			}),
 		);
 
-		const exportSpinner = spinner();
-		exportSpinner.start("Starting EPUB export...");
+		const exportProgress = createExportProgressRenderer({
+			withGuide: true,
+			illustrations,
+			mode,
+			initialNovelTitle: novel.title,
+		});
+		exportProgress.start("Starting EPUB export...");
 		const summary = await (async () => {
 			try {
 				const result = await runExport(
@@ -542,15 +548,16 @@ export async function runInteractiveWizard(): Promise<void> {
 						json: false,
 					},
 					{
+						prefetchedNovel: novel,
 						onProgress: (event) => {
-							exportSpinner.message(`[${event.phase}] ${event.message}`);
+							exportProgress.update(event);
 						},
 					},
 				);
-				exportSpinner.stop(`Exported "${result.novelTitle}"`);
+				exportProgress.stop(`Exported "${result.novelTitle}"`);
 				return result;
 			} catch (error) {
-				exportSpinner.error("Export failed");
+				exportProgress.error("Export failed");
 				throw error;
 			}
 		})();

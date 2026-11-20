@@ -1,8 +1,12 @@
-import { spinner } from "@clack/prompts";
+import { isCI } from "@clack/prompts";
 import { defineCommand } from "citty";
 import pc from "picocolors";
 import { AcanthisApiClient } from "../client";
 import { runExport } from "../exporter";
+import {
+	createExportProgressRenderer,
+	formatProgressLogLine,
+} from "../progress";
 import type { ExportMode, ExportSummary } from "../types";
 import { parseNovelIdOrUrl } from "../utils";
 import {
@@ -109,12 +113,21 @@ export const exportCommand = defineCommand({
 		});
 
 		const client = new AcanthisApiClient(config.serverUrl, config.token);
-		const useSpinner =
-			!isJson && Boolean(process.stdout.isTTY) && Boolean(process.stderr.isTTY);
-		const spin = useSpinner ? spinner() : undefined;
+		const useRichProgress =
+			!isJson &&
+			Boolean(process.stdout.isTTY) &&
+			Boolean(process.stderr.isTTY) &&
+			!isCI();
+		const progressRenderer = useRichProgress
+			? createExportProgressRenderer({
+					withGuide: false,
+					illustrations: args.illustrations !== false,
+					mode: effectiveMode,
+				})
+			: undefined;
 
-		if (spin) {
-			spin.start(`Exporting novel from ${config.defaultSource}...`);
+		if (progressRenderer) {
+			progressRenderer.start(`Exporting novel from ${config.defaultSource}...`);
 		}
 
 		let summary: ExportSummary;
@@ -136,25 +149,28 @@ export const exportCommand = defineCommand({
 				},
 				{
 					onProgress: (event) => {
-						if (spin) {
-							spin.message(`[${event.phase}] ${event.message}`);
+						if (progressRenderer) {
+							progressRenderer.update(event);
 						} else {
-							writeProgressLine(`[${event.phase}] ${event.message}`, isJson);
+							const line = formatProgressLogLine(event);
+							if (line !== undefined) {
+								writeProgressLine(line, isJson);
+							}
 						}
 					},
 					onWarning: (message) => {
-						if (!spin) {
+						if (!progressRenderer) {
 							writeWarningLine(message, isJson);
 						}
 					},
 				},
 			);
-			if (spin) {
-				spin.stop(`Exported "${summary.novelTitle}"`);
+			if (progressRenderer) {
+				progressRenderer.stop(`Exported "${summary.novelTitle}"`);
 			}
 		} catch (error) {
-			if (spin) {
-				spin.error("Export failed");
+			if (progressRenderer) {
+				progressRenderer.error("Export failed");
 			}
 			throw error;
 		}
@@ -175,7 +191,7 @@ export const exportCommand = defineCommand({
 				`  ${statusLabel}  ${file.path} ${pc.dim(`(${file.chapterCount} chapters)`)}\n`,
 			);
 		}
-		if (spin && summary.warnings.length > 0) {
+		if (progressRenderer && summary.warnings.length > 0) {
 			for (const warning of summary.warnings) {
 				writeWarningLine(warning, false);
 			}
