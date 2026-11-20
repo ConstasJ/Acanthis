@@ -263,7 +263,14 @@ export interface NovelMediaQueueOptions {
 	normalDelayMaxMs?: number | undefined;
 	cloudflareBackoffMs?: readonly number[] | undefined;
 	retries?: number | undefined;
+	timeoutMs?: number | undefined;
+	connectionTimeoutMs?: number | undefined;
+	networkRetries?: number | undefined;
 }
+
+type MediaRetryContext = Parameters<
+	NonNullable<RetryOptions["shouldRetry"]>
+>[0];
 
 const DEFAULT_MEDIA_NORMAL_DELAY_MIN_MS = 300;
 const DEFAULT_MEDIA_NORMAL_DELAY_MAX_MS = 600;
@@ -271,6 +278,9 @@ const DEFAULT_MEDIA_CLOUDFLARE_BACKOFF_MS: readonly number[] = [
 	3000, 8000, 15000, 15000,
 ];
 const DEFAULT_MEDIA_RETRIES = 4;
+const DEFAULT_MEDIA_TIMEOUT_MS = 25_000;
+const DEFAULT_MEDIA_CONNECT_TIMEOUT_MS = 10_000;
+const DEFAULT_MEDIA_NETWORK_RETRIES = 2;
 
 function computeSecFetchSite(
 	targetUrl: string,
@@ -311,6 +321,9 @@ export class NovelMediaQueue {
 	private readonly normalDelayMaxMs: number;
 	private readonly cloudflareBackoffMs: readonly number[];
 	private readonly retries: number;
+	private readonly timeoutMs: number;
+	private readonly connectionTimeoutMs: number;
+	private readonly networkRetries: number;
 
 	constructor(
 		client: BrowserFetchClient,
@@ -331,14 +344,19 @@ export class NovelMediaQueue {
 				? options.cloudflareBackoffMs
 				: DEFAULT_MEDIA_CLOUDFLARE_BACKOFF_MS;
 		this.retries = options?.retries ?? DEFAULT_MEDIA_RETRIES;
+		this.timeoutMs = options?.timeoutMs ?? DEFAULT_MEDIA_TIMEOUT_MS;
+		this.connectionTimeoutMs =
+			options?.connectionTimeoutMs ?? DEFAULT_MEDIA_CONNECT_TIMEOUT_MS;
+		this.networkRetries =
+			options?.networkRetries ?? DEFAULT_MEDIA_NETWORK_RETRIES;
 		this.queue.addEventListener("add", () => {
 			this.logger?.debug(
-				`[NovelMediaQueue] 任务已添加，当前排队数: ${this.queue.size} (等待中任务数: ${this.queue.pending})`,
+				`[NovelMediaQueue] 任务已添加，当前排队数: ${this.queue.size} (执行中: ${this.queue.pending})`,
 			);
 		});
 		this.queue.addEventListener("next", () => {
 			this.logger?.debug(
-				`[NovelMediaQueue] 任务完成或失败，继续下一个任务。剩余：${this.queue.size}`,
+				`[NovelMediaQueue] 任务已结束，剩余排队数: ${this.queue.size} (执行中: ${this.queue.pending})`,
 			);
 		});
 	}
@@ -360,11 +378,13 @@ export class NovelMediaQueue {
 	): Promise<BinaryResponse> {
 		const existing = this.inFlight.get(url);
 		if (existing) {
+			this.logger?.debug(`[NovelMediaQueue] 复用在途图片请求: ${url}`);
 			return await existing;
 		}
 
 		const taskPromise = (async () => {
 			return await this.queue.add(async () => {
+				const startedAt = Date.now();
 				const cooldownWait = this.cooldownUntil - Date.now();
 				if (cooldownWait > 0) {
 					this.logger?.debug(
@@ -383,6 +403,10 @@ export class NovelMediaQueue {
 					await this._sleep(waitTime);
 				}
 
+				this.logger?.debug(
+					`[NovelMediaQueue] 开始获取图片: ${url} (排队数: ${this.queue.size})`,
+				);
+
 				const headers = {
 					Referer: referer,
 					Accept:
@@ -391,6 +415,11 @@ export class NovelMediaQueue {
 					"Sec-Fetch-Mode": "no-cors",
 					"Sec-Fetch-Site": computeSecFetchSite(url, referer),
 				};
+
+				const canRetryNetwork = (ctx: MediaRetryContext) =>
+					defaultRetryPolicy(ctx) &&
+					ctx.attemptNumber <= this.networkRetries &&
+					ctx.retriesLeft > 0;
 
 				const retry: RetryOptions = {
 					retries: this.retries,
@@ -423,7 +452,7 @@ export class NovelMediaQueue {
 						}
 
 						if (defaultRetryPolicy(ctx)) {
-							if (ctx.retriesLeft > 0) {
+							if (canRetryNetwork(ctx)) {
 								const delayMs = Math.min(
 									1000 * 2 ** Math.max(ctx.attemptNumber - 1, 0),
 									8000,
@@ -441,15 +470,31 @@ export class NovelMediaQueue {
 					},
 					shouldRetry: async (ctx) => {
 						return (
-							defaultRetryPolicy(ctx) ||
-							ctx.error instanceof CloudflareBlockError
+							ctx.error instanceof CloudflareBlockError ||
+							(defaultRetryPolicy(ctx) &&
+								ctx.attemptNumber <= this.networkRetries)
 						);
 					},
 				};
 
-				const response = await this.client.binary(url, { headers, retry });
-				this.lastFetchTime = Date.now();
-				return response;
+				try {
+					const response = await this.client.binary(url, {
+						headers,
+						retry,
+						timeout: this.timeoutMs,
+						connectionTimeout: this.connectionTimeoutMs,
+					});
+					this.lastFetchTime = Date.now();
+					this.logger?.debug(
+						`[NovelMediaQueue] 图片获取成功 (${Date.now() - startedAt}ms, ${response.data.length}B, ${response.mimeType}): ${url}`,
+					);
+					return response;
+				} catch (error) {
+					this.logger?.warn(
+						`[NovelMediaQueue] 图片获取最终失败 (${Date.now() - startedAt}ms, ${url}): ${error instanceof Error ? error.message : String(error)}`,
+					);
+					throw error;
+				}
 			});
 		})().finally(() => {
 			this.inFlight.delete(url);
