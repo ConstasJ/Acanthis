@@ -1,5 +1,11 @@
 # @acanthis-dec/web
 
+## 0.1.1
+
+### Patch Changes
+
+- a7db5c2: 为 API Server 新增免鉴权健康检查端点 `/v1/health`，并为 Web 入口页补充标准页面描述 meta 标签。
+
 ## 0.1.0
 
 ### Minor Changes
