@@ -1,0 +1,3362 @@
+{
+	"openapi": "3.1.0",
+	"info": {
+		"title": "Acanthis API Server",
+		"description": "Acanthis API Server 为 Acanthis 客户端及自动化 Agent 提供统一的小说源发现、检索、详情目录、解扰章节正文、媒体缓存代理及跨端同步能力。\n\n### 接入约定\n- **路由前缀**：所有接口均挂载在 `/v1` 前缀下。\n- **统一响应信封**：除 `GET /v1/health`、图片二进制接口与两处历史 404（`{ \"error\": string }`）外，业务 JSON 响应均采用 `{ \"code\": number, \"message\": string, \"data\"?: ... }`，其中 `code: 0` 表示成功。\n- **鉴权策略**：当服务端设置 `AUTH_TOKEN` 时，除 `/v1/health`、`/v1/openapi.json`、`/v1/docs` 与 `GET /v1/{platform}/(cover|illustration)/*` 外，其余接口均需在请求头传入 `Authorization: Bearer <token>`。\n- **输出风格切换**：部分查询与详情接口支持 `style=acanthis | lnreader` 参数，默认为 `acanthis`，传入 `lnreader` 时返回兼容 LNReader 插件协议的精简结构。\n- **上游限流与重试**：当上游站点触发 Cloudflare 拦截、429 限流或超时时，服务端返回 `502` / `503` / `504` 并附带 `Retry-After` 与 `Cache-Control: no-store` 响应头，客户端应按提示退避重试。",
+		"version": "1.0.0"
+	},
+	"servers": [
+		{
+			"url": "/",
+			"description": "当前服务端实例（保留 /v1 路由前缀）"
+		}
+	],
+	"tags": [
+		{
+			"name": "System",
+			"description": "服务健康检查与运行状态"
+		},
+		{
+			"name": "Sources",
+			"description": "已接入小说源及其能力声明"
+		},
+		{
+			"name": "Linovelib",
+			"description": "哔哩轻小说发现、检索、目录详情、章节正文与封面/插图代理"
+		},
+		{
+			"name": "Sync",
+			"description": "跨端书架与阅读进度增量同步（LWW 合并）"
+		}
+	],
+	"components": {
+		"securitySchemes": {
+			"bearerAuth": {
+				"type": "http",
+				"scheme": "bearer",
+				"description": "全局访问令牌；仅当服务端启用 AUTH_TOKEN 时必需，通过 Authorization: Bearer <token> 传入"
+			}
+		},
+		"schemas": {
+			"HealthStatus": {
+				"type": "object",
+				"properties": {
+					"status": {
+						"type": "string",
+						"const": "ok",
+						"description": "服务运行状态"
+					},
+					"timestamp": {
+						"type": "string",
+						"format": "date-time",
+						"pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$",
+						"description": "当前服务端 ISO 8601 时间戳"
+					}
+				},
+				"required": ["status", "timestamp"],
+				"additionalProperties": false
+			},
+			"NovelSourceDescriptor": {
+				"type": "object",
+				"properties": {
+					"id": {
+						"type": "string",
+						"description": "小说源唯一标识（用于对应 /v1/{platform}/... 路由前缀）"
+					},
+					"name": {
+						"type": "string",
+						"description": "小说源展示名称"
+					},
+					"capabilities": {
+						"type": "array",
+						"items": {
+							"type": "string",
+							"enum": ["search", "novels", "illustrations", "explore"],
+							"description": "小说源支持的接口能力"
+						},
+						"description": "当前小说源支持的功能能力列表"
+					}
+				},
+				"required": ["id", "name", "capabilities"],
+				"additionalProperties": false
+			},
+			"ApiError": {
+				"type": "object",
+				"properties": {
+					"code": {
+						"type": "integer",
+						"minimum": -9007199254740991,
+						"maximum": 9007199254740991,
+						"description": "业务错误码：10000（章节元数据缺失）、10001（封面未找到）、10002（小说 ID 缺失）、10003（插图未找到）、20000（服务端内部错误）、20001（Cloudflare 拦截或上游限流）、20002（FlareSolverr 验证失败）、20003（上游服务/网络错误）、40100（未授权）"
+					},
+					"message": {
+						"type": "string",
+						"description": "人类可读的错误描述信息"
+					}
+				},
+				"required": ["code", "message"],
+				"additionalProperties": false
+			},
+			"ExploreChannelOption": {
+				"type": "object",
+				"properties": {
+					"id": {
+						"type": "string",
+						"description": "频道 ID，传入 /home?channel="
+					},
+					"label": {
+						"type": "string",
+						"description": "频道展示名称"
+					},
+					"requiresChallenge": {
+						"description": "该频道上游是否常触发 Cloudflare 验证",
+						"type": "boolean"
+					}
+				},
+				"required": ["id", "label"],
+				"additionalProperties": false
+			},
+			"ExploreRankingOption": {
+				"type": "object",
+				"properties": {
+					"id": {
+						"type": "string",
+						"description": "榜单 ID，传入 /rankings?rank="
+					},
+					"label": {
+						"type": "string",
+						"description": "榜单展示名称"
+					},
+					"supportsAll": {
+						"type": "boolean",
+						"description": "是否支持 full=false 总榜"
+					},
+					"supportsFull": {
+						"type": "boolean",
+						"description": "是否支持 full=true 完整榜"
+					}
+				},
+				"required": ["id", "label", "supportsAll", "supportsFull"],
+				"additionalProperties": false
+			},
+			"ExploreFilterOption": {
+				"type": "object",
+				"properties": {
+					"value": {
+						"type": "string",
+						"description": "筛选项传参值"
+					},
+					"label": {
+						"type": "string",
+						"description": "筛选项展示名称"
+					}
+				},
+				"required": ["value", "label"],
+				"additionalProperties": false
+			},
+			"ExploreFilterGroup": {
+				"type": "object",
+				"properties": {
+					"key": {
+						"type": "string",
+						"description": "对应 /catalog 的查询参数键名"
+					},
+					"label": {
+						"type": "string",
+						"description": "筛选分组展示名称"
+					},
+					"defaultValue": {
+						"type": "string",
+						"description": "默认筛选值"
+					},
+					"options": {
+						"type": "array",
+						"items": {
+							"$ref": "#/components/schemas/ExploreFilterOption"
+						},
+						"description": "可选项列表"
+					}
+				},
+				"required": ["key", "label", "defaultValue", "options"],
+				"additionalProperties": false
+			},
+			"ExploreSchema": {
+				"type": "object",
+				"properties": {
+					"platform": {
+						"type": "string",
+						"description": "平台 ID，如 linovelib"
+					},
+					"supportsHome": {
+						"type": "boolean",
+						"description": "是否支持首页推荐接口"
+					},
+					"channels": {
+						"type": "array",
+						"items": {
+							"$ref": "#/components/schemas/ExploreChannelOption"
+						},
+						"description": "支持的频道列表"
+					},
+					"rankings": {
+						"type": "array",
+						"items": {
+							"$ref": "#/components/schemas/ExploreRankingOption"
+						},
+						"description": "支持的排行榜列表"
+					},
+					"catalogRequiresChallenge": {
+						"description": "书库页上游是否常触发 Cloudflare 验证",
+						"type": "boolean"
+					},
+					"catalogFilters": {
+						"type": "array",
+						"items": {
+							"$ref": "#/components/schemas/ExploreFilterGroup"
+						},
+						"description": "书库组合筛选分组定义"
+					}
+				},
+				"required": [
+					"platform",
+					"supportsHome",
+					"channels",
+					"rankings",
+					"catalogFilters"
+				],
+				"additionalProperties": false
+			},
+			"ExploreNovelItem": {
+				"type": "object",
+				"properties": {
+					"id": {
+						"type": "string",
+						"description": "小说 ID"
+					},
+					"platform": {
+						"type": "string",
+						"description": "平台 ID"
+					},
+					"title": {
+						"type": "string",
+						"description": "小说标题"
+					},
+					"coverUrl": {
+						"description": "封面代理 URL",
+						"type": "string"
+					},
+					"author": {
+						"description": "作者名称",
+						"type": "string"
+					},
+					"summary": {
+						"description": "小说简介",
+						"type": "string"
+					},
+					"status": {
+						"type": "string",
+						"enum": ["ongoing", "completed", "unknown"],
+						"description": "小说连载状态"
+					},
+					"category": {
+						"description": "分类名称",
+						"type": "string"
+					},
+					"genres": {
+						"description": "标签列表",
+						"type": "array",
+						"items": {
+							"type": "string"
+						}
+					},
+					"latestChapter": {
+						"description": "最新章节标题",
+						"type": "string"
+					},
+					"latestChapterId": {
+						"description": "最新章节 ID",
+						"type": "string"
+					},
+					"wordCount": {
+						"description": "字数描述",
+						"type": "string"
+					},
+					"updatedAt": {
+						"description": "最近更新时间文本",
+						"type": "string"
+					},
+					"rank": {
+						"description": "榜单排名",
+						"type": "number"
+					}
+				},
+				"required": ["id", "platform", "title"],
+				"additionalProperties": false
+			},
+			"ExploreSectionMoreTarget": {
+				"type": "object",
+				"properties": {
+					"type": {
+						"type": "string",
+						"enum": ["ranking", "catalog", "channel"],
+						"description": "更多跳转目标类型"
+					},
+					"params": {
+						"type": "object",
+						"propertyNames": {
+							"type": "string"
+						},
+						"additionalProperties": {
+							"type": "string"
+						},
+						"description": "跳转目标对应的查询参数键值对"
+					}
+				},
+				"required": ["type", "params"],
+				"additionalProperties": false
+			},
+			"ExploreSection": {
+				"type": "object",
+				"properties": {
+					"id": {
+						"type": "string",
+						"description": "栏目标识"
+					},
+					"title": {
+						"type": "string",
+						"description": "栏目标题"
+					},
+					"layout": {
+						"type": "string",
+						"enum": ["featured", "grid", "rank", "updates"],
+						"description": "栏目推荐展示布局提示"
+					},
+					"items": {
+						"type": "array",
+						"items": {
+							"$ref": "#/components/schemas/ExploreNovelItem"
+						},
+						"description": "栏目内小说列表"
+					},
+					"more": {
+						"description": "查看更多跳转参数",
+						"$ref": "#/components/schemas/ExploreSectionMoreTarget"
+					}
+				},
+				"required": ["id", "title", "layout", "items"],
+				"additionalProperties": false
+			},
+			"ExploreHomeData": {
+				"type": "object",
+				"properties": {
+					"platform": {
+						"type": "string",
+						"description": "平台 ID"
+					},
+					"channel": {
+						"type": "string",
+						"description": "当前频道 ID"
+					},
+					"title": {
+						"type": "string",
+						"description": "频道页面标题"
+					},
+					"sections": {
+						"type": "array",
+						"items": {
+							"$ref": "#/components/schemas/ExploreSection"
+						},
+						"description": "频道内各推荐栏目"
+					}
+				},
+				"required": ["platform", "channel", "title", "sections"],
+				"additionalProperties": false
+			},
+			"ValidationError": {
+				"type": "object",
+				"properties": {
+					"success": {
+						"type": "boolean",
+						"const": false,
+						"description": "校验是否成功，固定为 false"
+					},
+					"error": {
+						"type": "array",
+						"items": {
+							"type": "object",
+							"propertyNames": {
+								"type": "string"
+							},
+							"additionalProperties": {}
+						},
+						"description": "请求参数或请求体校验失败明细列表"
+					},
+					"data": {
+						"description": "触发校验失败的原始输入数据"
+					}
+				},
+				"required": ["success", "error", "data"],
+				"additionalProperties": false
+			},
+			"ExplorePage": {
+				"type": "object",
+				"properties": {
+					"platform": {
+						"type": "string",
+						"description": "平台 ID"
+					},
+					"items": {
+						"type": "array",
+						"items": {
+							"$ref": "#/components/schemas/ExploreNovelItem"
+						},
+						"description": "当前页小说条目列表"
+					},
+					"page": {
+						"type": "integer",
+						"minimum": 1,
+						"maximum": 9007199254740991,
+						"description": "当前页码"
+					},
+					"totalPages": {
+						"description": "总页数",
+						"type": "integer",
+						"minimum": 1,
+						"maximum": 9007199254740991
+					},
+					"hasNextPage": {
+						"type": "boolean",
+						"description": "是否存在下一页"
+					}
+				},
+				"required": ["platform", "items", "page", "hasNextPage"],
+				"additionalProperties": false
+			},
+			"LNReaderNovelItem": {
+				"type": "object",
+				"properties": {
+					"name": {
+						"type": "string",
+						"description": "小说标题"
+					},
+					"path": {
+						"type": "string",
+						"description": "小说 ID"
+					},
+					"cover": {
+						"description": "小说封面代理 URL",
+						"type": "string"
+					}
+				},
+				"required": ["name", "path"],
+				"additionalProperties": false
+			},
+			"ChapterContentData": {
+				"type": "object",
+				"properties": {
+					"content": {
+						"type": "string",
+						"description": "已解扰并将插图 img[src] 重写为 /v1/linovelib/illustration/{hash} 代理地址的章节 HTML 正文"
+					}
+				},
+				"required": ["content"],
+				"additionalProperties": false
+			},
+			"LegacyError": {
+				"type": "object",
+				"properties": {
+					"error": {
+						"type": "string",
+						"description": "错误描述信息（历史接口 404 兼容响应结构）"
+					}
+				},
+				"required": ["error"],
+				"additionalProperties": false
+			},
+			"NovelInfo": {
+				"type": "object",
+				"properties": {
+					"id": {
+						"type": "string",
+						"description": "小说 ID"
+					},
+					"platform": {
+						"type": "string",
+						"description": "小说源平台 ID"
+					},
+					"title": {
+						"type": "string",
+						"description": "小说标题"
+					},
+					"coverUrl": {
+						"description": "封面代理 URL",
+						"type": "string"
+					},
+					"author": {
+						"type": "string",
+						"description": "作者名称"
+					},
+					"summary": {
+						"type": "string",
+						"description": "小说简介"
+					},
+					"status": {
+						"type": "string",
+						"enum": ["ongoing", "completed", "unknown"],
+						"description": "小说连载状态"
+					},
+					"genres": {
+						"type": "array",
+						"items": {
+							"type": "string"
+						},
+						"description": "分类标签列表"
+					}
+				},
+				"required": [
+					"id",
+					"platform",
+					"title",
+					"author",
+					"summary",
+					"status",
+					"genres"
+				],
+				"additionalProperties": false
+			},
+			"PaginatedNovelsData": {
+				"type": "object",
+				"properties": {
+					"items": {
+						"anyOf": [
+							{
+								"type": "array",
+								"items": {
+									"$ref": "#/components/schemas/NovelInfo"
+								}
+							},
+							{
+								"type": "array",
+								"items": {
+									"$ref": "#/components/schemas/LNReaderNovelItem"
+								}
+							}
+						],
+						"description": "当 style=lnreader 时为 LNReaderNovelItem[]，否则为 NovelInfo[]"
+					},
+					"total": {
+						"type": "integer",
+						"minimum": 0,
+						"maximum": 9007199254740991,
+						"description": "已缓存小说总数"
+					},
+					"page": {
+						"type": "integer",
+						"minimum": 1,
+						"maximum": 9007199254740991,
+						"description": "当前页码"
+					},
+					"pageSize": {
+						"type": "integer",
+						"minimum": 1,
+						"maximum": 9007199254740991,
+						"description": "每页数量"
+					}
+				},
+				"required": ["items", "total", "page", "pageSize"],
+				"additionalProperties": false
+			},
+			"Chapter": {
+				"type": "object",
+				"properties": {
+					"id": {
+						"type": "string",
+						"description": "章节 ID"
+					},
+					"platform": {
+						"description": "平台标识（详情接口中会省略）",
+						"type": ["string", "null"]
+					},
+					"title": {
+						"type": "string",
+						"description": "章节标题"
+					},
+					"novelId": {
+						"description": "所属小说 ID",
+						"type": ["string", "null"]
+					},
+					"volumeId": {
+						"description": "所属分卷 ID",
+						"type": ["string", "null"]
+					},
+					"contentHash": {
+						"description": "正文内容缓存哈希",
+						"type": ["string", "null"]
+					}
+				},
+				"required": ["id", "title"],
+				"additionalProperties": false
+			},
+			"Volume": {
+				"type": "object",
+				"properties": {
+					"id": {
+						"type": "string",
+						"description": "分卷 ID"
+					},
+					"platform": {
+						"description": "平台标识（详情接口中会省略）",
+						"type": ["string", "null"]
+					},
+					"title": {
+						"type": "string",
+						"description": "分卷标题"
+					},
+					"coverUrl": {
+						"description": "分卷封面代理 URL",
+						"type": ["string", "null"]
+					},
+					"novelId": {
+						"description": "所属小说 ID",
+						"type": ["string", "null"]
+					},
+					"chapters": {
+						"type": "array",
+						"items": {
+							"$ref": "#/components/schemas/Chapter"
+						},
+						"description": "分卷内章节列表"
+					}
+				},
+				"required": ["id", "title", "chapters"],
+				"additionalProperties": false
+			},
+			"Novel": {
+				"type": "object",
+				"properties": {
+					"id": {
+						"type": "string",
+						"description": "小说 ID"
+					},
+					"platform": {
+						"type": "string",
+						"description": "小说源平台 ID"
+					},
+					"title": {
+						"type": "string",
+						"description": "小说标题"
+					},
+					"coverUrl": {
+						"description": "封面代理 URL",
+						"type": "string"
+					},
+					"author": {
+						"type": "string",
+						"description": "作者名称"
+					},
+					"summary": {
+						"type": "string",
+						"description": "小说简介"
+					},
+					"status": {
+						"type": "string",
+						"enum": ["ongoing", "completed", "unknown"],
+						"description": "小说连载状态"
+					},
+					"genres": {
+						"type": "array",
+						"items": {
+							"type": "string"
+						},
+						"description": "分类标签列表"
+					},
+					"volumes": {
+						"type": "array",
+						"items": {
+							"$ref": "#/components/schemas/Volume"
+						},
+						"description": "分卷及目录结构"
+					}
+				},
+				"required": [
+					"id",
+					"platform",
+					"title",
+					"author",
+					"summary",
+					"status",
+					"genres",
+					"volumes"
+				],
+				"additionalProperties": false
+			},
+			"LNReaderChapterItem": {
+				"type": "object",
+				"properties": {
+					"name": {
+						"type": "string",
+						"description": "章节展示名称（格式通常为 卷名 - 章节名）"
+					},
+					"path": {
+						"type": "string",
+						"description": "章节 ID"
+					},
+					"releaseTime": {
+						"description": "章节发布时间",
+						"type": ["string", "null"]
+					},
+					"chapterNumber": {
+						"description": "章节序号",
+						"type": "number"
+					},
+					"page": {
+						"description": "分卷页标识",
+						"type": "string"
+					}
+				},
+				"required": ["name", "path"],
+				"additionalProperties": false
+			},
+			"LNReaderNovel": {
+				"type": "object",
+				"properties": {
+					"name": {
+						"type": "string",
+						"description": "小说标题"
+					},
+					"path": {
+						"type": "string",
+						"description": "小说 ID"
+					},
+					"cover": {
+						"description": "小说封面代理 URL",
+						"type": "string"
+					},
+					"genres": {
+						"description": "逗号分隔的分类/标签字符串",
+						"type": "string"
+					},
+					"summary": {
+						"description": "小说简介",
+						"type": "string"
+					},
+					"author": {
+						"description": "作者名称",
+						"type": "string"
+					},
+					"artist": {
+						"description": "插画师名称",
+						"type": "string"
+					},
+					"status": {
+						"description": "连载状态（Ongoing / Completed / Unknown）",
+						"type": "string"
+					},
+					"rating": {
+						"description": "评分",
+						"type": "number"
+					},
+					"chapters": {
+						"description": "扁平化后的章节列表",
+						"type": "array",
+						"items": {
+							"$ref": "#/components/schemas/LNReaderChapterItem"
+						}
+					}
+				},
+				"required": ["name", "path"],
+				"additionalProperties": false
+			},
+			"NovelSearchResult": {
+				"type": "object",
+				"properties": {
+					"id": {
+						"type": "string",
+						"description": "小说 ID"
+					},
+					"platform": {
+						"type": "string",
+						"description": "小说源平台 ID"
+					},
+					"title": {
+						"type": "string",
+						"description": "小说标题"
+					},
+					"coverUrl": {
+						"description": "封面代理 URL",
+						"type": "string"
+					}
+				},
+				"required": ["id", "platform", "title"],
+				"additionalProperties": false
+			},
+			"BookshelfItemOutput": {
+				"type": "object",
+				"properties": {
+					"platform": {
+						"type": "string",
+						"minLength": 1,
+						"description": "小说源平台 ID，如 linovelib"
+					},
+					"novelId": {
+						"type": "string",
+						"minLength": 1,
+						"description": "小说 ID"
+					},
+					"title": {
+						"type": "string",
+						"description": "小说标题"
+					},
+					"author": {
+						"type": "string",
+						"description": "作者名称"
+					},
+					"coverUrl": {
+						"type": "string",
+						"description": "封面 URL；服务端响应中会重写为当前部署下的代理封面 URL"
+					},
+					"addedAt": {
+						"type": "number",
+						"description": "加入书架时间戳（毫秒）"
+					},
+					"updatedAt": {
+						"type": "number",
+						"description": "记录更新时间戳（毫秒）"
+					},
+					"deletedAt": {
+						"description": "软删除时间戳（毫秒），未删除时为 null",
+						"type": ["number", "null"]
+					}
+				},
+				"required": [
+					"platform",
+					"novelId",
+					"title",
+					"author",
+					"coverUrl",
+					"addedAt",
+					"updatedAt",
+					"deletedAt"
+				],
+				"additionalProperties": false
+			},
+			"ReadingProgressOutput": {
+				"type": "object",
+				"properties": {
+					"platform": {
+						"type": "string",
+						"minLength": 1,
+						"description": "小说源平台 ID，如 linovelib"
+					},
+					"novelId": {
+						"type": "string",
+						"minLength": 1,
+						"description": "小说 ID"
+					},
+					"novelTitle": {
+						"type": "string",
+						"description": "小说标题"
+					},
+					"coverUrl": {
+						"type": "string",
+						"description": "封面 URL；服务端响应中会重写为当前部署下的代理封面 URL"
+					},
+					"volumeId": {
+						"type": "string",
+						"minLength": 1,
+						"description": "分卷 ID"
+					},
+					"volumeTitle": {
+						"type": "string",
+						"description": "分卷标题"
+					},
+					"chapterId": {
+						"type": "string",
+						"minLength": 1,
+						"description": "章节 ID"
+					},
+					"chapterTitle": {
+						"type": "string",
+						"description": "章节标题"
+					},
+					"paragraphIndex": {
+						"type": "integer",
+						"minimum": 0,
+						"maximum": 9007199254740991,
+						"description": "当前阅读段落索引（从 0 开始）"
+					},
+					"totalParagraphs": {
+						"type": "integer",
+						"minimum": 0,
+						"maximum": 9007199254740991,
+						"description": "章节总段落数"
+					},
+					"deviceLabel": {
+						"type": "string",
+						"description": "产生该进度的客户端设备标识"
+					},
+					"updatedAt": {
+						"type": "number",
+						"description": "进度更新时间戳（毫秒）"
+					}
+				},
+				"required": [
+					"platform",
+					"novelId",
+					"novelTitle",
+					"coverUrl",
+					"volumeId",
+					"volumeTitle",
+					"chapterId",
+					"chapterTitle",
+					"paragraphIndex",
+					"totalParagraphs",
+					"deviceLabel",
+					"updatedAt"
+				],
+				"additionalProperties": false
+			},
+			"SyncStateData": {
+				"type": "object",
+				"properties": {
+					"bookshelf": {
+						"type": "array",
+						"items": {
+							"$ref": "#/components/schemas/BookshelfItemOutput"
+						},
+						"description": "书架条目列表"
+					},
+					"progress": {
+						"type": "array",
+						"items": {
+							"$ref": "#/components/schemas/ReadingProgressOutput"
+						},
+						"description": "阅读进度列表"
+					},
+					"cursor": {
+						"type": "integer",
+						"minimum": -9007199254740991,
+						"maximum": 9007199254740991,
+						"description": "本次拉取返回的服务端游标（毫秒时间戳），可用于下次 since 参数"
+					}
+				},
+				"required": ["bookshelf", "progress", "cursor"],
+				"additionalProperties": false
+			},
+			"SyncMergeData": {
+				"type": "object",
+				"properties": {
+					"bookshelf": {
+						"type": "array",
+						"items": {
+							"$ref": "#/components/schemas/BookshelfItemOutput"
+						},
+						"description": "合并后的书架条目列表"
+					},
+					"progress": {
+						"type": "array",
+						"items": {
+							"$ref": "#/components/schemas/ReadingProgressOutput"
+						},
+						"description": "合并后的阅读进度列表"
+					},
+					"serverTime": {
+						"type": "integer",
+						"minimum": -9007199254740991,
+						"maximum": 9007199254740991,
+						"description": "服务端完成本次合并的时间戳（毫秒），可作为后续增量游标"
+					}
+				},
+				"required": ["bookshelf", "progress", "serverTime"],
+				"additionalProperties": false
+			},
+			"BookshelfItem": {
+				"type": "object",
+				"properties": {
+					"platform": {
+						"type": "string",
+						"minLength": 1,
+						"description": "小说源平台 ID，如 linovelib"
+					},
+					"novelId": {
+						"type": "string",
+						"minLength": 1,
+						"description": "小说 ID"
+					},
+					"title": {
+						"type": "string",
+						"description": "小说标题"
+					},
+					"author": {
+						"type": "string",
+						"description": "作者名称"
+					},
+					"coverUrl": {
+						"type": "string",
+						"description": "封面 URL；服务端响应中会重写为当前部署下的代理封面 URL"
+					},
+					"addedAt": {
+						"type": "number",
+						"description": "加入书架时间戳（毫秒）"
+					},
+					"updatedAt": {
+						"type": "number",
+						"description": "记录更新时间戳（毫秒）"
+					},
+					"deletedAt": {
+						"description": "软删除时间戳（毫秒），未删除时为 null",
+						"type": ["number", "null"]
+					}
+				},
+				"required": [
+					"platform",
+					"novelId",
+					"title",
+					"author",
+					"coverUrl",
+					"addedAt",
+					"updatedAt",
+					"deletedAt"
+				]
+			},
+			"ReadingProgress": {
+				"type": "object",
+				"properties": {
+					"platform": {
+						"type": "string",
+						"minLength": 1,
+						"description": "小说源平台 ID，如 linovelib"
+					},
+					"novelId": {
+						"type": "string",
+						"minLength": 1,
+						"description": "小说 ID"
+					},
+					"novelTitle": {
+						"type": "string",
+						"description": "小说标题"
+					},
+					"coverUrl": {
+						"type": "string",
+						"description": "封面 URL；服务端响应中会重写为当前部署下的代理封面 URL"
+					},
+					"volumeId": {
+						"type": "string",
+						"minLength": 1,
+						"description": "分卷 ID"
+					},
+					"volumeTitle": {
+						"type": "string",
+						"description": "分卷标题"
+					},
+					"chapterId": {
+						"type": "string",
+						"minLength": 1,
+						"description": "章节 ID"
+					},
+					"chapterTitle": {
+						"type": "string",
+						"description": "章节标题"
+					},
+					"paragraphIndex": {
+						"type": "integer",
+						"minimum": 0,
+						"maximum": 9007199254740991,
+						"description": "当前阅读段落索引（从 0 开始）"
+					},
+					"totalParagraphs": {
+						"type": "integer",
+						"minimum": 0,
+						"maximum": 9007199254740991,
+						"description": "章节总段落数"
+					},
+					"deviceLabel": {
+						"type": "string",
+						"description": "产生该进度的客户端设备标识"
+					},
+					"updatedAt": {
+						"type": "number",
+						"description": "进度更新时间戳（毫秒）"
+					}
+				},
+				"required": [
+					"platform",
+					"novelId",
+					"novelTitle",
+					"coverUrl",
+					"volumeId",
+					"volumeTitle",
+					"chapterId",
+					"chapterTitle",
+					"paragraphIndex",
+					"totalParagraphs",
+					"deviceLabel",
+					"updatedAt"
+				]
+			},
+			"SyncPushPayload": {
+				"type": "object",
+				"properties": {
+					"bookshelf": {
+						"description": "待推送到服务端进行 LWW 合并的书架条目列表",
+						"type": "array",
+						"items": {
+							"$ref": "#/components/schemas/BookshelfItem"
+						}
+					},
+					"progress": {
+						"description": "待推送到服务端进行合并的阅读进度列表",
+						"type": "array",
+						"items": {
+							"$ref": "#/components/schemas/ReadingProgress"
+						}
+					}
+				}
+			}
+		}
+	},
+	"paths": {
+		"/v1/health": {
+			"get": {
+				"operationId": "getHealth",
+				"tags": ["System"],
+				"summary": "服务健康检查",
+				"description": "返回当前服务端运行状态与 ISO 8601 时间戳；在启用 AUTH_TOKEN 时仍公开可访问，适用于健康探针检查",
+				"responses": {
+					"200": {
+						"description": "服务运行正常",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/HealthStatus"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/v1/sources": {
+			"get": {
+				"operationId": "listSources",
+				"tags": ["Sources"],
+				"summary": "获取已接入小说源列表",
+				"description": "返回当前服务端启用的小说源及其支持的功能能力清单",
+				"security": [
+					{
+						"bearerAuth": []
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "成功返回已接入小说源列表",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"code": {
+											"type": "number",
+											"const": 0,
+											"description": "状态码，0 表示请求成功"
+										},
+										"message": {
+											"type": "string",
+											"description": "状态消息，成功时为 Success"
+										},
+										"data": {
+											"type": "array",
+											"items": {
+												"$ref": "#/components/schemas/NovelSourceDescriptor"
+											},
+											"description": "已接入的小说源描述列表"
+										}
+									},
+									"required": ["code", "message", "data"],
+									"additionalProperties": false
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "未提供有效的 Bearer Token（当服务端启用 AUTH_TOKEN 时返回，code: 40100）",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ApiError"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/v1/linovelib/explore/schema": {
+			"get": {
+				"operationId": "getLinovelibExploreSchema",
+				"tags": ["Linovelib"],
+				"summary": "获取发现页与书库筛选 Schema",
+				"description": "返回哔哩轻小说支持的频道列表、排行榜定义及书库多维筛选项，供客户端动态渲染发现页与筛选条件",
+				"security": [
+					{
+						"bearerAuth": []
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "成功返回频道、榜单及书库筛选定义",
+						"headers": {
+							"Cache-Control": {
+								"description": "客户端缓存控制策略",
+								"schema": {
+									"type": "string",
+									"examples": ["public, max-age=3600"]
+								}
+							}
+						},
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"code": {
+											"type": "number",
+											"const": 0,
+											"description": "状态码，0 表示请求成功"
+										},
+										"message": {
+											"type": "string",
+											"description": "状态消息，成功时为 Success"
+										},
+										"data": {
+											"$ref": "#/components/schemas/ExploreSchema"
+										}
+									},
+									"required": ["code", "message", "data"],
+									"additionalProperties": false
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "未提供有效的 Bearer Token（当服务端启用 AUTH_TOKEN 时返回，code: 40100）",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ApiError"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/v1/linovelib/home": {
+			"get": {
+				"operationId": "getLinovelibHome",
+				"tags": ["Linovelib"],
+				"summary": "获取发现频道首页推荐",
+				"description": "按频道 ID 获取哔哩轻小说首页推荐栏目及重写封面代理后的条目列表",
+				"security": [
+					{
+						"bearerAuth": []
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "成功返回频道推荐栏目",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"code": {
+											"type": "number",
+											"const": 0,
+											"description": "状态码，0 表示请求成功"
+										},
+										"message": {
+											"type": "string",
+											"description": "状态消息，成功时为 Success"
+										},
+										"data": {
+											"$ref": "#/components/schemas/ExploreHomeData"
+										}
+									},
+									"required": ["code", "message", "data"],
+									"additionalProperties": false
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "请求参数、路径参数或 JSON 请求体校验失败",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ValidationError"
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "未提供有效的 Bearer Token（当服务端启用 AUTH_TOKEN 时返回，code: 40100）",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ApiError"
+								}
+							}
+						}
+					},
+					"500": {
+						"description": "服务端内部错误（code: 20000）",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ApiError"
+								}
+							}
+						}
+					},
+					"502": {
+						"description": "上游服务返回 5xx 或发生网络连接失败（code: 20003）",
+						"headers": {
+							"Retry-After": {
+								"description": "发生网络异常时建议等待的重试秒数（如 5）",
+								"schema": {
+									"type": "string",
+									"examples": ["5"]
+								}
+							},
+							"Cache-Control": {
+								"description": "禁止缓存失败响应",
+								"schema": {
+									"type": "string",
+									"examples": ["no-store"]
+								}
+							}
+						},
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ApiError"
+								}
+							}
+						}
+					},
+					"503": {
+						"description": "上游触发 Cloudflare 拦截、上游 429 限流（code: 20001）或 FlareSolverr 验证失败（code: 20002），建议按 Retry-After 重试",
+						"headers": {
+							"Retry-After": {
+								"description": "建议客户端等待的重试秒数（固定为 15）",
+								"schema": {
+									"type": "string",
+									"examples": ["15"]
+								}
+							},
+							"Cache-Control": {
+								"description": "禁止缓存失败响应",
+								"schema": {
+									"type": "string",
+									"examples": ["no-store"]
+								}
+							}
+						},
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ApiError"
+								}
+							}
+						}
+					},
+					"504": {
+						"description": "上游请求超时（code: 20003），建议按 Retry-After 重试",
+						"headers": {
+							"Retry-After": {
+								"description": "建议客户端等待的重试秒数（固定为 5）",
+								"schema": {
+									"type": "string",
+									"examples": ["5"]
+								}
+							},
+							"Cache-Control": {
+								"description": "禁止缓存失败响应",
+								"schema": {
+									"type": "string",
+									"examples": ["no-store"]
+								}
+							}
+						},
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ApiError"
+								}
+							}
+						}
+					}
+				},
+				"parameters": [
+					{
+						"in": "query",
+						"name": "channel",
+						"schema": {
+							"default": "home",
+							"type": "string",
+							"enum": [
+								"home",
+								"dengekibunko",
+								"fujimibunko",
+								"kadokawabunko",
+								"emuefubunkojei",
+								"famitsubunko",
+								"gagraphicbunko",
+								"hobbyjapanbunko",
+								"ichijinsha",
+								"shueisha",
+								"shogakukan",
+								"kodansha",
+								"teenagebunko",
+								"other",
+								"chineselightnovel",
+								"weblightnovel",
+								"koreanlightnovel"
+							]
+						},
+						"description": "发现页频道 ID"
+					}
+				]
+			}
+		},
+		"/v1/linovelib/rankings": {
+			"get": {
+				"operationId": "getLinovelibRankings",
+				"tags": ["Linovelib"],
+				"summary": "获取排行榜小说列表",
+				"description": "按榜单 ID、是否完整榜与页码获取排行结果；部分榜单仅支持 full=true；支持通过 style=acanthis|lnreader 切换返回结构",
+				"security": [
+					{
+						"bearerAuth": []
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "成功返回排行榜数据",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"code": {
+											"type": "number",
+											"const": 0,
+											"description": "状态码，0 表示请求成功"
+										},
+										"message": {
+											"type": "string",
+											"description": "状态消息，成功时为 Success"
+										},
+										"data": {
+											"anyOf": [
+												{
+													"$ref": "#/components/schemas/ExplorePage"
+												},
+												{
+													"type": "array",
+													"items": {
+														"$ref": "#/components/schemas/LNReaderNovelItem"
+													}
+												}
+											],
+											"description": "当 style=lnreader 时为 LNReaderNovelItem[]，否则为 ExplorePage"
+										}
+									},
+									"required": ["code", "message", "data"],
+									"additionalProperties": false
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "请求参数、路径参数或 JSON 请求体校验失败",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ValidationError"
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "未提供有效的 Bearer Token（当服务端启用 AUTH_TOKEN 时返回，code: 40100）",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ApiError"
+								}
+							}
+						}
+					},
+					"500": {
+						"description": "服务端内部错误（code: 20000）",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ApiError"
+								}
+							}
+						}
+					},
+					"502": {
+						"description": "上游服务返回 5xx 或发生网络连接失败（code: 20003）",
+						"headers": {
+							"Retry-After": {
+								"description": "发生网络异常时建议等待的重试秒数（如 5）",
+								"schema": {
+									"type": "string",
+									"examples": ["5"]
+								}
+							},
+							"Cache-Control": {
+								"description": "禁止缓存失败响应",
+								"schema": {
+									"type": "string",
+									"examples": ["no-store"]
+								}
+							}
+						},
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ApiError"
+								}
+							}
+						}
+					},
+					"503": {
+						"description": "上游触发 Cloudflare 拦截、上游 429 限流（code: 20001）或 FlareSolverr 验证失败（code: 20002），建议按 Retry-After 重试",
+						"headers": {
+							"Retry-After": {
+								"description": "建议客户端等待的重试秒数（固定为 15）",
+								"schema": {
+									"type": "string",
+									"examples": ["15"]
+								}
+							},
+							"Cache-Control": {
+								"description": "禁止缓存失败响应",
+								"schema": {
+									"type": "string",
+									"examples": ["no-store"]
+								}
+							}
+						},
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ApiError"
+								}
+							}
+						}
+					},
+					"504": {
+						"description": "上游请求超时（code: 20003），建议按 Retry-After 重试",
+						"headers": {
+							"Retry-After": {
+								"description": "建议客户端等待的重试秒数（固定为 5）",
+								"schema": {
+									"type": "string",
+									"examples": ["5"]
+								}
+							},
+							"Cache-Control": {
+								"description": "禁止缓存失败响应",
+								"schema": {
+									"type": "string",
+									"examples": ["no-store"]
+								}
+							}
+						},
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ApiError"
+								}
+							}
+						}
+					}
+				},
+				"parameters": [
+					{
+						"in": "query",
+						"name": "rank",
+						"schema": {
+							"default": "monthvisit",
+							"type": "string",
+							"enum": [
+								"monthvisit",
+								"weekvisit",
+								"monthvote",
+								"weekvote",
+								"monthflower",
+								"weekflower",
+								"monthegg",
+								"weekegg",
+								"lastupdate",
+								"postdate",
+								"goodnum",
+								"newhot",
+								"allvisit"
+							]
+						},
+						"description": "排行榜 ID"
+					},
+					{
+						"in": "query",
+						"name": "full",
+						"schema": {
+							"anyOf": [
+								{
+									"type": "boolean"
+								},
+								{
+									"type": "string",
+									"enum": ["0", "1", "true", "false"]
+								}
+							]
+						},
+						"description": "是否请求完整榜单（true/1 为完整榜，false/0 为总榜）；部分榜单仅支持 full=true"
+					},
+					{
+						"in": "query",
+						"name": "page",
+						"schema": {
+							"default": 1,
+							"type": "integer",
+							"minimum": 1,
+							"maximum": 9007199254740991
+						},
+						"description": "页码（从 1 开始）"
+					},
+					{
+						"in": "query",
+						"name": "style",
+						"schema": {
+							"type": "string",
+							"enum": ["acanthis", "lnreader"]
+						},
+						"description": "输出数据结构风格：acanthis 为默认完整格式，lnreader 为兼容 LNReader 插件的精简格式"
+					}
+				]
+			}
+		},
+		"/v1/linovelib/catalog": {
+			"get": {
+				"operationId": "getLinovelibCatalog",
+				"tags": ["Linovelib"],
+				"summary": "按组合条件筛选书库",
+				"description": "按排序、地区/文库、题材标签、连载状态、动画化、字数与更新时间组合分页筛选书库；支持 style=acanthis|lnreader 切换返回结构",
+				"security": [
+					{
+						"bearerAuth": []
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "成功返回书库分页数据",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"code": {
+											"type": "number",
+											"const": 0,
+											"description": "状态码，0 表示请求成功"
+										},
+										"message": {
+											"type": "string",
+											"description": "状态消息，成功时为 Success"
+										},
+										"data": {
+											"anyOf": [
+												{
+													"$ref": "#/components/schemas/ExplorePage"
+												},
+												{
+													"type": "array",
+													"items": {
+														"$ref": "#/components/schemas/LNReaderNovelItem"
+													}
+												}
+											],
+											"description": "当 style=lnreader 时为 LNReaderNovelItem[]，否则为 ExplorePage"
+										}
+									},
+									"required": ["code", "message", "data"],
+									"additionalProperties": false
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "请求参数、路径参数或 JSON 请求体校验失败",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ValidationError"
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "未提供有效的 Bearer Token（当服务端启用 AUTH_TOKEN 时返回，code: 40100）",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ApiError"
+								}
+							}
+						}
+					},
+					"500": {
+						"description": "服务端内部错误（code: 20000）",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ApiError"
+								}
+							}
+						}
+					},
+					"502": {
+						"description": "上游服务返回 5xx 或发生网络连接失败（code: 20003）",
+						"headers": {
+							"Retry-After": {
+								"description": "发生网络异常时建议等待的重试秒数（如 5）",
+								"schema": {
+									"type": "string",
+									"examples": ["5"]
+								}
+							},
+							"Cache-Control": {
+								"description": "禁止缓存失败响应",
+								"schema": {
+									"type": "string",
+									"examples": ["no-store"]
+								}
+							}
+						},
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ApiError"
+								}
+							}
+						}
+					},
+					"503": {
+						"description": "上游触发 Cloudflare 拦截、上游 429 限流（code: 20001）或 FlareSolverr 验证失败（code: 20002），建议按 Retry-After 重试",
+						"headers": {
+							"Retry-After": {
+								"description": "建议客户端等待的重试秒数（固定为 15）",
+								"schema": {
+									"type": "string",
+									"examples": ["15"]
+								}
+							},
+							"Cache-Control": {
+								"description": "禁止缓存失败响应",
+								"schema": {
+									"type": "string",
+									"examples": ["no-store"]
+								}
+							}
+						},
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ApiError"
+								}
+							}
+						}
+					},
+					"504": {
+						"description": "上游请求超时（code: 20003），建议按 Retry-After 重试",
+						"headers": {
+							"Retry-After": {
+								"description": "建议客户端等待的重试秒数（固定为 5）",
+								"schema": {
+									"type": "string",
+									"examples": ["5"]
+								}
+							},
+							"Cache-Control": {
+								"description": "禁止缓存失败响应",
+								"schema": {
+									"type": "string",
+									"examples": ["no-store"]
+								}
+							}
+						},
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ApiError"
+								}
+							}
+						}
+					}
+				},
+				"parameters": [
+					{
+						"in": "query",
+						"name": "sort",
+						"schema": {
+							"default": "lastupdate",
+							"type": "string",
+							"enum": [
+								"lastupdate",
+								"weekvisit",
+								"monthvisit",
+								"weekvote",
+								"monthvote",
+								"weekflower",
+								"monthflower",
+								"goodnum",
+								"postdate"
+							]
+						},
+						"description": "书库排序字段"
+					},
+					{
+						"in": "query",
+						"name": "region",
+						"schema": {
+							"default": "0",
+							"type": "string",
+							"enum": ["0", "1", "2", "3", "4", "5"]
+						},
+						"description": "地区/文库筛选值"
+					},
+					{
+						"in": "query",
+						"name": "tag",
+						"schema": {
+							"default": "0",
+							"type": "string",
+							"enum": [
+								"0",
+								"15",
+								"18",
+								"26",
+								"27",
+								"28",
+								"31",
+								"47",
+								"48",
+								"55",
+								"56",
+								"60",
+								"61",
+								"63",
+								"64",
+								"67",
+								"68",
+								"96",
+								"97",
+								"98",
+								"124",
+								"131",
+								"132",
+								"135",
+								"146",
+								"180",
+								"185",
+								"189",
+								"191",
+								"198",
+								"199",
+								"201",
+								"205",
+								"211",
+								"217",
+								"219",
+								"220",
+								"221",
+								"222",
+								"223",
+								"224",
+								"225",
+								"226",
+								"227",
+								"228",
+								"229",
+								"231",
+								"233",
+								"239",
+								"241",
+								"245",
+								"246",
+								"248",
+								"249",
+								"254",
+								"256",
+								"261",
+								"263",
+								"304",
+								"328",
+								"333"
+							]
+						},
+						"description": "题材标签筛选值"
+					},
+					{
+						"in": "query",
+						"name": "progress",
+						"schema": {
+							"default": "0",
+							"type": "string",
+							"enum": ["0", "1", "2", "3", "4", "5"]
+						},
+						"description": "连载进度筛选值"
+					},
+					{
+						"in": "query",
+						"name": "anime",
+						"schema": {
+							"default": "0",
+							"type": "string",
+							"enum": ["0", "1", "2"]
+						},
+						"description": "动画化筛选值"
+					},
+					{
+						"in": "query",
+						"name": "words",
+						"schema": {
+							"default": "0",
+							"type": "string",
+							"enum": ["0", "1", "2", "3", "4", "5"]
+						},
+						"description": "字数区间筛选值"
+					},
+					{
+						"in": "query",
+						"name": "updated",
+						"schema": {
+							"default": "0",
+							"type": "string",
+							"enum": ["0", "1", "2", "3", "4"]
+						},
+						"description": "更新时间筛选值"
+					},
+					{
+						"in": "query",
+						"name": "page",
+						"schema": {
+							"default": 1,
+							"type": "integer",
+							"minimum": 1,
+							"maximum": 9007199254740991
+						},
+						"description": "页码（从 1 开始）"
+					},
+					{
+						"in": "query",
+						"name": "style",
+						"schema": {
+							"type": "string",
+							"enum": ["acanthis", "lnreader"]
+						},
+						"description": "输出数据结构风格：acanthis 为默认完整格式，lnreader 为兼容 LNReader 插件的精简格式"
+					}
+				]
+			}
+		},
+		"/v1/linovelib/chapter/{chapterId}": {
+			"get": {
+				"operationId": "getLinovelibChapter",
+				"tags": ["Linovelib"],
+				"summary": "获取解扰后的章节正文 HTML",
+				"description": "获取指定章节的解扰正文 HTML，并将插图 img[src] 重写为 /v1/linovelib/illustration/{hash} 代理路径；若本地尚未缓存该章节元数据，可传入纯数字 novelId 触发小说目录回源兜底",
+				"security": [
+					{
+						"bearerAuth": []
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "成功返回章节正文 HTML",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"code": {
+											"type": "number",
+											"const": 0,
+											"description": "状态码，0 表示请求成功"
+										},
+										"message": {
+											"type": "string",
+											"description": "状态消息，成功时为 Success"
+										},
+										"data": {
+											"$ref": "#/components/schemas/ChapterContentData"
+										}
+									},
+									"required": ["code", "message", "data"],
+									"additionalProperties": false
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "请求参数、路径参数或 JSON 请求体校验失败",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ValidationError"
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "未提供有效的 Bearer Token（当服务端启用 AUTH_TOKEN 时返回，code: 40100）",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ApiError"
+								}
+							}
+						}
+					},
+					"404": {
+						"description": "章节元数据缺失（code: 10000）、小说 ID 缺失（code: 10002）或上游未返回章节正文（{ error: 'Chapter not found' }）",
+						"content": {
+							"application/json": {
+								"schema": {
+									"anyOf": [
+										{
+											"$ref": "#/components/schemas/ApiError"
+										},
+										{
+											"$ref": "#/components/schemas/LegacyError"
+										}
+									]
+								}
+							}
+						}
+					},
+					"500": {
+						"description": "服务端内部错误（code: 20000）",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ApiError"
+								}
+							}
+						}
+					},
+					"502": {
+						"description": "上游服务返回 5xx 或发生网络连接失败（code: 20003）",
+						"headers": {
+							"Retry-After": {
+								"description": "发生网络异常时建议等待的重试秒数（如 5）",
+								"schema": {
+									"type": "string",
+									"examples": ["5"]
+								}
+							},
+							"Cache-Control": {
+								"description": "禁止缓存失败响应",
+								"schema": {
+									"type": "string",
+									"examples": ["no-store"]
+								}
+							}
+						},
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ApiError"
+								}
+							}
+						}
+					},
+					"503": {
+						"description": "上游触发 Cloudflare 拦截、上游 429 限流（code: 20001）或 FlareSolverr 验证失败（code: 20002），建议按 Retry-After 重试",
+						"headers": {
+							"Retry-After": {
+								"description": "建议客户端等待的重试秒数（固定为 15）",
+								"schema": {
+									"type": "string",
+									"examples": ["15"]
+								}
+							},
+							"Cache-Control": {
+								"description": "禁止缓存失败响应",
+								"schema": {
+									"type": "string",
+									"examples": ["no-store"]
+								}
+							}
+						},
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ApiError"
+								}
+							}
+						}
+					},
+					"504": {
+						"description": "上游请求超时（code: 20003），建议按 Retry-After 重试",
+						"headers": {
+							"Retry-After": {
+								"description": "建议客户端等待的重试秒数（固定为 5）",
+								"schema": {
+									"type": "string",
+									"examples": ["5"]
+								}
+							},
+							"Cache-Control": {
+								"description": "禁止缓存失败响应",
+								"schema": {
+									"type": "string",
+									"examples": ["no-store"]
+								}
+							}
+						},
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ApiError"
+								}
+							}
+						}
+					}
+				},
+				"parameters": [
+					{
+						"in": "path",
+						"name": "chapterId",
+						"schema": {
+							"type": "string",
+							"minLength": 1
+						},
+						"required": true,
+						"description": "章节 ID"
+					},
+					{
+						"in": "query",
+						"name": "novelId",
+						"schema": {
+							"type": "string",
+							"minLength": 1
+						},
+						"description": "可选的小说 ID；当本地尚无该章节元数据时，传入纯数字 novelId 可触发小说目录回源兜底"
+					}
+				]
+			}
+		},
+		"/v1/linovelib/novels": {
+			"get": {
+				"operationId": "listLinovelibCachedNovels",
+				"tags": ["Linovelib"],
+				"summary": "分页查询本地已缓存小说",
+				"description": "从本地数据库分页读取已缓存小说列表（不触发上游抓取），支持 style=acanthis|lnreader 切换条目结构",
+				"security": [
+					{
+						"bearerAuth": []
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "成功返回分页缓存小说列表",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"code": {
+											"type": "number",
+											"const": 0,
+											"description": "状态码，0 表示请求成功"
+										},
+										"message": {
+											"type": "string",
+											"description": "状态消息，成功时为 Success"
+										},
+										"data": {
+											"$ref": "#/components/schemas/PaginatedNovelsData"
+										}
+									},
+									"required": ["code", "message", "data"],
+									"additionalProperties": false
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "请求参数、路径参数或 JSON 请求体校验失败",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ValidationError"
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "未提供有效的 Bearer Token（当服务端启用 AUTH_TOKEN 时返回，code: 40100）",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ApiError"
+								}
+							}
+						}
+					},
+					"500": {
+						"description": "服务端内部错误（code: 20000）",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ApiError"
+								}
+							}
+						}
+					},
+					"502": {
+						"description": "上游服务返回 5xx 或发生网络连接失败（code: 20003）",
+						"headers": {
+							"Retry-After": {
+								"description": "发生网络异常时建议等待的重试秒数（如 5）",
+								"schema": {
+									"type": "string",
+									"examples": ["5"]
+								}
+							},
+							"Cache-Control": {
+								"description": "禁止缓存失败响应",
+								"schema": {
+									"type": "string",
+									"examples": ["no-store"]
+								}
+							}
+						},
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ApiError"
+								}
+							}
+						}
+					},
+					"503": {
+						"description": "上游触发 Cloudflare 拦截、上游 429 限流（code: 20001）或 FlareSolverr 验证失败（code: 20002），建议按 Retry-After 重试",
+						"headers": {
+							"Retry-After": {
+								"description": "建议客户端等待的重试秒数（固定为 15）",
+								"schema": {
+									"type": "string",
+									"examples": ["15"]
+								}
+							},
+							"Cache-Control": {
+								"description": "禁止缓存失败响应",
+								"schema": {
+									"type": "string",
+									"examples": ["no-store"]
+								}
+							}
+						},
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ApiError"
+								}
+							}
+						}
+					},
+					"504": {
+						"description": "上游请求超时（code: 20003），建议按 Retry-After 重试",
+						"headers": {
+							"Retry-After": {
+								"description": "建议客户端等待的重试秒数（固定为 5）",
+								"schema": {
+									"type": "string",
+									"examples": ["5"]
+								}
+							},
+							"Cache-Control": {
+								"description": "禁止缓存失败响应",
+								"schema": {
+									"type": "string",
+									"examples": ["no-store"]
+								}
+							}
+						},
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ApiError"
+								}
+							}
+						}
+					}
+				},
+				"parameters": [
+					{
+						"in": "query",
+						"name": "page",
+						"schema": {
+							"default": 1,
+							"type": "integer",
+							"minimum": 1,
+							"maximum": 9007199254740991
+						},
+						"description": "页码（从 1 开始）"
+					},
+					{
+						"in": "query",
+						"name": "pageSize",
+						"schema": {
+							"default": 20,
+							"type": "integer",
+							"minimum": 1,
+							"maximum": 100
+						},
+						"description": "每页数量（1-100）"
+					},
+					{
+						"in": "query",
+						"name": "style",
+						"schema": {
+							"type": "string",
+							"enum": ["acanthis", "lnreader"]
+						},
+						"description": "输出数据结构风格：acanthis 为默认完整格式，lnreader 为兼容 LNReader 插件的精简格式"
+					}
+				]
+			}
+		},
+		"/v1/linovelib/illustration/{hash}": {
+			"get": {
+				"operationId": "getLinovelibIllustration",
+				"tags": ["Linovelib"],
+				"summary": "获取章节插图图片代理",
+				"description": "根据章节 HTML 中重写后的 32 位 MD5 哈希返回插图二进制流并持久化缓存；在服务端启用 AUTH_TOKEN 时该 GET 接口默认公开可访问",
+				"responses": {
+					"200": {
+						"description": "成功返回插图图片二进制流",
+						"headers": {
+							"Cache-Control": {
+								"description": "客户端缓存控制策略",
+								"schema": {
+									"type": "string",
+									"examples": ["public, max-age=86400"]
+								}
+							}
+						},
+						"content": {
+							"image/*": {
+								"schema": {
+									"type": "string",
+									"format": "binary",
+									"description": "图片二进制内容（实际 Content-Type 随上游或缓存媒体类型变化）"
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "请求参数、路径参数或 JSON 请求体校验失败",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ValidationError"
+								}
+							}
+						}
+					},
+					"404": {
+						"description": "插图哈希未注册或回源抓取失败（code: 10003）",
+						"headers": {
+							"Cache-Control": {
+								"description": "禁止缓存失败响应",
+								"schema": {
+									"type": "string",
+									"examples": ["no-store"]
+								}
+							}
+						},
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ApiError"
+								}
+							}
+						}
+					},
+					"500": {
+						"description": "服务端内部错误（code: 20000）",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ApiError"
+								}
+							}
+						}
+					},
+					"502": {
+						"description": "上游服务返回 5xx 或发生网络连接失败（code: 20003）",
+						"headers": {
+							"Retry-After": {
+								"description": "发生网络异常时建议等待的重试秒数（如 5）",
+								"schema": {
+									"type": "string",
+									"examples": ["5"]
+								}
+							},
+							"Cache-Control": {
+								"description": "禁止缓存失败响应",
+								"schema": {
+									"type": "string",
+									"examples": ["no-store"]
+								}
+							}
+						},
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ApiError"
+								}
+							}
+						}
+					},
+					"503": {
+						"description": "上游触发 Cloudflare 拦截、上游 429 限流（code: 20001）或 FlareSolverr 验证失败（code: 20002），建议按 Retry-After 重试",
+						"headers": {
+							"Retry-After": {
+								"description": "建议客户端等待的重试秒数（固定为 15）",
+								"schema": {
+									"type": "string",
+									"examples": ["15"]
+								}
+							},
+							"Cache-Control": {
+								"description": "禁止缓存失败响应",
+								"schema": {
+									"type": "string",
+									"examples": ["no-store"]
+								}
+							}
+						},
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ApiError"
+								}
+							}
+						}
+					},
+					"504": {
+						"description": "上游请求超时（code: 20003），建议按 Retry-After 重试",
+						"headers": {
+							"Retry-After": {
+								"description": "建议客户端等待的重试秒数（固定为 5）",
+								"schema": {
+									"type": "string",
+									"examples": ["5"]
+								}
+							},
+							"Cache-Control": {
+								"description": "禁止缓存失败响应",
+								"schema": {
+									"type": "string",
+									"examples": ["no-store"]
+								}
+							}
+						},
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ApiError"
+								}
+							}
+						}
+					}
+				},
+				"parameters": [
+					{
+						"in": "path",
+						"name": "hash",
+						"schema": {
+							"type": "string",
+							"pattern": "^[a-f0-9]{32}$"
+						},
+						"required": true,
+						"description": "插图原图 URL 的 32 位十六进制 MD5 哈希"
+					}
+				]
+			}
+		},
+		"/v1/linovelib/novel/{novelId}": {
+			"get": {
+				"operationId": "getLinovelibNovel",
+				"tags": ["Linovelib"],
+				"summary": "获取小说详情与分卷章节目录",
+				"description": "获取小说元数据与完整分卷章节目录；已缓存书籍会自动对比上游章节数决定是否刷新（更新失败时优雅降级返回缓存）；支持 style=acanthis|lnreader",
+				"security": [
+					{
+						"bearerAuth": []
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "成功返回小说详情与目录",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"code": {
+											"type": "number",
+											"const": 0,
+											"description": "状态码，0 表示请求成功"
+										},
+										"message": {
+											"type": "string",
+											"description": "状态消息，成功时为 Success"
+										},
+										"data": {
+											"anyOf": [
+												{
+													"$ref": "#/components/schemas/Novel"
+												},
+												{
+													"$ref": "#/components/schemas/LNReaderNovel"
+												}
+											],
+											"description": "当 style=lnreader 时为 LNReaderNovel，否则为完整 Novel"
+										}
+									},
+									"required": ["code", "message", "data"],
+									"additionalProperties": false
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "请求参数、路径参数或 JSON 请求体校验失败",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ValidationError"
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "未提供有效的 Bearer Token（当服务端启用 AUTH_TOKEN 时返回，code: 40100）",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ApiError"
+								}
+							}
+						}
+					},
+					"404": {
+						"description": "小说不存在或回源返回空结果（{ error: 'Novel not found' }）",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/LegacyError"
+								}
+							}
+						}
+					},
+					"500": {
+						"description": "服务端内部错误（code: 20000）",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ApiError"
+								}
+							}
+						}
+					},
+					"502": {
+						"description": "上游服务返回 5xx 或发生网络连接失败（code: 20003）",
+						"headers": {
+							"Retry-After": {
+								"description": "发生网络异常时建议等待的重试秒数（如 5）",
+								"schema": {
+									"type": "string",
+									"examples": ["5"]
+								}
+							},
+							"Cache-Control": {
+								"description": "禁止缓存失败响应",
+								"schema": {
+									"type": "string",
+									"examples": ["no-store"]
+								}
+							}
+						},
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ApiError"
+								}
+							}
+						}
+					},
+					"503": {
+						"description": "上游触发 Cloudflare 拦截、上游 429 限流（code: 20001）或 FlareSolverr 验证失败（code: 20002），建议按 Retry-After 重试",
+						"headers": {
+							"Retry-After": {
+								"description": "建议客户端等待的重试秒数（固定为 15）",
+								"schema": {
+									"type": "string",
+									"examples": ["15"]
+								}
+							},
+							"Cache-Control": {
+								"description": "禁止缓存失败响应",
+								"schema": {
+									"type": "string",
+									"examples": ["no-store"]
+								}
+							}
+						},
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ApiError"
+								}
+							}
+						}
+					},
+					"504": {
+						"description": "上游请求超时（code: 20003），建议按 Retry-After 重试",
+						"headers": {
+							"Retry-After": {
+								"description": "建议客户端等待的重试秒数（固定为 5）",
+								"schema": {
+									"type": "string",
+									"examples": ["5"]
+								}
+							},
+							"Cache-Control": {
+								"description": "禁止缓存失败响应",
+								"schema": {
+									"type": "string",
+									"examples": ["no-store"]
+								}
+							}
+						},
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ApiError"
+								}
+							}
+						}
+					}
+				},
+				"parameters": [
+					{
+						"in": "path",
+						"name": "novelId",
+						"schema": {
+							"type": "string",
+							"minLength": 1
+						},
+						"required": true,
+						"description": "小说 ID"
+					},
+					{
+						"in": "query",
+						"name": "style",
+						"schema": {
+							"type": "string",
+							"enum": ["acanthis", "lnreader"]
+						},
+						"description": "输出数据结构风格：acanthis 为默认完整格式，lnreader 为兼容 LNReader 插件的精简格式"
+					}
+				]
+			}
+		},
+		"/v1/linovelib/cover/novel/{novelId}": {
+			"get": {
+				"operationId": "getLinovelibNovelCover",
+				"tags": ["Linovelib"],
+				"summary": "获取小说封面图片代理",
+				"description": "返回指定小说的封面二进制图片并持久化缓存；在服务端启用 AUTH_TOKEN 时该 GET 接口默认公开可访问",
+				"responses": {
+					"200": {
+						"description": "成功返回小说封面二进制流",
+						"headers": {
+							"Cache-Control": {
+								"description": "客户端缓存控制策略",
+								"schema": {
+									"type": "string",
+									"examples": ["public, max-age=86400"]
+								}
+							}
+						},
+						"content": {
+							"image/*": {
+								"schema": {
+									"type": "string",
+									"format": "binary",
+									"description": "图片二进制内容（实际 Content-Type 随上游或缓存媒体类型变化）"
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "请求参数、路径参数或 JSON 请求体校验失败",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ValidationError"
+								}
+							}
+						}
+					},
+					"404": {
+						"description": "小说封面未找到或回源失败（code: 10001）",
+						"headers": {
+							"Cache-Control": {
+								"description": "禁止缓存失败响应",
+								"schema": {
+									"type": "string",
+									"examples": ["no-store"]
+								}
+							}
+						},
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ApiError"
+								}
+							}
+						}
+					},
+					"500": {
+						"description": "服务端内部错误（code: 20000）",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ApiError"
+								}
+							}
+						}
+					},
+					"502": {
+						"description": "上游服务返回 5xx 或发生网络连接失败（code: 20003）",
+						"headers": {
+							"Retry-After": {
+								"description": "发生网络异常时建议等待的重试秒数（如 5）",
+								"schema": {
+									"type": "string",
+									"examples": ["5"]
+								}
+							},
+							"Cache-Control": {
+								"description": "禁止缓存失败响应",
+								"schema": {
+									"type": "string",
+									"examples": ["no-store"]
+								}
+							}
+						},
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ApiError"
+								}
+							}
+						}
+					},
+					"503": {
+						"description": "上游触发 Cloudflare 拦截、上游 429 限流（code: 20001）或 FlareSolverr 验证失败（code: 20002），建议按 Retry-After 重试",
+						"headers": {
+							"Retry-After": {
+								"description": "建议客户端等待的重试秒数（固定为 15）",
+								"schema": {
+									"type": "string",
+									"examples": ["15"]
+								}
+							},
+							"Cache-Control": {
+								"description": "禁止缓存失败响应",
+								"schema": {
+									"type": "string",
+									"examples": ["no-store"]
+								}
+							}
+						},
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ApiError"
+								}
+							}
+						}
+					},
+					"504": {
+						"description": "上游请求超时（code: 20003），建议按 Retry-After 重试",
+						"headers": {
+							"Retry-After": {
+								"description": "建议客户端等待的重试秒数（固定为 5）",
+								"schema": {
+									"type": "string",
+									"examples": ["5"]
+								}
+							},
+							"Cache-Control": {
+								"description": "禁止缓存失败响应",
+								"schema": {
+									"type": "string",
+									"examples": ["no-store"]
+								}
+							}
+						},
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ApiError"
+								}
+							}
+						}
+					}
+				},
+				"parameters": [
+					{
+						"in": "path",
+						"name": "novelId",
+						"schema": {
+							"type": "string",
+							"minLength": 1
+						},
+						"required": true,
+						"description": "小说 ID"
+					}
+				]
+			}
+		},
+		"/v1/linovelib/cover/volume/{volumeId}": {
+			"get": {
+				"operationId": "getLinovelibVolumeCover",
+				"tags": ["Linovelib"],
+				"summary": "获取分卷封面图片代理",
+				"description": "返回指定分卷的封面二进制图片并持久化缓存；在服务端启用 AUTH_TOKEN 时该 GET 接口默认公开可访问",
+				"responses": {
+					"200": {
+						"description": "成功返回分卷封面二进制流",
+						"headers": {
+							"Cache-Control": {
+								"description": "客户端缓存控制策略",
+								"schema": {
+									"type": "string",
+									"examples": ["public, max-age=86400"]
+								}
+							}
+						},
+						"content": {
+							"image/*": {
+								"schema": {
+									"type": "string",
+									"format": "binary",
+									"description": "图片二进制内容（实际 Content-Type 随上游或缓存媒体类型变化）"
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "请求参数、路径参数或 JSON 请求体校验失败",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ValidationError"
+								}
+							}
+						}
+					},
+					"404": {
+						"description": "分卷元数据缺失或封面未找到（code: 10001）",
+						"headers": {
+							"Cache-Control": {
+								"description": "禁止缓存失败响应",
+								"schema": {
+									"type": "string",
+									"examples": ["no-store"]
+								}
+							}
+						},
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ApiError"
+								}
+							}
+						}
+					},
+					"500": {
+						"description": "服务端内部错误（code: 20000）",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ApiError"
+								}
+							}
+						}
+					},
+					"502": {
+						"description": "上游服务返回 5xx 或发生网络连接失败（code: 20003）",
+						"headers": {
+							"Retry-After": {
+								"description": "发生网络异常时建议等待的重试秒数（如 5）",
+								"schema": {
+									"type": "string",
+									"examples": ["5"]
+								}
+							},
+							"Cache-Control": {
+								"description": "禁止缓存失败响应",
+								"schema": {
+									"type": "string",
+									"examples": ["no-store"]
+								}
+							}
+						},
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ApiError"
+								}
+							}
+						}
+					},
+					"503": {
+						"description": "上游触发 Cloudflare 拦截、上游 429 限流（code: 20001）或 FlareSolverr 验证失败（code: 20002），建议按 Retry-After 重试",
+						"headers": {
+							"Retry-After": {
+								"description": "建议客户端等待的重试秒数（固定为 15）",
+								"schema": {
+									"type": "string",
+									"examples": ["15"]
+								}
+							},
+							"Cache-Control": {
+								"description": "禁止缓存失败响应",
+								"schema": {
+									"type": "string",
+									"examples": ["no-store"]
+								}
+							}
+						},
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ApiError"
+								}
+							}
+						}
+					},
+					"504": {
+						"description": "上游请求超时（code: 20003），建议按 Retry-After 重试",
+						"headers": {
+							"Retry-After": {
+								"description": "建议客户端等待的重试秒数（固定为 5）",
+								"schema": {
+									"type": "string",
+									"examples": ["5"]
+								}
+							},
+							"Cache-Control": {
+								"description": "禁止缓存失败响应",
+								"schema": {
+									"type": "string",
+									"examples": ["no-store"]
+								}
+							}
+						},
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ApiError"
+								}
+							}
+						}
+					}
+				},
+				"parameters": [
+					{
+						"in": "path",
+						"name": "volumeId",
+						"schema": {
+							"type": "string",
+							"minLength": 1
+						},
+						"required": true,
+						"description": "分卷 ID"
+					}
+				]
+			}
+		},
+		"/v1/linovelib/search": {
+			"get": {
+				"operationId": "searchLinovelibNovels",
+				"tags": ["Linovelib"],
+				"summary": "按关键词搜索轻小说",
+				"description": "按关键词检索哔哩轻小说，优先命中本地缓存，未命中时回源抓取（自动识别搜索验证码）；支持 style=acanthis|lnreader 切换返回结构",
+				"security": [
+					{
+						"bearerAuth": []
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "成功返回搜索结果列表",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"code": {
+											"type": "number",
+											"const": 0,
+											"description": "状态码，0 表示请求成功"
+										},
+										"message": {
+											"type": "string",
+											"description": "状态消息，成功时为 Success"
+										},
+										"data": {
+											"anyOf": [
+												{
+													"type": "array",
+													"items": {
+														"$ref": "#/components/schemas/NovelSearchResult"
+													}
+												},
+												{
+													"type": "array",
+													"items": {
+														"$ref": "#/components/schemas/LNReaderNovelItem"
+													}
+												}
+											],
+											"description": "当 style=lnreader 时为 LNReaderNovelItem[]，否则为 NovelSearchResult[]"
+										}
+									},
+									"required": ["code", "message", "data"],
+									"additionalProperties": false
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "请求参数、路径参数或 JSON 请求体校验失败",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ValidationError"
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "未提供有效的 Bearer Token（当服务端启用 AUTH_TOKEN 时返回，code: 40100）",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ApiError"
+								}
+							}
+						}
+					},
+					"500": {
+						"description": "服务端内部错误（code: 20000）",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ApiError"
+								}
+							}
+						}
+					},
+					"502": {
+						"description": "上游服务返回 5xx 或发生网络连接失败（code: 20003）",
+						"headers": {
+							"Retry-After": {
+								"description": "发生网络异常时建议等待的重试秒数（如 5）",
+								"schema": {
+									"type": "string",
+									"examples": ["5"]
+								}
+							},
+							"Cache-Control": {
+								"description": "禁止缓存失败响应",
+								"schema": {
+									"type": "string",
+									"examples": ["no-store"]
+								}
+							}
+						},
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ApiError"
+								}
+							}
+						}
+					},
+					"503": {
+						"description": "上游触发 Cloudflare 拦截、上游 429 限流（code: 20001）或 FlareSolverr 验证失败（code: 20002），建议按 Retry-After 重试",
+						"headers": {
+							"Retry-After": {
+								"description": "建议客户端等待的重试秒数（固定为 15）",
+								"schema": {
+									"type": "string",
+									"examples": ["15"]
+								}
+							},
+							"Cache-Control": {
+								"description": "禁止缓存失败响应",
+								"schema": {
+									"type": "string",
+									"examples": ["no-store"]
+								}
+							}
+						},
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ApiError"
+								}
+							}
+						}
+					},
+					"504": {
+						"description": "上游请求超时（code: 20003），建议按 Retry-After 重试",
+						"headers": {
+							"Retry-After": {
+								"description": "建议客户端等待的重试秒数（固定为 5）",
+								"schema": {
+									"type": "string",
+									"examples": ["5"]
+								}
+							},
+							"Cache-Control": {
+								"description": "禁止缓存失败响应",
+								"schema": {
+									"type": "string",
+									"examples": ["no-store"]
+								}
+							}
+						},
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ApiError"
+								}
+							}
+						}
+					}
+				},
+				"parameters": [
+					{
+						"in": "query",
+						"name": "keyword",
+						"schema": {
+							"type": "string",
+							"minLength": 1
+						},
+						"required": true,
+						"description": "搜索关键词"
+					},
+					{
+						"in": "query",
+						"name": "style",
+						"schema": {
+							"type": "string",
+							"enum": ["acanthis", "lnreader"]
+						},
+						"description": "输出数据结构风格：acanthis 为默认完整格式，lnreader 为兼容 LNReader 插件的精简格式"
+					}
+				]
+			}
+		},
+		"/v1/sync/state": {
+			"get": {
+				"operationId": "getSyncState",
+				"tags": ["Sync"],
+				"summary": "拉取同步状态",
+				"description": "按增量游标（毫秒时间戳）拉取书架与阅读进度；不传或传入 0 时返回全量未删除书架与全部阅读进度",
+				"security": [
+					{
+						"bearerAuth": []
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "成功返回同步状态与最新游标",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"code": {
+											"type": "number",
+											"const": 0,
+											"description": "状态码，0 表示请求成功"
+										},
+										"message": {
+											"type": "string",
+											"description": "状态消息，成功时为 Success"
+										},
+										"data": {
+											"$ref": "#/components/schemas/SyncStateData"
+										}
+									},
+									"required": ["code", "message", "data"],
+									"additionalProperties": false
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "请求参数、路径参数或 JSON 请求体校验失败",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ValidationError"
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "未提供有效的 Bearer Token（当服务端启用 AUTH_TOKEN 时返回，code: 40100）",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ApiError"
+								}
+							}
+						}
+					},
+					"500": {
+						"description": "服务端内部错误（code: 20000）",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ApiError"
+								}
+							}
+						}
+					}
+				},
+				"parameters": [
+					{
+						"in": "query",
+						"name": "since",
+						"schema": {
+							"type": "integer",
+							"minimum": 0,
+							"maximum": 9007199254740991
+						},
+						"description": "增量拉取游标（毫秒时间戳）；为空或不传时返回全部未删除书架与全部阅读进度"
+					}
+				]
+			},
+			"post": {
+				"operationId": "pushSyncState",
+				"tags": ["Sync"],
+				"summary": "推送并合并同步状态",
+				"description": "推送客户端书架（按 updatedAt LWW 合并并支持 deletedAt 软删除）与阅读进度，返回合并后的最新状态与 serverTime",
+				"security": [
+					{
+						"bearerAuth": []
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "成功合并并返回最新同步状态与服务端时间",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"code": {
+											"type": "number",
+											"const": 0,
+											"description": "状态码，0 表示请求成功"
+										},
+										"message": {
+											"type": "string",
+											"description": "状态消息，成功时为 Success"
+										},
+										"data": {
+											"$ref": "#/components/schemas/SyncMergeData"
+										}
+									},
+									"required": ["code", "message", "data"],
+									"additionalProperties": false
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "请求参数、路径参数或 JSON 请求体校验失败",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ValidationError"
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "未提供有效的 Bearer Token（当服务端启用 AUTH_TOKEN 时返回，code: 40100）",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ApiError"
+								}
+							}
+						}
+					},
+					"500": {
+						"description": "服务端内部错误（code: 20000）",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ApiError"
+								}
+							}
+						}
+					}
+				},
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/SyncPushPayload"
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}

@@ -66,5 +66,8 @@ jobs:
       - name: Type check
         run: pnpm run check-types:affected
 
+      - name: OpenAPI spec check
+        run: pnpm --filter=@acanthis-dec/api-server run openapi:check
+
       - name: Build
         run: pnpm run build:affected

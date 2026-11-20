@@ -18,7 +18,6 @@ import {
 import { getUrlHash, type StorageService } from "@acanthis-dec/storage";
 import { type Context, Hono } from "hono";
 import { describeRoute, validator } from "hono-openapi";
-import type { Logger } from "winston";
 import z from "zod";
 import { MemoryTtlCache } from "./cache";
 import {
@@ -64,7 +63,12 @@ import {
 export interface LinovelibRouteDeps {
 	linovelibClient: LinovelibClient;
 	storageService: StorageService;
-	logger: Pick<Logger, "debug" | "info" | "warn" | "error">;
+	logger: {
+		debug: (message: string) => unknown;
+		info: (message: string) => unknown;
+		warn: (message: string) => unknown;
+		error: (message: string) => unknown;
+	};
 	host?: string | undefined;
 }
 
