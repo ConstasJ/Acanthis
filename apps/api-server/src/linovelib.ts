@@ -1,3 +1,8 @@
+import {
+	CloudflareBlockError,
+	FlareSolverrError,
+	HttpStatusError,
+} from "@acanthis-dec/browser-fetch";
 import type { Novel } from "@acanthis-dec/core";
 import {
 	extractChapterIllustrationUrls,
@@ -5,7 +10,7 @@ import {
 } from "@acanthis-dec/linovelib";
 import { getUrlHash } from "@acanthis-dec/storage";
 import { zValidator } from "@hono/zod-validator";
-import { Hono } from "hono";
+import { type Context, Hono } from "hono";
 import z from "zod";
 import { linovelibClient, logger, storageService } from "./services";
 import { type OutputStyle, outputStyleSchema } from "./types";
@@ -17,6 +22,94 @@ import {
 } from "./utils";
 
 const app = new Hono();
+
+const inFlightIllustrations = new Map<
+	string,
+	Promise<{ data: Buffer; mimeType: string } | null>
+>();
+
+function handleLinovelibError(
+	c: Context,
+	error: unknown,
+	notFound?: { code: number; message: string },
+) {
+	if (error instanceof CloudflareBlockError) {
+		logger.warn(`Cloudflare blocked upstream request: ${error.url}`);
+		return c.json(
+			{
+				code: 20001,
+				message: "Upstream request blocked by Cloudflare, please retry later",
+			},
+			503,
+			{
+				"Retry-After": "15",
+				"Cache-Control": "no-store",
+			},
+		);
+	}
+	if (error instanceof FlareSolverrError) {
+		logger.warn(
+			`FlareSolverr failed for endpoint ${error.endpoint}: ${error.responseText}`,
+		);
+		return c.json(
+			{
+				code: 20002,
+				message: "Upstream Cloudflare challenge failed, please retry later",
+			},
+			503,
+			{
+				"Retry-After": "15",
+				"Cache-Control": "no-store",
+			},
+		);
+	}
+	if (error instanceof HttpStatusError) {
+		if (error.status === 404 && notFound) {
+			logger.warn(`Upstream returned 404 for ${error.url}`);
+			return c.json(notFound, 404, {
+				"Cache-Control": "no-store",
+			});
+		}
+		if (error.status === 429) {
+			logger.warn(`Upstream rate limited request: ${error.url}`);
+			return c.json(
+				{
+					code: 20001,
+					message: "Upstream rate limited, please retry later",
+				},
+				503,
+				{
+					"Retry-After": "15",
+					"Cache-Control": "no-store",
+				},
+			);
+		}
+		if (error.status >= 500) {
+			logger.warn(`Upstream returned ${error.status} for ${error.url}`);
+			return c.json(
+				{
+					code: 20003,
+					message: "Upstream service error",
+				},
+				502,
+				{
+					"Cache-Control": "no-store",
+				},
+			);
+		}
+	}
+	logger.error(`${error instanceof Error ? error.stack : String(error)}`);
+	return c.json(
+		{
+			code: 20000,
+			message: "Internal Server Error",
+		},
+		500,
+		{
+			"Cache-Control": "no-store",
+		},
+	);
+}
 
 const chapterParamSchema = z.object({
 	chapterId: z.string().min(1, "Chapter ID is required"),
@@ -155,14 +248,7 @@ app.get(
 				},
 			});
 		} catch (error) {
-			logger.error(`${error instanceof Error ? error.stack : String(error)}`);
-			return c.json(
-				{
-					code: 20000,
-					message: "Internal Server Error",
-				},
-				500,
-			);
+			return handleLinovelibError(c, error);
 		}
 	},
 );
@@ -195,14 +281,7 @@ app.get("/novels", zValidator("query", novelsQuerySchema), async (c) => {
 			},
 		});
 	} catch (error) {
-		logger.error(`${error instanceof Error ? error.stack : String(error)}`);
-		return c.json(
-			{
-				code: 20000,
-				message: "Internal Server Error",
-			},
-			500,
-		);
+		return handleLinovelibError(c, error);
 	}
 });
 
@@ -223,56 +302,68 @@ app.get(
 				});
 			}
 
-			const sourceUrl = await storageService.getIllustrationSourceUrl(
-				"linovelib",
-				hash,
-			);
-			if (!sourceUrl) {
-				logger.error(`Illustration source URL not found for hash: ${hash}`);
+			let fetchPromise = inFlightIllustrations.get(hash);
+			if (!fetchPromise) {
+				fetchPromise = (async () => {
+					const sourceUrl = await storageService.getIllustrationSourceUrl(
+						"linovelib",
+						hash,
+					);
+					if (!sourceUrl) {
+						logger.error(`Illustration source URL not found for hash: ${hash}`);
+						return null;
+					}
+
+					const illustrationData =
+						await linovelibClient.getIllustration(sourceUrl);
+					if (!illustrationData?.data) {
+						logger.error(
+							`Failed to fetch illustration from source URL: ${sourceUrl}`,
+						);
+						return null;
+					}
+
+					const contentType =
+						illustrationData.mimeType || "application/octet-stream";
+					await storageService.setIllustrationData(
+						"linovelib",
+						hash,
+						illustrationData.data,
+						contentType,
+					);
+					return {
+						data: illustrationData.data,
+						mimeType: contentType,
+					};
+				})().finally(() => {
+					inFlightIllustrations.delete(hash);
+				});
+				inFlightIllustrations.set(hash, fetchPromise);
+			}
+
+			const fetched = await fetchPromise;
+			if (!fetched) {
 				return c.json(
 					{
 						code: 10003,
 						message: "Illustration not found",
 					},
 					404,
-				);
-			}
-
-			const illustrationData = await linovelibClient.getIllustration(sourceUrl);
-			if (!illustrationData?.data) {
-				logger.error(
-					`Failed to fetch illustration from source URL: ${sourceUrl}`,
-				);
-				return c.json(
 					{
-						code: 10003,
-						message: "Illustration not found",
+						"Cache-Control": "no-store",
 					},
-					404,
 				);
 			}
 
-			const contentType =
-				illustrationData.mimeType || "application/octet-stream";
-			await storageService.setIllustrationData(
-				"linovelib",
-				hash,
-				illustrationData.data,
-				contentType,
-			);
-			return c.body(new Uint8Array(illustrationData.data), 200, {
-				"Content-Type": contentType,
+			return c.body(new Uint8Array(fetched.data), 200, {
+				"Content-Type": fetched.mimeType,
 				"Cache-Control": "public, max-age=86400",
 			});
 		} catch (error) {
-			logger.error(`${error instanceof Error ? error.stack : String(error)}`);
-			return c.json(
-				{
-					code: 20000,
-					message: "Internal Server Error",
-				},
-				500,
-			);
+			return handleLinovelibError(c, error, {
+				code: 10003,
+				message: "Illustration not found",
+			});
 		}
 	},
 );
@@ -357,14 +448,7 @@ app.get(
 			}
 			return c.json({ error: "Novel not found" }, 404);
 		} catch (error) {
-			logger.error(`${error instanceof Error ? error.stack : String(error)}`);
-			return c.json(
-				{
-					code: 20000,
-					message: "Internal Server Error",
-				},
-				500,
-			);
+			return handleLinovelibError(c, error);
 		}
 	},
 );
@@ -420,26 +504,25 @@ app.get(
 					c.header("Cache-Control", "public, max-age=86400");
 					return c.body(new Uint8Array(coverData.data));
 				}
-				logger.error(
-					`Novel ${novelId} not present in database or does not have a cover URL, and failed to fetch cover from source`,
-				);
-				return c.json(
-					{
-						code: 10001,
-						message: "Cover not found",
-					},
-					404,
-				);
 			}
-		} catch (error) {
-			logger.error(`${error instanceof Error ? error.stack : String(error)}`);
+			logger.error(
+				`Novel ${novelId} not present in database or does not have a cover URL, and failed to fetch cover from source`,
+			);
 			return c.json(
 				{
-					code: 20000,
-					message: "Internal Server Error",
+					code: 10001,
+					message: "Cover not found",
 				},
-				500,
+				404,
+				{
+					"Cache-Control": "no-store",
+				},
 			);
+		} catch (error) {
+			return handleLinovelibError(c, error, {
+				code: 10001,
+				message: "Cover not found",
+			});
 		}
 	},
 );
@@ -479,27 +562,25 @@ app.get(
 					c.header("Cache-Control", "public, max-age=86400");
 					return c.body(new Uint8Array(coverData.data));
 				}
-			} else {
-				logger.error(
-					`Volume ${volumeId} not present in database or does not have a cover URL`,
-				);
-				return c.json(
-					{
-						code: 10001,
-						message: "Cover not found",
-					},
-					404,
-				);
 			}
-		} catch (error) {
-			logger.error(`${error instanceof Error ? error.stack : String(error)}`);
+			logger.error(
+				`Volume ${volumeId} not present in database or does not have a cover URL`,
+			);
 			return c.json(
 				{
-					code: 20000,
-					message: "Internal Server Error",
+					code: 10001,
+					message: "Cover not found",
 				},
-				500,
+				404,
+				{
+					"Cache-Control": "no-store",
+				},
 			);
+		} catch (error) {
+			return handleLinovelibError(c, error, {
+				code: 10001,
+				message: "Cover not found",
+			});
 		}
 	},
 );
@@ -536,14 +617,7 @@ app.get("/search", zValidator("query", searchQuerySchema), async (c) => {
 			}),
 		});
 	} catch (error) {
-		logger.error(`${error instanceof Error ? error.stack : String(error)}`);
-		return c.json(
-			{
-				code: 20000,
-				message: "Internal Server Error",
-			},
-			500,
-		);
+		return handleLinovelibError(c, error);
 	}
 });
 
