@@ -59,3 +59,9 @@
 - 每次改动都要提交：每完成一个独立函数、Bug 修复、小功能或文档改动，并在通过基础语法/类型检查（必要时构建）后，立即在当前 git worktree 提交一次，不要积压未提交的改动。
 - 提交遵循 Conventional Commits：用中文一句话概述改动作为 description，详细改动内容放入 body；每个 commit 保持原子化，包含该主题所有可回滚的改动，但不要越界。
 - 可以 commit，但不要擅自 push；push 前必须获得明确许可。
+- Changesets 版本管理：
+  - 凡改动 `apps/*` 或 `packages/*` 中会影响功能、公共 API、运行时行为或发布产物的代码（含私有 app 包，`.changeset/config.json` 已启用 `privatePackages: { version: true, tag: true }`），在完成功能/修复提交后必须补充 `.changeset/<kebab-case-name>.md`。
+  - 纯仓库文档（如 `AGENTS.md`、README）、CI 配置或不影响包发布的维护改动无需添加 changeset。
+  - 按语义化版本选择级别：`patch`（Bug 修复/容错加固/无感优化）、`minor`（向后兼容的新功能或体验增强）、`major`（破坏性变更）；frontmatter 仅列直接受影响的包名（内部依赖联动由 `updateInternalDependencies: "patch"` 自动处理），正文用简明中文概括改动。
+  - 禁止手动运行 `changeset version` 或手改各包 `package.json` 版本号与 `CHANGELOG.md`，统一交由 `.github/workflows/changesets.yml` 管理发版。
+  - 新增 changeset 后需执行 `pnpm exec changeset status` 与 `pnpm format-and-lint` 校验无误，并以 `chore(changeset): ...` 单独提交（同样不得擅自 push）。
