@@ -48,8 +48,11 @@
 - CI runs lint, affected type checks, and affected builds.
 - Docker publishing has two channels:
   - `docker-canary` publishes GHCR `ghcr.io/constasj/acanthis-api-server` tags `canary` and `canary-<shortsha>` from `master` path changes.
-  - `docker-release` publishes GHCR and Docker Hub `constasj0721/acanthis-api-server` semver/latest tags from `v*.*.*` tags.
-- Docker builds depend on the downloaded `libcurl-impersonate.tar.gz`; keep `apps/api-server/Dockerfile` and workflow expectations aligned.
+  - `docker-release` (`api-server-docker` in `publish-artifacts.yml`) publishes GHCR and Docker Hub `constasj0721/acanthis-api-server` semver/latest tags from `@acanthis-dec/api-server@*` tags or manual dispatch.
+- `api-server` Docker images are split into two files:
+  - `apps/api-server/Dockerfile.runtime` builds the prebuilt zstd runtime base image (`node:24-slim` pinned by digest, `ca-certificates`, CPU-only native dependencies with `ONNXRUNTIME_NODE_INSTALL=skip` and architecture-pruned `onnxruntime-node`/`isolated-vm` binaries, SHA256-verified `libcurl-impersonate.so`, and `captcha_cropped.onnx`).
+  - `apps/api-server/Dockerfile` builds `dist/index.js` in `builder` and layers only `packages/storage/migrations` and `dist/index.js` onto `RUNTIME_IMAGE`.
+  - CI workflows (`.github/workflows/canary.yml`, `.github/workflows/publish-artifacts.yml`, and `.github/workflows/api-server-runtime.yml`) resolve or build the immutable `runtime-<hash12>@sha256:...` base via `.github/actions/ensure-api-server-runtime` and share `ghcr.io/constasj/acanthis-api-server:buildcache` with zstd OCI compression. Keep `Dockerfile`, `Dockerfile.runtime`, and workflow expectations aligned.
 
 ## Change discipline
 

@@ -22,9 +22,10 @@ This directory is the deployable HTTP service for Acanthis. It wires configurati
 
 - `pnpm --filter=@acanthis-dec/api-server run dev` runs `tsx watch src/index.ts`.
 - `pnpm --filter=@acanthis-dec/api-server run build` runs `tsx build.ts`, not `tsdown`.
-- `build.ts` bundles `src/index.ts` with esbuild for Node ESM, minifies, writes `dist/index.js`, injects `createRequire`, and externalizes native/runtime-heavy dependencies such as `@libsql/client`, `isolated-vm`, `koffi`, and `onnxruntime-node`. It also copies the linovelib captcha model (`packages/linovelib/assets/captcha_cropped.onnx`) to `dist/captcha_cropped.onnx`.
-- `Dockerfile` builds from the monorepo, copies the bundled API server plus `packages/storage/migrations`, installs runtime native dependencies in a minimal package (including `onnxruntime-node`, then prunes its non-Linux binaries), sets `LIBCURL_PATH`, exposes `5301`, and runs `node index.js`.
-- The production image also copies `captcha_cropped.onnx` to `/app` and sets `LINOVELIB_CAPTCHA_MODEL_PATH`; without that model or the `onnxruntime-node` native library, search requests fail even though the rest of the API works.
+- `build.ts` bundles `src/index.ts` with esbuild for Node ESM, minifies, writes `dist/index.js`, injects `createRequire`, and externalizes native/runtime-heavy dependencies such as `@libsql/client`, `isolated-vm`, `koffi`, and `onnxruntime-node`. It also copies the linovelib captcha model (`packages/linovelib/assets/captcha_cropped.onnx`) to `dist/captcha_cropped.onnx` for standalone non-Docker runs.
+- `Dockerfile.runtime` builds the shared runtime base image (`node:24-slim` pinned by digest, `ca-certificates`, runtime native dependencies with `ONNXRUNTIME_NODE_INSTALL=skip` and target-arch pruning for `onnxruntime-node`/`isolated-vm`, SHA256-verified `libcurl-impersonate.so` copied without static archives or headers, and `captcha_cropped.onnx`), sets `LIBCURL_PATH` and `LINOVELIB_CAPTCHA_MODEL_PATH`, and exposes `5301` with the `/app/data` volume.
+- `Dockerfile` installs `@acanthis-dec/api-server...` workspace dependencies with `ONNXRUNTIME_NODE_INSTALL=skip`, builds `dist/index.js`, and layers only `packages/storage/migrations` and `dist/index.js` onto `RUNTIME_IMAGE` before running `node index.js`.
+- Without `captcha_cropped.onnx` or the `onnxruntime-node` native library in the runtime image, search requests fail even though the rest of the API works.
 
 ## Editing guidance
 
