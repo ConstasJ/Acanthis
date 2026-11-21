@@ -29,6 +29,16 @@ export interface ToggleBookshelfEntry {
 	categoryIds?: string[];
 }
 
+export interface BatchBookshelfEntry {
+	platform: string;
+	novelId: string;
+	title: string;
+	author: string;
+	coverUrl: string;
+	genres?: string[] | undefined;
+	status?: NovelStatus | undefined;
+}
+
 function makeDirtyKey(
 	kind: "bookshelf" | "progress",
 	platform: string,
@@ -729,6 +739,121 @@ export const useLibraryStore = defineStore("library", () => {
 		return added;
 	}
 
+	async function batchAddToBookshelf(
+		entries: readonly BatchBookshelfEntry[],
+		categoryIds?: readonly string[],
+	): Promise<number> {
+		if (entries.length === 0) {
+			return 0;
+		}
+
+		const dedupedEntries: BatchBookshelfEntry[] = [];
+		const seenKeys = new Set<string>();
+		for (const entry of entries) {
+			const platform = entry.platform.trim();
+			const novelId = entry.novelId.trim();
+			if (!platform || !novelId) {
+				continue;
+			}
+			const compositeKey = makeCompositeKey(platform, novelId);
+			if (seenKeys.has(compositeKey)) {
+				continue;
+			}
+			seenKeys.add(compositeKey);
+			dedupedEntries.push({
+				...entry,
+				platform,
+				novelId,
+			});
+		}
+
+		if (dedupedEntries.length === 0) {
+			return 0;
+		}
+
+		const validIds = activeCategoryIdSet.value;
+		const validCategoryIds = normalizeStringList(categoryIds).filter((id) =>
+			validIds.has(id),
+		);
+		const now = Date.now();
+		const itemsToPersist: BookshelfItem[] = [];
+		const dirtyEntries: DirtySyncEntry[] = [];
+
+		for (const entry of dedupedEntries) {
+			const compositeKey = makeCompositeKey(entry.platform, entry.novelId);
+			const existing = bookshelfMap.value.get(compositeKey);
+			const isCurrentlyActive =
+				existing !== undefined && existing.deletedAt === null;
+
+			const nextGenres =
+				entry.genres && entry.genres.length > 0
+					? normalizeStringList(entry.genres)
+					: normalizeStringList(existing?.genres);
+			const nextStatus: NovelStatus =
+				entry.status && entry.status !== "unknown"
+					? entry.status
+					: normalizeNovelStatus(existing?.status);
+
+			let updated: BookshelfItem;
+			if (isCurrentlyActive) {
+				const existingCategoryIds = normalizeStringList(existing.categoryIds);
+				const mergedCategoryIds =
+					validCategoryIds.length > 0
+						? normalizeStringList([...existingCategoryIds, ...validCategoryIds])
+						: existingCategoryIds;
+				updated = {
+					platform: existing.platform,
+					novelId: existing.novelId,
+					title: entry.title || existing.title,
+					author: entry.author || existing.author,
+					coverUrl: entry.coverUrl || existing.coverUrl,
+					addedAt: existing.addedAt,
+					updatedAt: now,
+					deletedAt: null,
+					categoryIds: mergedCategoryIds,
+					genres: nextGenres,
+					status: nextStatus,
+				};
+			} else {
+				updated = {
+					platform: entry.platform,
+					novelId: entry.novelId,
+					title: entry.title,
+					author: entry.author,
+					coverUrl: entry.coverUrl,
+					addedAt: now,
+					updatedAt: now,
+					deletedAt: null,
+					categoryIds: [...validCategoryIds],
+					genres: nextGenres,
+					status: nextStatus,
+				};
+			}
+
+			const dirtyKey = makeDirtyKey("bookshelf", entry.platform, entry.novelId);
+			const dirtyEntry: DirtySyncEntry = {
+				key: dirtyKey,
+				kind: "bookshelf",
+				platform: entry.platform,
+				novelId: entry.novelId,
+				updatedAt: now,
+			};
+
+			bookshelfMap.value.set(compositeKey, updated);
+			dirtyMap.set(dirtyKey, dirtyEntry);
+			itemsToPersist.push(updated);
+			dirtyEntries.push(dirtyEntry);
+		}
+
+		await Promise.all([
+			webDb.bulkPutBookshelf(itemsToPersist),
+			webDb.bulkPutDirtyEntries(dirtyEntries),
+		]);
+
+		scheduleDebouncedPush();
+		return itemsToPersist.length;
+	}
+
 	async function setBookshelfCategories(
 		platform: string,
 		novelId: string,
@@ -1107,6 +1232,7 @@ export const useLibraryStore = defineStore("library", () => {
 		hydrate,
 		syncNow,
 		toggleBookshelf,
+		batchAddToBookshelf,
 		setBookshelfCategories,
 		createCategory,
 		renameCategory,
