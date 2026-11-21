@@ -15,7 +15,11 @@ import {
 	type LinovelibClient,
 	rewriteChapterIllustrations,
 } from "@acanthis-dec/linovelib";
-import { getUrlHash, type StorageService } from "@acanthis-dec/storage";
+import {
+	getUrlHash,
+	type ListNovelsOptions,
+	type StorageService,
+} from "@acanthis-dec/storage";
 import { type Context, Hono } from "hono";
 import { describeRoute, validator } from "hono-openapi";
 import z from "zod";
@@ -33,6 +37,7 @@ import {
 	validationErrorResponse,
 } from "./schemas/common";
 import {
+	cachedGenresResponseSchema,
 	catalogQuerySchema,
 	catalogResponseSchema,
 	chapterParamSchema,
@@ -538,7 +543,7 @@ export function createLinovelibRoutes(deps: LinovelibRouteDeps) {
 			operationId: "listLinovelibCachedNovels",
 			summary: "分页查询本地已缓存小说",
 			description:
-				"从本地数据库分页读取已缓存小说列表（不触发上游抓取），支持 style=acanthis|lnreader 切换条目结构",
+				"从本地数据库分页读取已缓存小说列表（不触发上游抓取），支持按 genres（逗号分隔 AND 交集）、status、q（书名/作者关键词）筛选以及 style=acanthis|lnreader 切换条目结构",
 			security: bearerSecurity,
 			responses: {
 				200: jsonResponse(novelsResponseSchema, "成功返回分页缓存小说列表"),
@@ -550,12 +555,36 @@ export function createLinovelibRoutes(deps: LinovelibRouteDeps) {
 		validator("query", novelsQuerySchema),
 		async (c) => {
 			try {
-				const { page, pageSize, style } = c.req.valid("query");
+				const { page, pageSize, style, genres, status, q } =
+					c.req.valid("query");
 				const host = resolveHost(c, deps.host);
-				const paginated = await storageService.listCachedNovels("linovelib", {
+				const listOptions: ListNovelsOptions = {
 					page,
 					pageSize,
-				});
+				};
+				if (genres !== undefined) {
+					const parsedGenres = Array.from(
+						new Set(
+							genres
+								.split(",")
+								.map((item) => item.trim())
+								.filter((item) => item.length > 0),
+						),
+					);
+					if (parsedGenres.length > 0) {
+						listOptions.genres = parsedGenres;
+					}
+				}
+				if (status !== undefined) {
+					listOptions.status = status;
+				}
+				if (q && q.length > 0) {
+					listOptions.q = q;
+				}
+				const paginated = await storageService.listCachedNovels(
+					"linovelib",
+					listOptions,
+				);
 				const items = paginated.items.map((novel) =>
 					transformOutputStyleForSearchResult(
 						{
@@ -574,6 +603,38 @@ export function createLinovelibRoutes(deps: LinovelibRouteDeps) {
 						page: paginated.page,
 						pageSize: paginated.pageSize,
 					},
+				});
+			} catch (error) {
+				return handleLinovelibError(c, logger, error);
+			}
+		},
+	);
+
+	app.get(
+		"/genres",
+		describeRoute({
+			tags: ["Linovelib"],
+			operationId: "getLinovelibCachedGenres",
+			summary: "获取本地已缓存小说的题材标签统计",
+			description:
+				"统计当前平台本地已缓存小说中出现过的所有题材标签及其作品数量，按作品数降序、标签名升序返回",
+			security: bearerSecurity,
+			responses: {
+				200: jsonResponse(
+					cachedGenresResponseSchema,
+					"成功返回已缓存小说的题材标签及计数列表",
+				),
+				401: unauthorizedResponse,
+				500: internalErrorResponse,
+			},
+		}),
+		async (c) => {
+			try {
+				const data = await storageService.listCachedGenres("linovelib");
+				return c.json({
+					code: 0,
+					message: "Success",
+					data,
 				});
 			} catch (error) {
 				return handleLinovelibError(c, logger, error);

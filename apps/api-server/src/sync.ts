@@ -64,7 +64,7 @@ export function createSyncRoutes(deps: SyncRouteDeps) {
 			operationId: "getSyncState",
 			summary: "拉取同步状态",
 			description:
-				"按增量游标（毫秒时间戳）拉取书架与阅读进度；不传或传入 0 时返回全量未删除书架与全部阅读进度",
+				"按增量游标（毫秒时间戳）拉取书架、自定义分类与阅读进度；不传或传入 0 时返回全量未删除书架、未删除自定义分类与全部阅读进度",
 			security: bearerSecurity,
 			responses: {
 				200: jsonResponse(syncGetResponseSchema, "成功返回同步状态与最新游标"),
@@ -89,6 +89,7 @@ export function createSyncRoutes(deps: SyncRouteDeps) {
 						progress: state.progress.map((item) =>
 							normalizeProgressCover(host, item),
 						),
+						categories: state.categories,
 						cursor: state.cursor,
 					},
 				});
@@ -114,7 +115,7 @@ export function createSyncRoutes(deps: SyncRouteDeps) {
 			operationId: "pushSyncState",
 			summary: "推送并合并同步状态",
 			description:
-				"推送客户端书架（按 updatedAt LWW 合并并支持 deletedAt 软删除）与阅读进度，返回合并后的最新状态与 serverTime",
+				"推送客户端书架、自定义分类（按 updatedAt LWW 合并并支持 deletedAt 软删除）与阅读进度（historyHiddenAt 按 max-wins 合并），返回合并后的最新状态与 serverTime",
 			security: bearerSecurity,
 			responses: {
 				200: jsonResponse(
@@ -129,7 +130,7 @@ export function createSyncRoutes(deps: SyncRouteDeps) {
 		validator("json", syncPushSchema),
 		async (c) => {
 			try {
-				const { bookshelf, progress } = c.req.valid("json");
+				const { bookshelf, progress, categories } = c.req.valid("json");
 				const host = resolveHost(c, deps.host);
 				const mergeInput: MergeSyncStateInput = {};
 				if (bookshelf !== undefined) {
@@ -137,6 +138,9 @@ export function createSyncRoutes(deps: SyncRouteDeps) {
 				}
 				if (progress !== undefined) {
 					mergeInput.progress = progress;
+				}
+				if (categories !== undefined) {
+					mergeInput.categories = categories;
 				}
 				const merged = await deps.storageService.mergeSyncState(mergeInput);
 				return c.json({
@@ -149,6 +153,7 @@ export function createSyncRoutes(deps: SyncRouteDeps) {
 						progress: merged.progress.map((item) =>
 							normalizeProgressCover(host, item),
 						),
+						categories: merged.categories,
 						serverTime: merged.serverTime,
 					},
 				});

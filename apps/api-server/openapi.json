@@ -566,6 +566,23 @@
 				"required": ["items", "total", "page", "pageSize"],
 				"additionalProperties": false
 			},
+			"CachedGenreItem": {
+				"type": "object",
+				"properties": {
+					"name": {
+						"type": "string",
+						"description": "题材标签名称"
+					},
+					"count": {
+						"type": "integer",
+						"minimum": 0,
+						"maximum": 9007199254740991,
+						"description": "包含该标签的已缓存小说数量"
+					}
+				},
+				"required": ["name", "count"],
+				"additionalProperties": false
+			},
 			"Chapter": {
 				"type": "object",
 				"properties": {
@@ -826,6 +843,26 @@
 					"deletedAt": {
 						"description": "软删除时间戳（毫秒），未删除时为 null",
 						"type": ["number", "null"]
+					},
+					"categoryIds": {
+						"description": "所属自定义书架 ID 列表（空数组代表仅在默认书架）",
+						"type": "array",
+						"items": {
+							"type": "string",
+							"minLength": 1
+						}
+					},
+					"genres": {
+						"description": "作品题材标签快照",
+						"type": "array",
+						"items": {
+							"type": "string"
+						}
+					},
+					"status": {
+						"description": "作品连载状态快照",
+						"type": "string",
+						"enum": ["ongoing", "completed", "unknown"]
 					}
 				},
 				"required": [
@@ -898,6 +935,10 @@
 					"updatedAt": {
 						"type": "number",
 						"description": "进度更新时间戳（毫秒）"
+					},
+					"historyHiddenAt": {
+						"description": "历史隐藏时间戳（毫秒）；不为 null 且 >= updatedAt 时不在历史页显示",
+						"type": ["number", "null"]
 					}
 				},
 				"required": [
@@ -913,6 +954,49 @@
 					"totalParagraphs",
 					"deviceLabel",
 					"updatedAt"
+				],
+				"additionalProperties": false
+			},
+			"BookshelfCategoryOutput": {
+				"type": "object",
+				"properties": {
+					"id": {
+						"type": "string",
+						"minLength": 1,
+						"description": "自定义书架 ID（客户端生成，跨端唯一）"
+					},
+					"name": {
+						"type": "string",
+						"minLength": 1,
+						"maxLength": 32,
+						"description": "书架名称（1-32 字符）"
+					},
+					"sortOrder": {
+						"type": "integer",
+						"minimum": -9007199254740991,
+						"maximum": 9007199254740991,
+						"description": "排序权重（整数，升序）"
+					},
+					"createdAt": {
+						"type": "number",
+						"description": "创建时间戳（毫秒）"
+					},
+					"updatedAt": {
+						"type": "number",
+						"description": "最后修改时间戳（毫秒）"
+					},
+					"deletedAt": {
+						"description": "软删除时间戳（毫秒），未删除时为 null",
+						"type": ["number", "null"]
+					}
+				},
+				"required": [
+					"id",
+					"name",
+					"sortOrder",
+					"createdAt",
+					"updatedAt",
+					"deletedAt"
 				],
 				"additionalProperties": false
 			},
@@ -933,6 +1017,13 @@
 						},
 						"description": "阅读进度列表"
 					},
+					"categories": {
+						"type": "array",
+						"items": {
+							"$ref": "#/components/schemas/BookshelfCategoryOutput"
+						},
+						"description": "自定义书架列表"
+					},
 					"cursor": {
 						"type": "integer",
 						"minimum": -9007199254740991,
@@ -940,7 +1031,7 @@
 						"description": "本次拉取返回的服务端游标（毫秒时间戳），可用于下次 since 参数"
 					}
 				},
-				"required": ["bookshelf", "progress", "cursor"],
+				"required": ["bookshelf", "progress", "categories", "cursor"],
 				"additionalProperties": false
 			},
 			"SyncMergeData": {
@@ -960,6 +1051,13 @@
 						},
 						"description": "合并后的阅读进度列表"
 					},
+					"categories": {
+						"type": "array",
+						"items": {
+							"$ref": "#/components/schemas/BookshelfCategoryOutput"
+						},
+						"description": "合并后的自定义书架列表"
+					},
 					"serverTime": {
 						"type": "integer",
 						"minimum": -9007199254740991,
@@ -967,7 +1065,7 @@
 						"description": "服务端完成本次合并的时间戳（毫秒），可作为后续增量游标"
 					}
 				},
-				"required": ["bookshelf", "progress", "serverTime"],
+				"required": ["bookshelf", "progress", "categories", "serverTime"],
 				"additionalProperties": false
 			},
 			"BookshelfItem": {
@@ -1006,6 +1104,26 @@
 					"deletedAt": {
 						"description": "软删除时间戳（毫秒），未删除时为 null",
 						"type": ["number", "null"]
+					},
+					"categoryIds": {
+						"description": "所属自定义书架 ID 列表（空数组代表仅在默认书架）",
+						"type": "array",
+						"items": {
+							"type": "string",
+							"minLength": 1
+						}
+					},
+					"genres": {
+						"description": "作品题材标签快照",
+						"type": "array",
+						"items": {
+							"type": "string"
+						}
+					},
+					"status": {
+						"description": "作品连载状态快照",
+						"type": "string",
+						"enum": ["ongoing", "completed", "unknown"]
 					}
 				},
 				"required": [
@@ -1077,6 +1195,10 @@
 					"updatedAt": {
 						"type": "number",
 						"description": "进度更新时间戳（毫秒）"
+					},
+					"historyHiddenAt": {
+						"description": "历史隐藏时间戳（毫秒）；不为 null 且 >= updatedAt 时不在历史页显示",
+						"type": ["number", "null"]
 					}
 				},
 				"required": [
@@ -1094,6 +1216,48 @@
 					"updatedAt"
 				]
 			},
+			"BookshelfCategory": {
+				"type": "object",
+				"properties": {
+					"id": {
+						"type": "string",
+						"minLength": 1,
+						"description": "自定义书架 ID（客户端生成，跨端唯一）"
+					},
+					"name": {
+						"type": "string",
+						"minLength": 1,
+						"maxLength": 32,
+						"description": "书架名称（1-32 字符）"
+					},
+					"sortOrder": {
+						"type": "integer",
+						"minimum": -9007199254740991,
+						"maximum": 9007199254740991,
+						"description": "排序权重（整数，升序）"
+					},
+					"createdAt": {
+						"type": "number",
+						"description": "创建时间戳（毫秒）"
+					},
+					"updatedAt": {
+						"type": "number",
+						"description": "最后修改时间戳（毫秒）"
+					},
+					"deletedAt": {
+						"description": "软删除时间戳（毫秒），未删除时为 null",
+						"type": ["number", "null"]
+					}
+				},
+				"required": [
+					"id",
+					"name",
+					"sortOrder",
+					"createdAt",
+					"updatedAt",
+					"deletedAt"
+				]
+			},
 			"SyncPushPayload": {
 				"type": "object",
 				"properties": {
@@ -1109,6 +1273,13 @@
 						"type": "array",
 						"items": {
 							"$ref": "#/components/schemas/ReadingProgress"
+						}
+					},
+					"categories": {
+						"description": "待推送到服务端进行 LWW 合并的自定义书架列表",
+						"type": "array",
+						"items": {
+							"$ref": "#/components/schemas/BookshelfCategory"
 						}
 					}
 				}
@@ -2169,7 +2340,7 @@
 				"operationId": "listLinovelibCachedNovels",
 				"tags": ["Linovelib"],
 				"summary": "分页查询本地已缓存小说",
-				"description": "从本地数据库分页读取已缓存小说列表（不触发上游抓取），支持 style=acanthis|lnreader 切换条目结构",
+				"description": "从本地数据库分页读取已缓存小说列表（不触发上游抓取），支持按 genres（逗号分隔 AND 交集）、status、q（书名/作者关键词）筛选以及 style=acanthis|lnreader 切换条目结构",
 				"security": [
 					{
 						"bearerAuth": []
@@ -2264,8 +2435,98 @@
 							"enum": ["acanthis", "lnreader"]
 						},
 						"description": "输出数据结构风格：acanthis 为默认完整格式，lnreader 为兼容 LNReader 插件的精简格式"
+					},
+					{
+						"in": "query",
+						"name": "genres",
+						"schema": {
+							"type": "string"
+						},
+						"description": "逗号分隔的题材标签名称（多选 AND 交集，如 奇幻,校园）"
+					},
+					{
+						"in": "query",
+						"name": "status",
+						"schema": {
+							"type": "string",
+							"enum": ["ongoing", "completed", "unknown"]
+						},
+						"description": "按连载状态筛选（ongoing | completed | unknown）"
+					},
+					{
+						"in": "query",
+						"name": "q",
+						"schema": {
+							"type": "string",
+							"maxLength": 100
+						},
+						"description": "按书名或作者模糊搜索的关键词"
 					}
 				]
+			}
+		},
+		"/v1/linovelib/genres": {
+			"get": {
+				"operationId": "getLinovelibCachedGenres",
+				"tags": ["Linovelib"],
+				"summary": "获取本地已缓存小说的题材标签统计",
+				"description": "统计当前平台本地已缓存小说中出现过的所有题材标签及其作品数量，按作品数降序、标签名升序返回",
+				"security": [
+					{
+						"bearerAuth": []
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "成功返回已缓存小说的题材标签及计数列表",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"code": {
+											"type": "number",
+											"const": 0,
+											"description": "状态码，0 表示请求成功"
+										},
+										"message": {
+											"type": "string",
+											"description": "状态消息，成功时为 Success"
+										},
+										"data": {
+											"type": "array",
+											"items": {
+												"$ref": "#/components/schemas/CachedGenreItem"
+											}
+										}
+									},
+									"required": ["code", "message", "data"],
+									"additionalProperties": false
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "未提供有效的 Bearer Token（当服务端启用 AUTH_TOKEN 时返回，code: 40100）",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ApiError"
+								}
+							}
+						}
+					},
+					"500": {
+						"description": "服务端内部错误（code: 20000）",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ApiError"
+								}
+							}
+						}
+					}
+				}
 			}
 		},
 		"/v1/linovelib/illustration/{hash}": {
@@ -3125,7 +3386,7 @@
 				"operationId": "getSyncState",
 				"tags": ["Sync"],
 				"summary": "拉取同步状态",
-				"description": "按增量游标（毫秒时间戳）拉取书架与阅读进度；不传或传入 0 时返回全量未删除书架与全部阅读进度",
+				"description": "按增量游标（毫秒时间戳）拉取书架、自定义分类与阅读进度；不传或传入 0 时返回全量未删除书架、未删除自定义分类与全部阅读进度",
 				"security": [
 					{
 						"bearerAuth": []
@@ -3198,7 +3459,7 @@
 							"minimum": 0,
 							"maximum": 9007199254740991
 						},
-						"description": "增量拉取游标（毫秒时间戳）；为空或不传时返回全部未删除书架与全部阅读进度"
+						"description": "增量拉取游标（毫秒时间戳）；为空或不传时返回全部未删除书架、未删除自定义分类与全部阅读进度"
 					}
 				]
 			},
@@ -3206,7 +3467,7 @@
 				"operationId": "pushSyncState",
 				"tags": ["Sync"],
 				"summary": "推送并合并同步状态",
-				"description": "推送客户端书架（按 updatedAt LWW 合并并支持 deletedAt 软删除）与阅读进度，返回合并后的最新状态与 serverTime",
+				"description": "推送客户端书架、自定义分类（按 updatedAt LWW 合并并支持 deletedAt 软删除）与阅读进度（historyHiddenAt 按 max-wins 合并），返回合并后的最新状态与 serverTime",
 				"security": [
 					{
 						"bearerAuth": []

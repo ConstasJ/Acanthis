@@ -1,4 +1,5 @@
 import type {
+	CachedGenreItem,
 	Chapter,
 	ExploreChannelOption,
 	ExploreFilterGroup,
@@ -96,6 +97,10 @@ export const illustrationParamSchema = z.object({
 		.describe("插图原图 URL 的 32 位十六进制 MD5 哈希"),
 });
 
+export const novelStatusSchema = z
+	.enum(["ongoing", "completed", "unknown"])
+	.describe("小说连载状态") satisfies z.ZodType<NovelStatus>;
+
 export const novelsQuerySchema = z.object({
 	page: z.coerce.number().int().min(1).default(1).describe("页码（从 1 开始）"),
 	pageSize: z.coerce
@@ -106,6 +111,22 @@ export const novelsQuerySchema = z.object({
 		.default(20)
 		.describe("每页数量（1-100）"),
 	style: outputStyleSchema.optional(),
+	genres: z
+		.string()
+		.optional()
+		.describe("逗号分隔的题材标签名称（多选 AND 交集，如 奇幻,校园）"),
+	status: z
+		.preprocess(
+			(val) => (val === "" ? undefined : val),
+			novelStatusSchema.optional(),
+		)
+		.describe("按连载状态筛选（ongoing | completed | unknown）"),
+	q: z
+		.string()
+		.trim()
+		.max(100)
+		.optional()
+		.describe("按书名或作者模糊搜索的关键词"),
 });
 
 export const searchQuerySchema = z.object({
@@ -192,10 +213,6 @@ export const catalogQuerySchema = z.object({
 	page: z.coerce.number().int().min(1).default(1).describe("页码（从 1 开始）"),
 	style: outputStyleSchema.optional(),
 });
-
-export const novelStatusSchema = z
-	.enum(["ongoing", "completed", "unknown"])
-	.describe("小说连载状态") satisfies z.ZodType<NovelStatus>;
 
 export const novelSearchResultSchema = z
 	.object({
@@ -440,6 +457,17 @@ export const catalogResponseSchema = createSuccessEnvelopeSchema(
 
 export const chapterResponseSchema = createSuccessEnvelopeSchema(
 	chapterContentDataSchema,
+);
+
+export const cachedGenreItemSchema = z
+	.object({
+		name: z.string().describe("题材标签名称"),
+		count: z.number().int().min(0).describe("包含该标签的已缓存小说数量"),
+	})
+	.meta({ id: "CachedGenreItem" }) satisfies z.ZodType<CachedGenreItem>;
+
+export const cachedGenresResponseSchema = createSuccessEnvelopeSchema(
+	z.array(cachedGenreItemSchema),
 );
 
 export const novelsResponseSchema = createSuccessEnvelopeSchema(
