@@ -3,6 +3,7 @@ import {
 	BookMarked,
 	BookOpen,
 	Compass,
+	History,
 	RefreshCw,
 	Settings,
 } from "lucide-vue-next";
@@ -17,6 +18,7 @@ const isImmersive = computed(() => route.meta.immersive === true);
 
 const navItems = [
 	{ name: "bookshelf", to: "/", label: "书架", icon: BookMarked },
+	{ name: "history", to: "/history", label: "历史", icon: History },
 	{ name: "explore", to: "/explore", label: "发现", icon: Compass },
 	{ name: "settings", to: "/settings", label: "设置", icon: Settings },
 ] as const;

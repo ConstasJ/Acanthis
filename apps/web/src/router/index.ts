@@ -23,6 +23,12 @@ const router = createRouter({
 			meta: { title: "书架" },
 		},
 		{
+			path: "/history",
+			name: "history",
+			component: () => import("@/views/HistoryView.vue"),
+			meta: { title: "历史" },
+		},
+		{
 			path: "/explore",
 			name: "explore",
 			component: () => import("@/views/ExploreView.vue"),
