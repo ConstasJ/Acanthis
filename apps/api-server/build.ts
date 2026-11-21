@@ -1,6 +1,29 @@
-import { copyFile } from "node:fs/promises";
+import { copyFile, readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
-import { build } from "esbuild";
+import { build, type Plugin } from "esbuild";
+
+/**
+ * 规避 esbuild 单文件打包动态 import("impers") 时丢失顶层 await 的问题：
+ * impers/dist/index.js 仅通过 `export * from "./public.js"` 转发包含 TLA（libcurl.js）的模块，
+ * esbuild 在单文件 ESM 模式下生成入口 __esm 包装时会漏掉对 init_public() 的 await，
+ * 导致首次调用时 `this.impers.Session` 尚未初始化（`is not a constructor`）。
+ * 显式前置 `import "./public.js"` 可强制 esbuild 正确生成 `await init_public()`。
+ */
+const fixImpersTlaPlugin: Plugin = {
+	name: "fix-impers-tla",
+	setup(pluginBuild) {
+		pluginBuild.onLoad(
+			{ filter: /[\\/]impers[\\/]dist[\\/]index\.js$/ },
+			async (args) => {
+				const source = await readFile(args.path, "utf8");
+				return {
+					contents: `import "./public.js";\n${source}`,
+					loader: "js",
+				};
+			},
+		);
+	},
+};
 
 await build({
 	entryPoints: ["src/index.ts"],
@@ -13,6 +36,7 @@ await build({
 	banner: {
 		js: 'import { createRequire } from "node:module"; const require = createRequire(import.meta.url);',
 	},
+	plugins: [fixImpersTlaPlugin],
 	external: [
 		"@babel/preset-typescript/package.json",
 		"@libsql/client",
