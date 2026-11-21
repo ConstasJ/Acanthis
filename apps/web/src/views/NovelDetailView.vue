@@ -9,6 +9,7 @@ import {
 	ChevronDown,
 	ChevronRight,
 	Download,
+	FolderKanban,
 	Lock,
 	Play,
 	RefreshCw,
@@ -18,6 +19,7 @@ import {
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { RouterLink, useRoute } from "vue-router";
 import { ApiError, fetchNovelDetail, rebaseMediaUrl } from "@/api/client";
+import ShelfAssignModal from "@/components/ShelfAssignModal.vue";
 import { webDb } from "@/db/indexedDb";
 import {
 	type EpubExportProgress,
@@ -91,6 +93,20 @@ const sourceName = computed<string>(() => {
 const inBookshelf = computed<boolean>(() =>
 	libraryStore.isInBookshelf(resolvedPlatform.value, novelId.value),
 );
+
+const currentBookshelfItem = computed(() =>
+	libraryStore.getBookshelfItem(resolvedPlatform.value, novelId.value),
+);
+
+const effectiveShelfIds = computed<string[]>(() => {
+	const item = currentBookshelfItem.value;
+	if (!item || item.deletedAt !== null) {
+		return [];
+	}
+	return libraryStore.getEffectiveCategoryIds(item);
+});
+
+const shelfAssignOpen = ref<boolean>(false);
 
 const existingProgress = computed(() =>
 	libraryStore.getProgress(resolvedPlatform.value, novelId.value),
@@ -236,13 +252,18 @@ async function handleToggleBookshelf(): Promise<void> {
 	if (!current) {
 		return;
 	}
-	await libraryStore.toggleBookshelf({
+	const added = await libraryStore.toggleBookshelf({
 		platform: resolvedPlatform.value,
 		novelId: current.id,
 		title: current.title,
 		author: current.author,
 		coverUrl: current.coverUrl ?? "",
+		genres: current.genres,
+		status: current.status,
 	});
+	if (added && libraryStore.activeCategories.length > 0) {
+		shelfAssignOpen.value = true;
+	}
 }
 
 function toggleBatchExportMode(): void {
@@ -514,13 +535,15 @@ onBeforeUnmount(() => {
 						</div>
 
 						<div v-if="novel.genres.length > 0" class="flex flex-wrap gap-1.5">
-							<span
+							<RouterLink
 								v-for="genre in novel.genres"
 								:key="genre"
-								class="rounded-full border border-[var(--border-subtle)] px-2.5 py-0.5 text-[11px] text-[var(--text-secondary)]"
+								:to="{ name: 'bookshelf', query: { genre } }"
+								:title="`在书架中筛选「${genre}」`"
+								class="rounded-full border border-[var(--border-subtle)] px-2.5 py-0.5 text-[11px] text-[var(--text-secondary)] transition-colors hover:border-[var(--accent)] hover:bg-[var(--accent-soft)] hover:text-[var(--accent)]"
 							>
 								{{ genre }}
-							</span>
+							</RouterLink>
 						</div>
 
 						<p
@@ -562,6 +585,22 @@ onBeforeUnmount(() => {
 						<BookmarkCheck v-if="inBookshelf" class="h-4 w-4" />
 						<Bookmark v-else class="h-4 w-4" />
 						{{ inBookshelf ? "已在书架" : "加入书架" }}
+					</button>
+
+					<button
+						v-if="inBookshelf"
+						type="button"
+						class="inline-flex items-center gap-1.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-primary)] px-3.5 py-2.5 text-sm font-medium text-[var(--text-primary)] hover:bg-[var(--bg-secondary)]"
+						@click="shelfAssignOpen = true"
+					>
+						<FolderKanban class="h-4 w-4 text-[var(--text-secondary)]" />
+						<span>书架分组</span>
+						<span
+							v-if="effectiveShelfIds.length > 0"
+							class="rounded-full bg-[var(--accent-soft)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--accent)]"
+						>
+							{{ effectiveShelfIds.length }}
+						</span>
 					</button>
 
 					<!-- EPUB Export Controls -->
@@ -783,5 +822,14 @@ onBeforeUnmount(() => {
 				</div>
 			</section>
 		</template>
+
+		<ShelfAssignModal
+			:open="shelfAssignOpen && inBookshelf && novel !== null"
+			:platform="resolvedPlatform"
+			:novel-id="novel?.id ?? novelId"
+			:title="novel?.title ?? ''"
+			:initial-category-ids="effectiveShelfIds"
+			@close="shelfAssignOpen = false"
+		/>
 	</div>
 </template>

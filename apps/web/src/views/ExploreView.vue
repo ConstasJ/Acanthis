@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import type {
+	CachedGenreItem,
 	ExploreSchema,
 	ExploreSectionMoreTarget,
 	NovelInfo,
 	NovelSearchResult,
+	NovelStatus,
 } from "@acanthis-dec/core";
 import {
 	ChevronLeft,
@@ -11,13 +13,16 @@ import {
 	Clock,
 	RotateCw,
 	Search,
+	Tag,
 	X,
 } from "lucide-vue-next";
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { type LocationQuery, useRoute, useRouter } from "vue-router";
 import {
+	type FetchCachedNovelsOptions,
+	fetchCachedGenres,
+	fetchCachedNovels,
 	fetchExploreSchema,
-	fetchNovels,
 	isAbortError,
 	searchNovels,
 } from "@/api/client";
@@ -37,6 +42,7 @@ import { useSettingsStore } from "@/stores/settings";
 import { useSourcesStore } from "@/stores/sources";
 
 const PAGE_SIZE = 20;
+const CACHED_GENRES_COLLAPSED_LIMIT = 20;
 const RESERVED_QUERY_KEYS = new Set([
 	"platform",
 	"tab",
@@ -45,9 +51,15 @@ const RESERVED_QUERY_KEYS = new Set([
 	"full",
 	"page",
 	"q",
+	"genre",
+	"status",
+	"cachedQ",
 ]);
 
+type CachedStatusFilter = "all" | "ongoing" | "completed";
+
 const schemaMemoryCache = new Map<string, ExploreSchema>();
+const cachedGenresMemoryCache = new Map<string, CachedGenreItem[]>();
 
 const route = useRoute();
 const router = useRouter();
@@ -77,6 +89,14 @@ const totalNovels = ref<number>(0);
 const loadingList = ref<boolean>(false);
 const listErrorMessage = ref<string | null>(null);
 
+const cachedGenres = ref<CachedGenreItem[]>([]);
+const loadingCachedGenres = ref<boolean>(false);
+const selectedCachedGenres = ref<string[]>([]);
+const cachedStatusFilter = ref<CachedStatusFilter>("all");
+const cachedKeywordInput = ref<string>("");
+const cachedKeyword = ref<string>("");
+const showAllCachedGenres = ref<boolean>(false);
+
 const searchResults = ref<NovelSearchResult[]>([]);
 const loadingSearch = ref<boolean>(false);
 const showSlowHint = ref<boolean>(false);
@@ -84,6 +104,9 @@ const searchErrorMessage = ref<string | null>(null);
 
 let schemaAbortController: AbortController | null = null;
 let searchAbortController: AbortController | null = null;
+let cachedNovelsAbortController: AbortController | null = null;
+let cachedGenresAbortController: AbortController | null = null;
+let cachedKeywordDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 let slowHintTimer: ReturnType<typeof setTimeout> | null = null;
 let lastWrittenQueryKey: string | null = null;
 let loadedCachedSignature: string | null = null;
@@ -151,6 +174,23 @@ const isSearchMode = computed<boolean>(() => activeQuery.value.length > 0);
 const totalCachedPages = computed<number>(() =>
 	Math.max(1, Math.ceil(totalNovels.value / PAGE_SIZE)),
 );
+
+const hasActiveCachedFilters = computed<boolean>(
+	() =>
+		selectedCachedGenres.value.length > 0 ||
+		cachedStatusFilter.value !== "all" ||
+		cachedKeyword.value.trim().length > 0,
+);
+
+const displayedCachedGenres = computed<CachedGenreItem[]>(() => {
+	if (
+		showAllCachedGenres.value ||
+		cachedGenres.value.length <= CACHED_GENRES_COLLAPSED_LIMIT
+	) {
+		return cachedGenres.value;
+	}
+	return cachedGenres.value.slice(0, CACHED_GENRES_COLLAPSED_LIMIT);
+});
 
 function firstQueryValue(raw: LocationQuery[string] | undefined): string {
 	if (typeof raw === "string") {
@@ -250,6 +290,27 @@ function applyRouteQuery(query: LocationQuery): void {
 	const rawSearch = firstQueryValue(query.q).trim();
 	searchInput.value = rawSearch;
 	activeQuery.value = rawSearch;
+
+	const rawGenreQuery = firstQueryValue(query.genre);
+	selectedCachedGenres.value = Array.from(
+		new Set(
+			rawGenreQuery
+				.split(",")
+				.map((item) => item.trim())
+				.filter(Boolean),
+		),
+	);
+
+	const rawStatus = firstQueryValue(query.status).trim();
+	if (rawStatus === "ongoing" || rawStatus === "completed") {
+		cachedStatusFilter.value = rawStatus;
+	} else {
+		cachedStatusFilter.value = "all";
+	}
+
+	const rawCachedQ = firstQueryValue(query.cachedQ).trim();
+	cachedKeywordInput.value = rawCachedQ;
+	cachedKeyword.value = rawCachedQ;
 }
 
 function buildUrlQuery(): Record<string, string> {
@@ -303,6 +364,16 @@ function buildUrlQuery(): Record<string, string> {
 	} else if (tab === "cached") {
 		if (cachedPage.value > 1) {
 			next.page = String(cachedPage.value);
+		}
+		if (selectedCachedGenres.value.length > 0) {
+			next.genre = selectedCachedGenres.value.join(",");
+		}
+		if (cachedStatusFilter.value !== "all") {
+			next.status = cachedStatusFilter.value;
+		}
+		const trimmedCachedQ = cachedKeyword.value.trim();
+		if (trimmedCachedQ) {
+			next.cachedQ = trimmedCachedQ;
 		}
 	}
 
@@ -441,33 +512,187 @@ function abortInFlightSearch(): void {
 	clearSlowHintTimer();
 }
 
+function abortCachedRequests(): void {
+	if (cachedNovelsAbortController !== null) {
+		cachedNovelsAbortController.abort();
+		cachedNovelsAbortController = null;
+	}
+	if (cachedGenresAbortController !== null) {
+		cachedGenresAbortController.abort();
+		cachedGenresAbortController = null;
+	}
+	if (cachedKeywordDebounceTimer !== null) {
+		clearTimeout(cachedKeywordDebounceTimer);
+		cachedKeywordDebounceTimer = null;
+	}
+}
+
+async function loadCachedGenresForPlatform(
+	platform: string,
+	force = false,
+): Promise<void> {
+	if (!platform || !sourcesResolved.value) {
+		return;
+	}
+	const cached = !force ? cachedGenresMemoryCache.get(platform) : undefined;
+	if (cached) {
+		cachedGenres.value = cached;
+		loadingCachedGenres.value = false;
+		return;
+	}
+
+	if (cachedGenresAbortController !== null) {
+		cachedGenresAbortController.abort();
+		cachedGenresAbortController = null;
+	}
+	const controller = new AbortController();
+	cachedGenresAbortController = controller;
+	loadingCachedGenres.value = true;
+
+	try {
+		const genres = await fetchCachedGenres(platform, controller.signal);
+		if (controller.signal.aborted || activePlatform.value !== platform) {
+			return;
+		}
+		cachedGenresMemoryCache.set(platform, genres);
+		cachedGenres.value = genres;
+	} catch (err) {
+		if (controller.signal.aborted || isAbortError(err)) {
+			return;
+		}
+		cachedGenres.value = [];
+	} finally {
+		if (cachedGenresAbortController === controller) {
+			cachedGenresAbortController = null;
+			loadingCachedGenres.value = false;
+		}
+	}
+}
+
 async function loadNovelsPage(page: number, force = false): Promise<void> {
 	const platform = activePlatform.value;
 	if (!platform || !sourcesResolved.value) {
 		return;
 	}
-	const sig = `${platform}:${page}`;
+	const genresKey = [...selectedCachedGenres.value].sort().join(",");
+	const statusKey = cachedStatusFilter.value;
+	const keywordKey = cachedKeyword.value.trim();
+	const sig = `${platform}:${page}:${genresKey}:${statusKey}:${keywordKey}`;
 	if (!force && sig === loadedCachedSignature && novels.value.length > 0) {
 		return;
 	}
 
+	if (cachedNovelsAbortController !== null) {
+		cachedNovelsAbortController.abort();
+		cachedNovelsAbortController = null;
+	}
+	const controller = new AbortController();
+	cachedNovelsAbortController = controller;
 	loadingList.value = true;
 	listErrorMessage.value = null;
 
+	const options: FetchCachedNovelsOptions = {
+		page,
+		pageSize: PAGE_SIZE,
+	};
+	if (selectedCachedGenres.value.length > 0) {
+		options.genres = selectedCachedGenres.value;
+	}
+	if (cachedStatusFilter.value !== "all") {
+		options.status = cachedStatusFilter.value as NovelStatus;
+	}
+	if (keywordKey) {
+		options.q = keywordKey;
+	}
+
 	try {
-		const res = await fetchNovels(platform, page, PAGE_SIZE);
-		if (activePlatform.value !== platform) {
+		const res = await fetchCachedNovels(platform, options, controller.signal);
+		if (controller.signal.aborted || activePlatform.value !== platform) {
 			return;
 		}
 		novels.value = res.items;
 		cachedPage.value = res.page;
 		totalNovels.value = res.total;
-		loadedCachedSignature = `${platform}:${res.page}`;
+		loadedCachedSignature = `${platform}:${res.page}:${genresKey}:${statusKey}:${keywordKey}`;
 	} catch (err) {
+		if (controller.signal.aborted || isAbortError(err)) {
+			return;
+		}
 		listErrorMessage.value = formatApiErrorMessage(err, "加载书库列表失败");
 	} finally {
-		loadingList.value = false;
+		if (cachedNovelsAbortController === controller) {
+			cachedNovelsAbortController = null;
+			loadingList.value = false;
+		}
 	}
+}
+
+function toggleCachedGenre(genre: string): void {
+	if (selectedCachedGenres.value.includes(genre)) {
+		selectedCachedGenres.value = selectedCachedGenres.value.filter(
+			(item) => item !== genre,
+		);
+	} else {
+		selectedCachedGenres.value = [...selectedCachedGenres.value, genre];
+	}
+	cachedPage.value = 1;
+	loadedCachedSignature = null;
+	syncUrlQuery();
+}
+
+function setCachedStatus(status: CachedStatusFilter): void {
+	if (cachedStatusFilter.value === status) {
+		return;
+	}
+	cachedStatusFilter.value = status;
+	cachedPage.value = 1;
+	loadedCachedSignature = null;
+	syncUrlQuery();
+}
+
+function handleCachedKeywordInput(): void {
+	if (cachedKeywordDebounceTimer !== null) {
+		clearTimeout(cachedKeywordDebounceTimer);
+	}
+	cachedKeywordDebounceTimer = setTimeout(() => {
+		cachedKeywordDebounceTimer = null;
+		const trimmed = cachedKeywordInput.value.trim();
+		if (trimmed === cachedKeyword.value) {
+			return;
+		}
+		cachedKeyword.value = trimmed;
+		cachedPage.value = 1;
+		loadedCachedSignature = null;
+		syncUrlQuery();
+	}, 300);
+}
+
+function clearCachedKeyword(): void {
+	if (cachedKeywordDebounceTimer !== null) {
+		clearTimeout(cachedKeywordDebounceTimer);
+		cachedKeywordDebounceTimer = null;
+	}
+	cachedKeywordInput.value = "";
+	if (cachedKeyword.value !== "") {
+		cachedKeyword.value = "";
+		cachedPage.value = 1;
+		loadedCachedSignature = null;
+		syncUrlQuery();
+	}
+}
+
+function resetCachedFilters(): void {
+	if (cachedKeywordDebounceTimer !== null) {
+		clearTimeout(cachedKeywordDebounceTimer);
+		cachedKeywordDebounceTimer = null;
+	}
+	selectedCachedGenres.value = [];
+	cachedStatusFilter.value = "all";
+	cachedKeywordInput.value = "";
+	cachedKeyword.value = "";
+	cachedPage.value = 1;
+	loadedCachedSignature = null;
+	syncUrlQuery();
 }
 
 async function executeSearch(
@@ -561,6 +786,7 @@ function handleSelectPlatform(platformId: string): void {
 	settingsStore.setSelectedExplorePlatform(platformId);
 
 	abortSchemaRequest();
+	abortCachedRequests();
 	exploreSchema.value = null;
 	schemaError.value = null;
 	homeChannel.value = "home";
@@ -570,6 +796,12 @@ function handleSelectPlatform(platformId: string): void {
 	catalogFilters.value = {};
 	catalogPage.value = 1;
 	cachedPage.value = 1;
+	cachedGenres.value = [];
+	selectedCachedGenres.value = [];
+	cachedStatusFilter.value = "all";
+	cachedKeywordInput.value = "";
+	cachedKeyword.value = "";
+	showAllCachedGenres.value = false;
 	novels.value = [];
 	totalNovels.value = 0;
 	loadedCachedSignature = null;
@@ -788,11 +1020,15 @@ watch(
 		effectiveTab,
 		activePlatform,
 		cachedPage,
+		() => selectedCachedGenres.value.join(","),
+		cachedStatusFilter,
+		cachedKeyword,
 	],
-	([resolved, searching, tab, _platform, page]) => {
+	([resolved, searching, tab, platform, page]) => {
 		if (!resolved || searching || tab !== "cached") {
 			return;
 		}
+		void loadCachedGenresForPlatform(platform);
 		void loadNovelsPage(page);
 	},
 	{ immediate: true },
@@ -807,6 +1043,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
 	abortSchemaRequest();
 	abortInFlightSearch();
+	abortCachedRequests();
 });
 </script>
 
@@ -1072,6 +1309,190 @@ onBeforeUnmount(() => {
 
 		<!-- Cached Novels Mode (4th Tab or Fallback for non-explore sources) -->
 		<section v-else class="space-y-4">
+			<!-- Cached Filters Toolbar -->
+			<div
+				class="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] p-3.5 sm:p-4 space-y-3"
+			>
+				<div class="flex flex-wrap items-center gap-2">
+					<!-- Local Cached Keyword Search -->
+					<div class="relative min-w-48 flex-1">
+						<Search
+							class="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--text-muted)]"
+						/>
+						<input
+							v-model="cachedKeywordInput"
+							type="search"
+							placeholder="筛选服务器缓存中的书名或作者…"
+							aria-label="筛选已缓存作品"
+							class="w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-primary)] py-1.5 pl-8 pr-8 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent)] focus:outline-none"
+							@input="handleCachedKeywordInput"
+							@search="handleCachedKeywordInput"
+						/>
+						<button
+							v-if="cachedKeywordInput"
+							type="button"
+							aria-label="清除缓存筛选词"
+							class="absolute right-2 top-1/2 -translate-y-1/2 rounded p-0.5 text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+							@click="clearCachedKeyword"
+						>
+							<X class="h-3.5 w-3.5" />
+						</button>
+					</div>
+
+					<!-- Cached Status Filter -->
+					<fieldset
+						class="inline-flex items-center rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-primary)] p-0.5 text-xs"
+						aria-label="缓存作品连载状态"
+					>
+						<button
+							type="button"
+							class="rounded-lg px-2.5 py-1 font-medium transition-colors"
+							:class="
+								cachedStatusFilter === 'all'
+									? 'bg-[var(--accent-soft)] text-[var(--accent)]'
+									: 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+							"
+							@click="setCachedStatus('all')"
+						>
+							全部状态
+						</button>
+						<button
+							type="button"
+							class="rounded-lg px-2.5 py-1 font-medium transition-colors"
+							:class="
+								cachedStatusFilter === 'ongoing'
+									? 'bg-[var(--accent-soft)] text-[var(--accent)]'
+									: 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+							"
+							@click="setCachedStatus('ongoing')"
+						>
+							连载中
+						</button>
+						<button
+							type="button"
+							class="rounded-lg px-2.5 py-1 font-medium transition-colors"
+							:class="
+								cachedStatusFilter === 'completed'
+									? 'bg-[var(--accent-soft)] text-[var(--accent)]'
+									: 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+							"
+							@click="setCachedStatus('completed')"
+						>
+							已完结
+						</button>
+					</fieldset>
+				</div>
+
+				<!-- Cached Genres Multi-Select Chips -->
+				<div v-if="loadingCachedGenres || cachedGenres.length > 0" class="space-y-2">
+					<div class="flex items-center justify-between gap-2 text-xs">
+						<span class="inline-flex items-center gap-1 font-medium text-[var(--text-secondary)]">
+							<Tag class="h-3.5 w-3.5" />
+							题材标签（多选交集）
+						</span>
+						<button
+							v-if="cachedGenres.length > CACHED_GENRES_COLLAPSED_LIMIT"
+							type="button"
+							class="text-[11px] text-[var(--accent)] hover:underline"
+							@click="showAllCachedGenres = !showAllCachedGenres"
+						>
+							{{
+								showAllCachedGenres
+									? "收起标签"
+									: `展开全部 (${cachedGenres.length})`
+							}}
+						</button>
+					</div>
+
+					<div v-if="loadingCachedGenres && cachedGenres.length === 0" class="flex flex-wrap gap-1.5">
+						<span
+							v-for="idx in 8"
+							:key="idx"
+							class="h-6 w-16 rounded-lg bg-[var(--bg-secondary)] animate-pulse"
+						/>
+					</div>
+
+					<div v-else class="flex flex-wrap gap-1.5">
+						<button
+							v-for="genre in displayedCachedGenres"
+							:key="genre.name"
+							type="button"
+							class="inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-medium transition-colors"
+							:class="
+								selectedCachedGenres.includes(genre.name)
+									? 'bg-[var(--accent)] text-white'
+									: 'bg-[var(--bg-secondary)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+							"
+							@click="toggleCachedGenre(genre.name)"
+						>
+							<span>{{ genre.name }}</span>
+							<span class="text-[10px] opacity-75">{{ genre.count }}</span>
+						</button>
+					</div>
+				</div>
+
+				<!-- Active Cached Filters Summary -->
+				<div
+					v-if="hasActiveCachedFilters"
+					class="flex flex-wrap items-center gap-1.5 border-t border-[var(--border-subtle)] pt-2.5"
+				>
+					<span
+						v-for="genre in selectedCachedGenres"
+						:key="genre"
+						class="inline-flex items-center gap-1 rounded-lg bg-[var(--accent-soft)] px-2 py-1 text-xs font-medium text-[var(--accent)]"
+					>
+						<Tag class="h-3 w-3" />
+						{{ genre }}
+						<button
+							type="button"
+							:aria-label="`移除标签 ${genre}`"
+							class="rounded hover:bg-[var(--accent)]/20"
+							@click="toggleCachedGenre(genre)"
+						>
+							<X class="h-3 w-3" />
+						</button>
+					</span>
+
+					<span
+						v-if="cachedStatusFilter !== 'all'"
+						class="inline-flex items-center gap-1 rounded-lg bg-[var(--accent-soft)] px-2 py-1 text-xs font-medium text-[var(--accent)]"
+					>
+						{{ cachedStatusFilter === "ongoing" ? "连载中" : "已完结" }}
+						<button
+							type="button"
+							aria-label="清除状态筛选"
+							class="rounded hover:bg-[var(--accent)]/20"
+							@click="setCachedStatus('all')"
+						>
+							<X class="h-3 w-3" />
+						</button>
+					</span>
+
+					<span
+						v-if="cachedKeyword"
+						class="inline-flex items-center gap-1 rounded-lg bg-[var(--bg-secondary)] px-2 py-1 text-xs text-[var(--text-secondary)]"
+					>
+						关键词：{{ cachedKeyword }}
+						<button
+							type="button"
+							aria-label="清除关键词"
+							class="rounded hover:bg-[var(--bg-primary)]"
+							@click="clearCachedKeyword"
+						>
+							<X class="h-3 w-3" />
+						</button>
+					</span>
+
+					<button
+						type="button"
+						class="ml-1 text-xs text-[var(--text-muted)] hover:text-[var(--accent)] hover:underline"
+						@click="resetCachedFilters"
+					>
+						重置筛选
+					</button>
+				</div>
+			</div>
+
 			<div
 				v-if="listErrorMessage"
 				role="alert"
@@ -1105,9 +1526,23 @@ onBeforeUnmount(() => {
 
 			<div
 				v-else-if="novels.length === 0 && !listErrorMessage"
-				class="rounded-2xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-elevated)] p-10 text-center text-sm text-[var(--text-muted)]"
+				class="rounded-2xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-elevated)] p-10 text-center space-y-3"
 			>
-				当前书源暂无已缓存作品，试试上方搜索框直接检索作品。
+				<p class="text-sm text-[var(--text-muted)]">
+					{{
+						hasActiveCachedFilters
+							? "没有符合当前筛选条件的已缓存作品。"
+							: "当前书源暂无已缓存作品，试试上方搜索框直接检索作品。"
+					}}
+				</p>
+				<button
+					v-if="hasActiveCachedFilters"
+					type="button"
+					class="inline-flex items-center gap-1.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-secondary)] px-4 py-2 text-xs font-medium text-[var(--text-primary)] hover:bg-[var(--bg-primary)]"
+					@click="resetCachedFilters"
+				>
+					重置筛选
+				</button>
 			</div>
 
 			<div
