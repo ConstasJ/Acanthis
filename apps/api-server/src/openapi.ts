@@ -23,8 +23,9 @@ export const openApiDocumentation: GenerateSpecOptions["documentation"] = {
 	},
 	servers: [
 		{
-			url: "/",
-			description: "当前服务端实例（保留 /v1 路由前缀）",
+			url: "..",
+			description:
+				"当前服务端实例（相对 /v1/openapi.json 解析，兼容根路径与子目录反向代理部署）",
 		},
 	],
 	tags: [
@@ -58,7 +59,7 @@ export const openApiDocumentation: GenerateSpecOptions["documentation"] = {
 };
 
 export const scalarConfig: Partial<ApiReferenceConfiguration> = {
-	url: "/v1/openapi.json",
+	url: "./openapi.json",
 	pageTitle: "Acanthis API Reference",
 	defaultHttpClient: {
 		targetKey: "js",
