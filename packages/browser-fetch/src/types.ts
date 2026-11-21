@@ -24,6 +24,12 @@ export type RequestDefaults = {
 	maxRedirects?: number;
 };
 
+export interface BrowserFetchLogger {
+	debug: (message: string) => unknown;
+	warn?: (message: string) => unknown;
+	error?: (message: string) => unknown;
+}
+
 export type BrowserFetchClientOptions = {
 	profile?: BrowserProfileName | BrowserProfile;
 	cookieStore?: CookiesStoreOptions;
@@ -32,6 +38,7 @@ export type BrowserFetchClientOptions = {
 	challengeSolver?: ChallengeOptions;
 	requestDefaults?: RequestDefaults;
 	transport?: Transport;
+	logger?: BrowserFetchLogger | undefined;
 };
 
 export type RetryOptions = {

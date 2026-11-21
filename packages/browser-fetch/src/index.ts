@@ -37,6 +37,7 @@ export type {
 export type {
 	BinaryResponse,
 	BrowserFetchClientOptions,
+	BrowserFetchLogger,
 	BrowserFetchRequest,
 	BrowserFetchResponse,
 	RetryOptions,

@@ -29,6 +29,7 @@ import type { Transport, TransportRequest } from "./transport/types";
 import type {
 	BinaryResponse,
 	BrowserFetchClientOptions,
+	BrowserFetchLogger,
 	BrowserFetchRequest,
 	BrowserFetchResponse,
 	RequestDefaults,
@@ -81,12 +82,16 @@ export class BrowserFetchClient {
 	private challengeSolver: ChallengeOptions | null = null;
 	private requestDefaults: RequestDefaults;
 	private transport: Transport;
+	private logger?: BrowserFetchLogger | undefined;
 
 	constructor(options?: Partial<BrowserFetchClientOptions>) {
-		options = deepmerge(
+		const { logger, ...mergeableOptions } = options ?? {};
+		this.logger = logger;
+		const mergedOptions = deepmerge(
 			defaultOptions,
-			options ?? {},
+			mergeableOptions,
 		) as BrowserFetchClientOptions;
+		options = mergedOptions;
 		if (options.profile) {
 			this.profile =
 				typeof options.profile === "string"
@@ -152,12 +157,20 @@ export class BrowserFetchClient {
 		const bodyRecord = iswwwFormUrlEncoded(body)
 			? wwwFormUrlEncodedToRecordStringString(body)
 			: undefined;
-		return await solveCloudflareChallenge(
+		const startAt = Date.now();
+		this.logger?.debug(
+			`[BrowserFetch] 调用 FlareSolverr 求解验证: ${method} ${url}`,
+		);
+		const result = await solveCloudflareChallenge(
 			url,
 			method,
 			this.flareSolverrClient,
 			bodyRecord,
 		);
+		this.logger?.debug(
+			`[BrowserFetch] FlareSolverr 求解完成: ${method} ${url} status=${result.status} cookies=${result.cookies.length} duration=${Date.now() - startAt}ms`,
+		);
+		return result;
 	}
 
 	private _buildResponseFromFlareSolverr(
@@ -280,8 +293,13 @@ export class BrowserFetchClient {
 			},
 		};
 
+		const requestStartAt = Date.now();
 		try {
 			const response = await this.transport.request(transportRequest);
+			const duration = response.elapsedTime ?? Date.now() - requestStartAt;
+			this.logger?.debug(
+				`[BrowserFetch] ${transportRequest.method} ${init.url} -> status=${response.status} type=${response.contentType?.mimeType ?? "unknown"} cookies=${response.cookies?.length ?? 0} duration=${duration}ms`,
+			);
 
 			// Update cookie store with any new cookies from the response
 			if (response.cookies) {
@@ -402,6 +420,9 @@ export class BrowserFetchClient {
 					const detector = getDetector(this.challengeSolver);
 					if (detector(error.status, error.responseText)) {
 						const method = init.method === "POST" ? "POST" : "GET";
+						this.logger?.debug(
+							`[BrowserFetch] 检测到 Cloudflare 验证页: ${method} ${init.url} status=${error.status} duration=${Date.now() - requestStartAt}ms`,
+						);
 						const challengeResult = await this._solveChallenge(
 							init.url,
 							method,
@@ -418,8 +439,14 @@ export class BrowserFetchClient {
 							challengeResult,
 						);
 						if (directResponse !== null) {
+							this.logger?.debug(
+								`[BrowserFetch] 直接复用 FlareSolverr 返回的响应体: ${method} ${init.url} status=${directResponse.status}`,
+							);
 							return directResponse;
 						}
+						this.logger?.debug(
+							`[BrowserFetch] 携带新 cf_clearance 回放原请求: ${method} ${init.url}`,
+						);
 						// Fall back to replaying the original request (e.g. binary response or non-2xx solution)
 						return await this._request(init, true);
 					}
@@ -428,6 +455,9 @@ export class BrowserFetchClient {
 					detectCloudflareBlock(error.status, error.responseText) ||
 					detectCloudflareChallenge(error.status, error.responseText)
 				) {
+					this.logger?.debug(
+						`[BrowserFetch] 请求被 Cloudflare 拦截: ${init.method ?? "GET"} ${init.url} status=${error.status} challengeRetried=${challengeRetried}`,
+					);
 					throw new CloudflareBlockError(init.url);
 				}
 				throw error;
@@ -455,6 +485,9 @@ export class BrowserFetchClient {
 			randomize: retries.randomize ?? true,
 			factor: retries.factor ?? 2,
 			onFailedAttempt: async (ctx) => {
+				this.logger?.debug(
+					`[BrowserFetch] 请求失败准备重试: ${init.method ?? "GET"} ${init.url} attempt=${ctx.attemptNumber} retriesLeft=${ctx.retriesLeft} error=${ctx.error.message}`,
+				);
 				if (retries.onFailedAttempt) {
 					await retries.onFailedAttempt(ctx);
 				}
