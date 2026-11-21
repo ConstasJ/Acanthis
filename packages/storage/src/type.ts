@@ -1,6 +1,8 @@
 import type {
+	BookshelfCategory,
 	BookshelfItem,
 	NovelInfo,
+	NovelStatus,
 	ReadingProgress,
 } from "@acanthis-dec/core";
 
@@ -28,6 +30,9 @@ export interface VolumeCoverMetadata {
 export interface ListNovelsOptions {
 	page: number;
 	pageSize: number;
+	genres?: string[] | undefined;
+	status?: NovelStatus | undefined;
+	q?: string | undefined;
 }
 
 export interface PaginatedNovels {
@@ -40,16 +45,19 @@ export interface PaginatedNovels {
 export interface SyncStateResult {
 	bookshelf: BookshelfItem[];
 	progress: ReadingProgress[];
+	categories: BookshelfCategory[];
 	cursor: number;
 }
 
 export interface MergeSyncStateInput {
-	bookshelf?: BookshelfItem[];
-	progress?: ReadingProgress[];
+	bookshelf?: BookshelfItem[] | undefined;
+	progress?: ReadingProgress[] | undefined;
+	categories?: BookshelfCategory[] | undefined;
 }
 
 export interface MergeSyncStateResult {
 	bookshelf: BookshelfItem[];
 	progress: ReadingProgress[];
+	categories: BookshelfCategory[];
 	serverTime: number;
 }

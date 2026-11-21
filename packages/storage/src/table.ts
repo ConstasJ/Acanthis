@@ -166,6 +166,16 @@ export const illustrationMetadata = sqliteTable(
 	],
 );
 
+export const bookshelfCategories = sqliteTable("bookshelf_categories", {
+	id: text("id").primaryKey(),
+	name: text("name").notNull(),
+	sortOrder: integer("sort_order").notNull().default(0),
+	createdAt: integer("created_at").notNull(),
+	updatedAt: integer("updated_at").notNull(),
+	serverUpdatedAt: integer("server_updated_at").notNull(),
+	deletedAt: integer("deleted_at"),
+});
+
 export const bookshelfItems = sqliteTable(
 	"bookshelf_items",
 	{
@@ -179,6 +189,13 @@ export const bookshelfItems = sqliteTable(
 		updatedAt: integer("updated_at").notNull(),
 		serverUpdatedAt: integer("server_updated_at").notNull(),
 		deletedAt: integer("deleted_at"),
+		categoryIds: text("category_ids").notNull().default("[]"),
+		genresJson: text("genres_json").notNull().default("[]"),
+		status: text("status", {
+			enum: ["ongoing", "completed", "unknown"],
+		})
+			.notNull()
+			.default("unknown"),
 	},
 	(table) => [
 		uniqueIndex("bookshelf_platform_novel_idx").on(
@@ -205,6 +222,7 @@ export const readingProgress = sqliteTable(
 		deviceLabel: text("device_label").notNull(),
 		updatedAt: integer("updated_at").notNull(),
 		serverUpdatedAt: integer("server_updated_at").notNull(),
+		historyHiddenAt: integer("history_hidden_at"),
 	},
 	(table) => [
 		uniqueIndex("reading_progress_platform_novel_idx").on(
@@ -228,6 +246,7 @@ export const relations = defineRelations(
 		cookies,
 		generalCache,
 		illustrationMetadata,
+		bookshelfCategories,
 		bookshelfItems,
 		readingProgress,
 	},

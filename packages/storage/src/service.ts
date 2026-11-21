@@ -1,5 +1,10 @@
 import type { BinaryResponse } from "@acanthis-dec/browser-fetch";
-import type { Chapter, Novel, NovelSearchResult } from "@acanthis-dec/core";
+import type {
+	CachedGenreItem,
+	Chapter,
+	Novel,
+	NovelSearchResult,
+} from "@acanthis-dec/core";
 import type z from "zod";
 import { DatabaseCookieStore } from "./cookies";
 import { type DatabaseOptions, DatabaseService } from "./db";
@@ -156,6 +161,10 @@ export class StorageService {
 		options: ListNovelsOptions,
 	): Promise<PaginatedNovels> {
 		return await this.db.listCachedNovels(platform, options);
+	}
+
+	async listCachedGenres(platform: string): Promise<CachedGenreItem[]> {
+		return await this.db.listCachedGenres(platform);
 	}
 
 	async getSyncState(since?: number): Promise<SyncStateResult> {

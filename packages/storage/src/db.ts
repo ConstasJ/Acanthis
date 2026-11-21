@@ -1,17 +1,21 @@
 import { existsSync, mkdirSync, rmSync, statSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import type {
+	BookshelfCategory,
 	BookshelfItem,
+	CachedGenreItem,
 	Chapter,
 	Novel,
 	NovelInfo,
 	NovelSearchResult,
+	NovelStatus,
 	ReadingProgress,
 	Volume,
 } from "@acanthis-dec/core";
 import { type Client, createClient } from "@libsql/client";
 import {
 	and,
+	asc,
 	count,
 	desc,
 	eq,
@@ -21,11 +25,15 @@ import {
 	max,
 	ne,
 	notInArray,
+	or,
+	type SQL,
+	sql,
 } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/libsql";
 import { migrate } from "drizzle-orm/libsql/migrator";
 import type { z } from "zod";
 import {
+	bookshelfCategories,
 	bookshelfItems,
 	chapters,
 	generalCache,
@@ -74,6 +82,60 @@ export type DrizzleInstance = ReturnType<typeof getDrizzle>;
 
 const CLOCK_SKEW_TOLERANCE_MS = 60_000;
 
+function normalizeStringList(values: readonly string[] | undefined): string[] {
+	if (!values || values.length === 0) {
+		return [];
+	}
+	const seen = new Set<string>();
+	const result: string[] = [];
+	for (const raw of values) {
+		const trimmed = raw.trim();
+		if (!trimmed || seen.has(trimmed)) {
+			continue;
+		}
+		seen.add(trimmed);
+		result.push(trimmed);
+	}
+	return result;
+}
+
+function parseJsonStringArray(raw: string | null | undefined): string[] {
+	if (!raw) {
+		return [];
+	}
+	try {
+		const parsed: unknown = JSON.parse(raw);
+		if (!Array.isArray(parsed)) {
+			return [];
+		}
+		return normalizeStringList(
+			parsed.filter((entry): entry is string => typeof entry === "string"),
+		);
+	} catch {
+		return [];
+	}
+}
+
+function escapeLikePattern(value: string): string {
+	return value
+		.replaceAll("\\", "\\\\")
+		.replaceAll("%", "\\%")
+		.replaceAll("_", "\\_");
+}
+
+function toBookshelfCategory(
+	row: typeof bookshelfCategories.$inferSelect,
+): BookshelfCategory {
+	return {
+		id: row.id,
+		name: row.name,
+		sortOrder: row.sortOrder,
+		createdAt: row.createdAt,
+		updatedAt: row.updatedAt,
+		deletedAt: row.deletedAt,
+	};
+}
+
 function toBookshelfItem(
 	row: typeof bookshelfItems.$inferSelect,
 ): BookshelfItem {
@@ -86,6 +148,9 @@ function toBookshelfItem(
 		addedAt: row.addedAt,
 		updatedAt: row.updatedAt,
 		deletedAt: row.deletedAt,
+		categoryIds: parseJsonStringArray(row.categoryIds),
+		genres: parseJsonStringArray(row.genresJson),
+		status: row.status,
 	};
 }
 
@@ -105,6 +170,7 @@ function toReadingProgress(
 		totalParagraphs: row.totalParagraphs,
 		deviceLabel: row.deviceLabel,
 		updatedAt: row.updatedAt,
+		historyHiddenAt: row.historyHiddenAt ?? null,
 	};
 }
 
@@ -860,12 +926,46 @@ export class DatabaseService {
 		const pageSize = Math.max(1, Math.trunc(options.pageSize));
 		const offset = (page - 1) * pageSize;
 
-		const whereClause = and(
+		const conditions: SQL[] = [
 			eq(novels.platform, platform),
-			ne(novels.status, "unknown"),
 			ne(novels.author, ""),
 			ne(novels.name, ""),
-		);
+		];
+
+		if (options.status !== undefined) {
+			conditions.push(eq(novels.status, options.status));
+		} else {
+			conditions.push(ne(novels.status, "unknown"));
+		}
+
+		const trimmedQuery = options.q?.trim();
+		if (trimmedQuery) {
+			const escaped = escapeLikePattern(trimmedQuery.toLowerCase());
+			const pattern = `%${escaped}%`;
+			const keywordCondition = or(
+				sql`LOWER(${novels.name}) LIKE ${pattern} ESCAPE '\\'`,
+				sql`LOWER(${novels.author}) LIKE ${pattern} ESCAPE '\\'`,
+			);
+			if (keywordCondition) {
+				conditions.push(keywordCondition);
+			}
+		}
+
+		const normalizedGenres = normalizeStringList(options.genres);
+		if (normalizedGenres.length > 0) {
+			const matchingNovelIdsSubquery = this.db
+				.select({ novelId: novelGenres.novelId })
+				.from(novelGenres)
+				.innerJoin(genres, eq(novelGenres.genreId, genres.id))
+				.where(inArray(genres.name, normalizedGenres))
+				.groupBy(novelGenres.novelId)
+				.having(
+					sql`COUNT(DISTINCT ${genres.name}) = ${normalizedGenres.length}`,
+				);
+			conditions.push(inArray(novels.id, matchingNovelIdsSubquery));
+		}
+
+		const whereClause = and(...conditions);
 
 		const totalResult = await this.db
 			.select({ value: count() })
@@ -950,6 +1050,35 @@ export class DatabaseService {
 		};
 	}
 
+	async listCachedGenres(platform: string): Promise<CachedGenreItem[]> {
+		await this.ensureReady();
+		const countExpr = sql<number>`COUNT(DISTINCT ${novels.id})`;
+		const rows = await this.db
+			.select({
+				name: genres.name,
+				count: countExpr,
+			})
+			.from(novelGenres)
+			.innerJoin(genres, eq(novelGenres.genreId, genres.id))
+			.innerJoin(novels, eq(novelGenres.novelId, novels.id))
+			.where(
+				and(
+					eq(novels.platform, platform),
+					ne(novels.status, "unknown"),
+					ne(novels.author, ""),
+					ne(novels.name, ""),
+				),
+			)
+			.groupBy(genres.id, genres.name)
+			.orderBy(desc(countExpr), asc(genres.name))
+			.all();
+
+		return rows.map((row) => ({
+			name: row.name,
+			count: Number(row.count),
+		}));
+	}
+
 	private async getMaxSyncCursor(
 		executor: Pick<DrizzleInstance, "select">,
 	): Promise<number> {
@@ -961,9 +1090,123 @@ export class DatabaseService {
 			.select({ value: max(readingProgress.serverUpdatedAt) })
 			.from(readingProgress)
 			.get();
+		const categoryMaxRow = await executor
+			.select({ value: max(bookshelfCategories.serverUpdatedAt) })
+			.from(bookshelfCategories)
+			.get();
 		const bookshelfMax = Number(bookshelfMaxRow?.value ?? 0);
 		const progressMax = Number(progressMaxRow?.value ?? 0);
-		return Math.max(bookshelfMax, progressMax);
+		const categoryMax = Number(categoryMaxRow?.value ?? 0);
+		return Math.max(bookshelfMax, progressMax, categoryMax);
+	}
+
+	private async enrichBookshelfItemsWithNovelMetadata(
+		executor: Pick<DrizzleInstance, "select">,
+		items: BookshelfItem[],
+	): Promise<BookshelfItem[]> {
+		if (items.length === 0) {
+			return items;
+		}
+
+		const idsByPlatform = new Map<string, Set<string>>();
+		for (const item of items) {
+			let idSet = idsByPlatform.get(item.platform);
+			if (!idSet) {
+				idSet = new Set<string>();
+				idsByPlatform.set(item.platform, idSet);
+			}
+			idSet.add(item.novelId);
+		}
+
+		const matchedNovels: {
+			id: number;
+			platform: string;
+			platformId: string;
+			status: NovelStatus;
+		}[] = [];
+
+		const chunkSize = 500;
+		for (const [platform, idSet] of idsByPlatform) {
+			const allIds = Array.from(idSet);
+			for (let i = 0; i < allIds.length; i += chunkSize) {
+				const chunk = allIds.slice(i, i + chunkSize);
+				const rows = await executor
+					.select({
+						id: novels.id,
+						platform: novels.platform,
+						platformId: novels.platformId,
+						status: novels.status,
+					})
+					.from(novels)
+					.where(
+						and(
+							eq(novels.platform, platform),
+							inArray(novels.platformId, chunk),
+						),
+					)
+					.all();
+				matchedNovels.push(...rows);
+			}
+		}
+
+		const genresByNovelDbId = new Map<number, string[]>();
+		if (matchedNovels.length > 0) {
+			const dbIds = matchedNovels.map((row) => row.id);
+			for (let i = 0; i < dbIds.length; i += chunkSize) {
+				const chunk = dbIds.slice(i, i + chunkSize);
+				const genreRows = await executor
+					.select({
+						novelId: novelGenres.novelId,
+						genreName: genres.name,
+					})
+					.from(novelGenres)
+					.innerJoin(genres, eq(novelGenres.genreId, genres.id))
+					.where(inArray(novelGenres.novelId, chunk))
+					.all();
+				for (const row of genreRows) {
+					const list = genresByNovelDbId.get(row.novelId);
+					if (list) {
+						list.push(row.genreName);
+					} else {
+						genresByNovelDbId.set(row.novelId, [row.genreName]);
+					}
+				}
+			}
+		}
+
+		const metaByKey = new Map<
+			string,
+			{ status: NovelStatus; genres: string[] }
+		>();
+		for (const novelRow of matchedNovels) {
+			const key = `${novelRow.platform}\0${novelRow.platformId}`;
+			metaByKey.set(key, {
+				status: novelRow.status,
+				genres: normalizeStringList(genresByNovelDbId.get(novelRow.id)),
+			});
+		}
+
+		return items.map((item) => {
+			const key = `${item.platform}\0${item.novelId}`;
+			const novelMeta = metaByKey.get(key);
+			const fallbackGenres = normalizeStringList(item.genres);
+			const fallbackStatus: NovelStatus = item.status ?? "unknown";
+			const resolvedGenres =
+				novelMeta && novelMeta.genres.length > 0
+					? novelMeta.genres
+					: fallbackGenres;
+			const resolvedStatus: NovelStatus =
+				novelMeta && novelMeta.status !== "unknown"
+					? novelMeta.status
+					: fallbackStatus;
+
+			return {
+				...item,
+				categoryIds: normalizeStringList(item.categoryIds),
+				genres: resolvedGenres,
+				status: resolvedStatus,
+			};
+		});
 	}
 
 	async getSyncState(since?: number): Promise<SyncStateResult> {
@@ -978,10 +1221,27 @@ export class DatabaseService {
 					.where(isNull(bookshelfItems.deletedAt))
 					.all();
 				const progressRows = await tx.select().from(readingProgress).all();
+				const categoryRows = await tx
+					.select()
+					.from(bookshelfCategories)
+					.where(isNull(bookshelfCategories.deletedAt))
+					.orderBy(
+						asc(bookshelfCategories.sortOrder),
+						asc(bookshelfCategories.createdAt),
+						asc(bookshelfCategories.id),
+					)
+					.all();
+
+				const enrichedBookshelf =
+					await this.enrichBookshelfItemsWithNovelMetadata(
+						tx,
+						bookshelfRows.map(toBookshelfItem),
+					);
 
 				return {
-					bookshelf: bookshelfRows.map(toBookshelfItem),
+					bookshelf: enrichedBookshelf,
 					progress: progressRows.map(toReadingProgress),
+					categories: categoryRows.map(toBookshelfCategory),
 					cursor: maxCursor,
 				};
 			}
@@ -996,10 +1256,27 @@ export class DatabaseService {
 				.from(readingProgress)
 				.where(gt(readingProgress.serverUpdatedAt, since))
 				.all();
+			const categoryRows = await tx
+				.select()
+				.from(bookshelfCategories)
+				.where(gt(bookshelfCategories.serverUpdatedAt, since))
+				.orderBy(
+					asc(bookshelfCategories.sortOrder),
+					asc(bookshelfCategories.createdAt),
+					asc(bookshelfCategories.id),
+				)
+				.all();
+
+			const enrichedBookshelf =
+				await this.enrichBookshelfItemsWithNovelMetadata(
+					tx,
+					bookshelfRows.map(toBookshelfItem),
+				);
 
 			return {
-				bookshelf: bookshelfRows.map(toBookshelfItem),
+				bookshelf: enrichedBookshelf,
 				progress: progressRows.map(toReadingProgress),
+				categories: categoryRows.map(toBookshelfCategory),
 				cursor: Math.max(since, maxCursor),
 			};
 		});
@@ -1016,8 +1293,61 @@ export class DatabaseService {
 				return lastCursor;
 			};
 
+			const categoryMap = new Map<string, BookshelfCategory>();
 			const bookshelfMap = new Map<string, BookshelfItem>();
 			const progressMap = new Map<string, ReadingProgress>();
+
+			for (const cat of input.categories ?? []) {
+				const maxAllowedTime = Date.now() + CLOCK_SKEW_TOLERANCE_MS;
+				const effectiveUpdatedAt = Math.min(cat.updatedAt, maxAllowedTime);
+				const effectiveCreatedAt = Math.min(cat.createdAt, maxAllowedTime);
+				const trimmedName = cat.name.trim();
+				const normalizedSortOrder = Math.trunc(cat.sortOrder);
+
+				const existing = await tx
+					.select()
+					.from(bookshelfCategories)
+					.where(eq(bookshelfCategories.id, cat.id))
+					.get();
+
+				if (!existing) {
+					const serverUpdatedAt = nextCursor();
+					const inserted = await tx
+						.insert(bookshelfCategories)
+						.values({
+							id: cat.id,
+							name: trimmedName,
+							sortOrder: normalizedSortOrder,
+							createdAt: effectiveCreatedAt,
+							updatedAt: effectiveUpdatedAt,
+							serverUpdatedAt,
+							deletedAt: cat.deletedAt,
+						})
+						.returning()
+						.get();
+					categoryMap.set(cat.id, toBookshelfCategory(inserted));
+				} else if (effectiveUpdatedAt >= existing.updatedAt) {
+					const serverUpdatedAt = nextCursor();
+					const updated = await tx
+						.update(bookshelfCategories)
+						.set({
+							name: trimmedName,
+							sortOrder: normalizedSortOrder,
+							updatedAt: effectiveUpdatedAt,
+							serverUpdatedAt,
+							deletedAt: cat.deletedAt,
+						})
+						.where(eq(bookshelfCategories.id, existing.id))
+						.returning()
+						.get();
+					if (!updated) {
+						throw new Error(`Failed to update bookshelf category: ${cat.id}`);
+					}
+					categoryMap.set(cat.id, toBookshelfCategory(updated));
+				} else {
+					categoryMap.set(cat.id, toBookshelfCategory(existing));
+				}
+			}
 
 			for (const item of input.bookshelf ?? []) {
 				const key = `${item.platform}\0${item.novelId}`;
@@ -1050,12 +1380,28 @@ export class DatabaseService {
 							updatedAt: effectiveUpdatedAt,
 							serverUpdatedAt,
 							deletedAt: item.deletedAt,
+							categoryIds: JSON.stringify(
+								normalizeStringList(item.categoryIds),
+							),
+							genresJson: JSON.stringify(normalizeStringList(item.genres)),
+							status: item.status ?? "unknown",
 						})
 						.returning()
 						.get();
 					bookshelfMap.set(key, toBookshelfItem(inserted));
 				} else if (effectiveUpdatedAt >= existing.updatedAt) {
 					const serverUpdatedAt = nextCursor();
+					const nextCategoryIds =
+						item.categoryIds !== undefined
+							? JSON.stringify(normalizeStringList(item.categoryIds))
+							: existing.categoryIds;
+					const nextGenresJson =
+						item.genres !== undefined
+							? JSON.stringify(normalizeStringList(item.genres))
+							: existing.genresJson;
+					const nextStatus =
+						item.status !== undefined ? item.status : existing.status;
+
 					const updated = await tx
 						.update(bookshelfItems)
 						.set({
@@ -1066,6 +1412,9 @@ export class DatabaseService {
 							updatedAt: effectiveUpdatedAt,
 							serverUpdatedAt,
 							deletedAt: item.deletedAt,
+							categoryIds: nextCategoryIds,
+							genresJson: nextGenresJson,
+							status: nextStatus,
 						})
 						.where(eq(bookshelfItems.id, existing.id))
 						.returning()
@@ -1083,10 +1432,13 @@ export class DatabaseService {
 
 			for (const item of input.progress ?? []) {
 				const key = `${item.platform}\0${item.novelId}`;
-				const effectiveUpdatedAt = Math.min(
-					item.updatedAt,
-					Date.now() + CLOCK_SKEW_TOLERANCE_MS,
-				);
+				const maxAllowedTime = Date.now() + CLOCK_SKEW_TOLERANCE_MS;
+				const effectiveUpdatedAt = Math.min(item.updatedAt, maxAllowedTime);
+				const incomingHiddenAt =
+					typeof item.historyHiddenAt === "number"
+						? Math.min(item.historyHiddenAt, maxAllowedTime)
+						: null;
+
 				const existing = await tx
 					.select()
 					.from(readingProgress)
@@ -1116,45 +1468,73 @@ export class DatabaseService {
 							deviceLabel: item.deviceLabel,
 							updatedAt: effectiveUpdatedAt,
 							serverUpdatedAt,
+							historyHiddenAt: incomingHiddenAt,
 						})
 						.returning()
 						.get();
 					progressMap.set(key, toReadingProgress(inserted));
-				} else if (effectiveUpdatedAt >= existing.updatedAt) {
-					const serverUpdatedAt = nextCursor();
-					const updated = await tx
-						.update(readingProgress)
-						.set({
-							novelTitle: item.novelTitle,
-							coverUrl: item.coverUrl,
-							volumeId: item.volumeId,
-							volumeTitle: item.volumeTitle,
-							chapterId: item.chapterId,
-							chapterTitle: item.chapterTitle,
-							paragraphIndex: item.paragraphIndex,
-							totalParagraphs: item.totalParagraphs,
-							deviceLabel: item.deviceLabel,
-							updatedAt: effectiveUpdatedAt,
-							serverUpdatedAt,
-						})
-						.where(eq(readingProgress.id, existing.id))
-						.returning()
-						.get();
-					if (!updated) {
-						throw new Error(
-							`Failed to update reading progress: ${item.platform}/${item.novelId}`,
-						);
-					}
-					progressMap.set(key, toReadingProgress(updated));
 				} else {
-					progressMap.set(key, toReadingProgress(existing));
+					const existingHiddenAt = existing.historyHiddenAt ?? null;
+					const mergedHiddenAt =
+						incomingHiddenAt === null
+							? existingHiddenAt
+							: existingHiddenAt === null
+								? incomingHiddenAt
+								: Math.max(existingHiddenAt, incomingHiddenAt);
+					const progressWins = effectiveUpdatedAt >= existing.updatedAt;
+					const hiddenChanged = mergedHiddenAt !== existingHiddenAt;
+
+					if (progressWins || hiddenChanged) {
+						const serverUpdatedAt = nextCursor();
+						const updated = await tx
+							.update(readingProgress)
+							.set(
+								progressWins
+									? {
+											novelTitle: item.novelTitle,
+											coverUrl: item.coverUrl,
+											volumeId: item.volumeId,
+											volumeTitle: item.volumeTitle,
+											chapterId: item.chapterId,
+											chapterTitle: item.chapterTitle,
+											paragraphIndex: item.paragraphIndex,
+											totalParagraphs: item.totalParagraphs,
+											deviceLabel: item.deviceLabel,
+											updatedAt: effectiveUpdatedAt,
+											serverUpdatedAt,
+											historyHiddenAt: mergedHiddenAt,
+										}
+									: {
+											serverUpdatedAt,
+											historyHiddenAt: mergedHiddenAt,
+										},
+							)
+							.where(eq(readingProgress.id, existing.id))
+							.returning()
+							.get();
+						if (!updated) {
+							throw new Error(
+								`Failed to update reading progress: ${item.platform}/${item.novelId}`,
+							);
+						}
+						progressMap.set(key, toReadingProgress(updated));
+					} else {
+						progressMap.set(key, toReadingProgress(existing));
+					}
 				}
 			}
 
+			const enrichedBookshelf =
+				await this.enrichBookshelfItemsWithNovelMetadata(
+					tx,
+					Array.from(bookshelfMap.values()),
+				);
+
 			const serverTime = Math.max(Date.now(), lastCursor);
 			return {
-				bookshelf: Array.from(bookshelfMap.values()),
+				bookshelf: enrichedBookshelf,
 				progress: Array.from(progressMap.values()),
+				categories: Array.from(categoryMap.values()),
 				serverTime,
 			};
 		});
