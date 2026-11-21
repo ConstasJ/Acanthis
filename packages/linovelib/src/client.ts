@@ -179,7 +179,7 @@ export class LinovelibClient {
 			this.fetchClient,
 			this.logger,
 		);
-		this.searchSession = new SearchSession(this.fetchClient);
+		this.searchSession = new SearchSession(this.fetchClient, this.logger);
 	}
 
 	private async ensureSession(): Promise<void> {

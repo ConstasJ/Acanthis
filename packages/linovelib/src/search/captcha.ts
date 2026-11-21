@@ -7,10 +7,19 @@ import type { InferenceSession } from "onnxruntime-node";
 
 const MODEL_FILENAME = "captcha_cropped.onnx";
 const TARGET_HEIGHT = 64;
+const CHANNEL_VARIANT_NAMES = [
+	"saturation",
+	"maxChannel",
+	"minChannel",
+] as const;
 const CHARSET = [
 	"",
 	..."0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ",
 ];
+
+export interface SearchCaptchaLogger {
+	debug: (message: string) => unknown;
+}
 
 let sessionPromise: Promise<InferenceSession> | undefined;
 
@@ -44,19 +53,28 @@ function resolveModelPath(): string {
 	);
 }
 
-async function getSession(): Promise<InferenceSession> {
+async function getSession(
+	logger?: SearchCaptchaLogger,
+): Promise<InferenceSession> {
 	if (!sessionPromise) {
 		sessionPromise = (async () => {
+			const loadStartAt = Date.now();
 			const ort = await import("onnxruntime-node");
 			// 模型输出维度声明为动态，ONNX Runtime 会为 CTC 输出发出无害的 shape 警告，这里静音。
 			ort.env.logLevel = "error";
-			const model = await readFile(resolveModelPath());
-			return await ort.InferenceSession.create(model, {
+			const modelPath = resolveModelPath();
+			logger?.debug(`[SearchCaptcha] 加载验证码 ONNX 模型: path=${modelPath}`);
+			const model = await readFile(modelPath);
+			const session = await ort.InferenceSession.create(model, {
 				executionProviders: ["cpu"],
 				graphOptimizationLevel: "all",
 				intraOpNumThreads: 1,
 				interOpNumThreads: 1,
 			});
+			logger?.debug(
+				`[SearchCaptcha] 验证码 ONNX 模型加载完成: bytes=${model.byteLength} duration=${Date.now() - loadStartAt}ms`,
+			);
+			return session;
 		})();
 		sessionPromise.catch(() => {
 			sessionPromise = undefined;
@@ -230,13 +248,15 @@ function chooseBest(decoded: DecodedText[]): DecodedText {
  */
 export async function solveCaptcha(
 	image: Buffer | Uint8Array,
+	logger?: SearchCaptchaLogger,
 ): Promise<string> {
+	const startAt = Date.now();
 	const decoded = decodePng(image) as unknown as DecodedImage;
 	const targetWidth = Math.round(
 		(decoded.width * TARGET_HEIGHT) / decoded.height,
 	);
 	const ort = await import("onnxruntime-node");
-	const session = await getSession();
+	const session = await getSession(logger);
 	const inputName = session.inputNames[0];
 	const outputName = session.outputNames[0];
 	if (!inputName || !outputName) {
@@ -280,5 +300,15 @@ export async function solveCaptcha(
 	if (decodedTexts.length === 0) {
 		throw new Error("验证码识别失败：没有任何可用结果");
 	}
-	return chooseBest(decodedTexts).text;
+	const best = chooseBest(decodedTexts);
+	const variantSummary = decodedTexts
+		.map(
+			(item, index) =>
+				`${CHANNEL_VARIANT_NAMES[index] ?? `v${index}`}=${JSON.stringify(item.text)}(${item.confidence.toFixed(3)})`,
+		)
+		.join(", ");
+	logger?.debug(
+		`[SearchCaptcha] 识别完成: winner=${JSON.stringify(best.text)}(${best.confidence.toFixed(3)}) image=${decoded.width}x${decoded.height} variants=[${variantSummary}] duration=${Date.now() - startAt}ms`,
+	);
+	return best.text;
 }
