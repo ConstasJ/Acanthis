@@ -1,5 +1,12 @@
 # @acanthis-dec/cli
 
+## 0.2.2
+
+### Patch Changes
+
+- Updated dependencies [70f4f56]
+  - @acanthis-dec/core@1.4.0
+
 ## 0.2.1
 
 ### Patch Changes
