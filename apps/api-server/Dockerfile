@@ -51,4 +51,7 @@ EXPOSE 5301
 
 VOLUME /app/data
 
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+	CMD ["node", "-e", "const port = process.env.PORT || '5301'; const raw = process.env.LISTEN_HOST?.trim(); const host = !raw ? 'localhost' : raw === '0.0.0.0' || raw === '*' ? '127.0.0.1' : raw === '::' ? '[::1]' : raw.includes(':') && !raw.startsWith('[') ? `[${raw}]` : raw; fetch(`http://${host}:${port}/v1/health`, { signal: AbortSignal.timeout(4000) }).then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`)))).then((b) => { process.exit(b?.status === 'ok' ? 0 : 1); }).catch(() => process.exit(1));"]
+
 CMD ["node", "index.js"]
