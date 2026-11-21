@@ -22,6 +22,9 @@ import {
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { RouterLink, useRoute, useRouter } from "vue-router";
 import { rebaseMediaUrl } from "@/api/client";
+import SearchableTagPicker, {
+	type TagPickerOption,
+} from "@/components/SearchableTagPicker.vue";
 import SetupBanner from "@/components/SetupBanner.vue";
 import ShelfAssignModal from "@/components/ShelfAssignModal.vue";
 import ShelfManagerModal from "@/components/ShelfManagerModal.vue";
@@ -50,7 +53,6 @@ const searchQuery = ref<string>("");
 const selectedGenres = ref<string[]>([]);
 const statusFilter = ref<StatusFilter>("all");
 const sortMode = ref<SortMode>("recentRead");
-const genrePanelOpen = ref<boolean>(false);
 
 const shelfManagerOpen = ref<boolean>(false);
 const assignTarget = ref<BookshelfItem | null>(null);
@@ -208,6 +210,14 @@ const availableGenres = computed<GenreOption[]>(() => {
 	return list;
 });
 
+const genrePickerOptions = computed<TagPickerOption[]>(() =>
+	availableGenres.value.map((genre) => ({
+		value: genre.name,
+		label: genre.name,
+		count: genre.count,
+	})),
+);
+
 const hasActiveFilters = computed<boolean>(
 	() =>
 		searchQuery.value.trim().length > 0 ||
@@ -266,6 +276,10 @@ function toggleGenreFilter(genre: string): void {
 	}
 }
 
+function handleSelectedGenresUpdate(value: string | string[]): void {
+	selectedGenres.value = Array.isArray(value) ? value : value ? [value] : [];
+}
+
 function resetFilters(): void {
 	searchQuery.value = "";
 	selectedGenres.value = [];
@@ -310,18 +324,12 @@ function handleDocumentClick(event: MouseEvent): void {
 	if (openMenuKey.value !== null && !target?.closest("[data-bookshelf-menu]")) {
 		openMenuKey.value = null;
 	}
-	if (genrePanelOpen.value && !target?.closest("[data-genre-filter]")) {
-		genrePanelOpen.value = false;
-	}
 }
 
 function handleDocumentKeyDown(event: KeyboardEvent): void {
 	if (event.key === "Escape") {
 		if (openMenuKey.value !== null) {
 			openMenuKey.value = null;
-		}
-		if (genrePanelOpen.value) {
-			genrePanelOpen.value = false;
 		}
 	}
 }
@@ -550,71 +558,17 @@ onBeforeUnmount(() => {
 				</div>
 
 				<!-- Genre Multi-Select Dropdown -->
-				<div class="relative" data-genre-filter>
-					<button
-						type="button"
-						class="inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-medium transition-colors"
-						:class="
-							selectedGenres.length > 0
-								? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]'
-								: 'border-[var(--border-subtle)] bg-[var(--bg-elevated)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-						"
-						@click="genrePanelOpen = !genrePanelOpen"
-					>
-						<Tag class="h-3.5 w-3.5" />
-						<span>标签</span>
-						<span
-							v-if="selectedGenres.length > 0"
-							class="rounded-full bg-[var(--accent)] px-1.5 text-[10px] text-white"
-						>
-							{{ selectedGenres.length }}
-						</span>
-					</button>
-
-					<div
-						v-if="genrePanelOpen"
-						class="absolute left-0 top-full z-30 mt-2 w-72 max-w-[calc(100vw-2rem)] rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] p-3 shadow-xl space-y-2.5 sm:left-auto sm:right-0"
-					>
-						<div class="flex items-center justify-between">
-							<span class="text-xs font-semibold text-[var(--text-primary)]">
-								题材标签（多选交集）
-							</span>
-							<button
-								v-if="selectedGenres.length > 0"
-								type="button"
-								class="text-[11px] text-[var(--accent)] hover:underline"
-								@click="selectedGenres = []"
-							>
-								清空标签
-							</button>
-						</div>
-
-						<p
-							v-if="availableGenres.length === 0"
-							class="py-3 text-center text-xs text-[var(--text-muted)]"
-						>
-							当前书架内暂无题材标签数据
-						</p>
-
-						<div v-else class="flex max-h-52 flex-wrap gap-1.5 overflow-y-auto">
-							<button
-								v-for="genre in availableGenres"
-								:key="genre.name"
-								type="button"
-								class="inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-medium transition-colors"
-								:class="
-									selectedGenres.includes(genre.name)
-										? 'bg-[var(--accent)] text-white'
-										: 'bg-[var(--bg-secondary)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-								"
-								@click="toggleGenreFilter(genre.name)"
-							>
-								<span>{{ genre.name }}</span>
-								<span class="text-[10px] opacity-75">{{ genre.count }}</span>
-							</button>
-						</div>
-					</div>
-				</div>
+				<SearchableTagPicker
+					:options="genrePickerOptions"
+					:model-value="selectedGenres"
+					:multiple="true"
+					label="标签"
+					panel-title="题材标签（多选交集）"
+					placeholder="搜索题材标签…"
+					empty-text="当前书架内暂无题材标签数据"
+					align="right"
+					@update:model-value="handleSelectedGenresUpdate"
+				/>
 
 				<!-- Status Filter -->
 				<fieldset
