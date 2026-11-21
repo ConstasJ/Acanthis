@@ -35,10 +35,12 @@
 ### Task 1: 扩展 `@acanthis-dec/core` 共享领域类型
 
 **Files:**
+
 - Modify: `packages/core/src/types.ts:55-80`
 - Modify: `packages/core/src/index.ts:8-31`
 
 **Interfaces:**
+
 - Produces:
   - `BookshelfCategory` (`id`, `name`, `sortOrder`, `createdAt`, `updatedAt`, `deletedAt`)
   - `BookshelfItem` 扩展可选字段 `categoryIds?: string[]`, `genres?: string[]`, `status?: NovelStatus`
@@ -46,13 +48,14 @@
   - `CachedGenreItem` (`name: string`, `count: number`)
 
 - [ ] **Step 1: 更新 `packages/core/src/types.ts` 与 `packages/core/src/index.ts`**
-  按设计文档第 3.1 节精确定义 `BookshelfCategory`、`CachedGenreItem`，并在 `BookshelfItem` 与 `ReadingProgress` 中补充上述可选字段，在 `packages/core/src/index.ts` 导出新增类型。
+      按设计文档第 3.1 节精确定义 `BookshelfCategory`、`CachedGenreItem`，并在 `BookshelfItem` 与 `ReadingProgress` 中补充上述可选字段，在 `packages/core/src/index.ts` 导出新增类型。
 
 - [ ] **Step 2: 运行类型检查、构建与 Biome 校验**
-  Run: `fnm env --use-on-cd --shell powershell | Out-String | Invoke-Expression; pnpm --filter=@acanthis-dec/core run check-types; pnpm --filter=@acanthis-dec/core run build; pnpm exec biome check packages/core/src/types.ts packages/core/src/index.ts`
-  Expected: 0 errors, 0 warnings.
+      Run: `fnm env --use-on-cd --shell powershell | Out-String | Invoke-Expression; pnpm --filter=@acanthis-dec/core run check-types; pnpm --filter=@acanthis-dec/core run build; pnpm exec biome check packages/core/src/types.ts packages/core/src/index.ts`
+      Expected: 0 errors, 0 warnings.
 
 - [ ] **Step 3: 提交**
+
   ```bash
   git add packages/core/src/types.ts packages/core/src/index.ts
   git commit -m "feat(core): 扩展书架分类、元数据快照与历史隐藏同步类型" -m "- 新增 BookshelfCategory 与 CachedGenreItem 类型定义\n- BookshelfItem 增加可选 categoryIds/genres/status 字段\n- ReadingProgress 增加可选 historyHiddenAt 字段"
@@ -63,6 +66,7 @@
 ### Task 2: `@acanthis-dec/storage` Schema、迁移、同步合并与缓存筛选
 
 **Files:**
+
 - Modify: `packages/storage/src/table.ts:169-233`
 - Create: `packages/storage/migrations/<generated>.sql` (及 `meta/` 快照，由 `drizzle-kit generate` 生成)
 - Modify: `packages/storage/src/type.ts`
@@ -70,6 +74,7 @@
 - Modify: `packages/storage/src/service.ts`
 
 **Interfaces:**
+
 - Consumes: `@acanthis-dec/core` 的 `BookshelfCategory`, `BookshelfItem`, `ReadingProgress`, `CachedGenreItem`, `NovelStatus`
 - Produces:
   - `SyncStateResult` 新增 `categories: BookshelfCategory[]`
@@ -85,11 +90,11 @@
   4. 将 `bookshelfCategories` 加入 `defineRelations`。
 
 - [ ] **Step 2: 生成 Drizzle 迁移**
-  Run: `fnm env --use-on-cd --shell powershell | Out-String | Invoke-Expression; cd packages/storage; pnpm exec drizzle-kit generate`
-  Expected: 在 `packages/storage/migrations/` 生成仅包含 `CREATE TABLE bookshelf_categories` 与 4 条 `ALTER TABLE ... ADD COLUMN` 的增量 SQL 文件。
+      Run: `fnm env --use-on-cd --shell powershell | Out-String | Invoke-Expression; cd packages/storage; pnpm exec drizzle-kit generate`
+      Expected: 在 `packages/storage/migrations/` 生成仅包含 `CREATE TABLE bookshelf_categories` 与 4 条 `ALTER TABLE ... ADD COLUMN` 的增量 SQL 文件。
 
 - [ ] **Step 3: 更新 `packages/storage/src/type.ts`、`src/db.ts`、`src/service.ts`**
-  实现要点：
+      实现要点：
   1. `getMaxSyncCursor` 改为三表取最大 `serverUpdatedAt`（`bookshelfItems`、`readingProgress`、`bookshelfCategories`）。
   2. `enrichBookshelfItemsWithNovelMetadata(tx, items)`：按 `(platform, novelId)` 批量查 `novels` + `novelGenres` + `genres`，若 `novels` 有关联非空 `genres` 则优先使用，否则回退 `bookshelf_items.genres_json`；`status` 非 `"unknown"` 优先用 `novels.status`。`getSyncState` 与 `mergeSyncState` 返回 `bookshelf` 前统一调用。
   3. `getSyncState(since?)`：
@@ -106,15 +111,16 @@
   6. 新增 `listCachedGenres(platform: string): Promise<CachedGenreItem[]>`：聚合统计该平台已缓存作品的每个题材标签数量，按 `count DESC, name ASC` 排序，并在 `StorageService` 透出。
 
 - [ ] **Step 4: 用 `tsx` 冒烟验证迁移与核心合并/筛选边界**
-  使用临时内存/临时文件 SQLite 库运行一次性验证脚本（不写入仓库文件），验证：
+      使用临时内存/临时文件 SQLite 库运行一次性验证脚本（不写入仓库文件），验证：
   - 迁移应用成功；
   - Review Focus #1（老客户端不传新字段不覆盖 `categoryIds`/`genres`/`status`/`historyHiddenAt`）；
   - `historyHiddenAt` max-wins 与后续重读（`updatedAt > historyHiddenAt`）；
   - `listCachedNovels` 多标签 AND 交集、`q` 含 `%`/`_` 转义、`genres=[]` 退化、`listCachedGenres` 计数排序。
 
 - [ ] **Step 5: 类型检查、构建与 Biome 校验并提交**
-  Run: `fnm env --use-on-cd --shell powershell | Out-String | Invoke-Expression; pnpm --filter=@acanthis-dec/storage run check-types; pnpm --filter=@acanthis-dec/storage run build; pnpm exec biome check packages/storage/src/table.ts packages/storage/src/type.ts packages/storage/src/db.ts packages/storage/src/service.ts`
-  Expected: 0 errors, 0 warnings.
+      Run: `fnm env --use-on-cd --shell powershell | Out-String | Invoke-Expression; pnpm --filter=@acanthis-dec/storage run check-types; pnpm --filter=@acanthis-dec/storage run build; pnpm exec biome check packages/storage/src/table.ts packages/storage/src/type.ts packages/storage/src/db.ts packages/storage/src/service.ts`
+      Expected: 0 errors, 0 warnings.
+
   ```bash
   git add packages/storage/src packages/storage/migrations
   git commit -m "feat(storage): 支持多书架同步、历史软隐藏合并与缓存标签筛选" -m "- 新增 bookshelf_categories 表及 bookshelf_items/reading_progress 新列迁移\n- mergeSyncState 实现分类 LWW、historyHiddenAt max-wins 与旧客户端字段保护\n- getSyncState/mergeSyncState 自动关联 novels 表补齐 genres 与 status\n- listCachedNovels 支持 genres/status/q 筛选并新增 listCachedGenres"
@@ -125,6 +131,7 @@
 ### Task 3: `@acanthis-dec/api-server` 路由、Zod Schema 与 OpenAPI 契约
 
 **Files:**
+
 - Modify: `apps/api-server/src/schemas/sync.ts`
 - Modify: `apps/api-server/src/sync.ts`
 - Modify: `apps/api-server/src/schemas/linovelib.ts`
@@ -132,6 +139,7 @@
 - Modify: `apps/api-server/openapi.json` (自动生成)
 
 **Interfaces:**
+
 - Consumes: Task 2 的 `StorageService` 新接口与 `@acanthis-dec/core` 新类型
 - Produces:
   - `GET /v1/sync/state` 返回 `{ bookshelf, progress, categories, cursor }`
@@ -152,10 +160,11 @@
   - `GET /novels` 将 `genres`、`status`、`q` 透传给 `storageService.listCachedNovels("linovelib", ...)`。
 
 - [ ] **Step 3: 重新生成 OpenAPI 并执行检查**
-  Run: `fnm env --use-on-cd --shell powershell | Out-String | Invoke-Expression; pnpm --filter=@acanthis-dec/api-server run openapi:generate; pnpm --filter=@acanthis-dec/api-server run openapi:check; pnpm --filter=@acanthis-dec/api-server run check-types; pnpm --filter=@acanthis-dec/api-server run build; pnpm exec biome check apps/api-server/src/schemas/sync.ts apps/api-server/src/sync.ts apps/api-server/src/schemas/linovelib.ts apps/api-server/src/linovelib.ts`
-  Expected: OpenAPI 无漂移，构建与检查 0 errors, 0 warnings。
+      Run: `fnm env --use-on-cd --shell powershell | Out-String | Invoke-Expression; pnpm --filter=@acanthis-dec/api-server run openapi:generate; pnpm --filter=@acanthis-dec/api-server run openapi:check; pnpm --filter=@acanthis-dec/api-server run check-types; pnpm --filter=@acanthis-dec/api-server run build; pnpm exec biome check apps/api-server/src/schemas/sync.ts apps/api-server/src/sync.ts apps/api-server/src/schemas/linovelib.ts apps/api-server/src/linovelib.ts`
+      Expected: OpenAPI 无漂移，构建与检查 0 errors, 0 warnings。
 
 - [ ] **Step 4: 提交**
+
   ```bash
   git add apps/api-server/src apps/api-server/openapi.json
   git commit -m "feat(api-server): 扩展同步接口与服务器缓存题材标签筛选端点" -m "- /v1/sync/state 支持 categories、书架归属/元数据快照与 historyHiddenAt\n- /v1/linovelib/novels 支持 genres/status/q 筛选参数\n- 新增 GET /v1/linovelib/genres 并同步更新 openapi.json"
@@ -168,11 +177,13 @@
 ### Task 4: Web API Client、IndexedDB v2 与 `useLibraryStore`
 
 **Files:**
+
 - Modify: `apps/web/src/api/client.ts`
 - Modify: `apps/web/src/db/indexedDb.ts`
 - Modify: `apps/web/src/stores/library.ts`
 
 **Interfaces:**
+
 - Consumes: Task 3 的 HTTP 契约
 - Produces:
   - `fetchCachedNovels(platform, { page, pageSize, genres?, status?, q? })` 与 `fetchCachedGenres(platform)`
@@ -201,8 +212,9 @@
   - `applyKeepalivePayloadLimit` 支持 `categories` 字段。
 
 - [ ] **Step 4: 验证并提交**
-  Run: `fnm env --use-on-cd --shell powershell | Out-String | Invoke-Expression; pnpm --filter=@acanthis-dec/web run check-types; pnpm exec biome check apps/web/src/api/client.ts apps/web/src/db/indexedDb.ts apps/web/src/stores/library.ts`
-  Expected: 0 errors, 0 warnings。
+      Run: `fnm env --use-on-cd --shell powershell | Out-String | Invoke-Expression; pnpm --filter=@acanthis-dec/web run check-types; pnpm exec biome check apps/web/src/api/client.ts apps/web/src/db/indexedDb.ts apps/web/src/stores/library.ts`
+      Expected: 0 errors, 0 warnings。
+
   ```bash
   git add apps/web/src/api/client.ts apps/web/src/db/indexedDb.ts apps/web/src/stores/library.ts
   git commit -m "feat(web): 升级 IndexedDB v2 与书架同步 Store 支持多书架及历史记录" -m "- IndexedDB 升级至 v2 新增 categories store，升级时自动归零游标补齐元数据\n- library store 实现分类 CRUD/排序、多书架归属、historyHiddenAt max-wins 合并与删除/清空历史\n- API client 新增缓存标签查询与缓存列表筛选参数"
@@ -213,26 +225,29 @@
 ### Task 5: Web 端 4-Tab 导航与 LNReader 风格「历史记录」页
 
 **Files:**
+
 - Modify: `apps/web/src/router/index.ts`
 - Modify: `apps/web/src/components/AppShell.vue`
 - Create: `apps/web/src/views/HistoryView.vue`
 
 **Interfaces:**
+
 - Consumes: `useLibraryStore().historyList`, `removeHistoryItem`, `clearAllHistory`
 - Produces: 路由 `/history`（`name: "history"`）及导航入口「历史」
 
 - [ ] **Step 1: 在 `router/index.ts` 与 `AppShell.vue` 增加 `/history` 路由与导航项**
-  将导航项调整为 4 项：`书架 (/)`、`历史 (/history)`、`发现 (/explore)`、`设置 (/settings)`（图标使用 `lucide-vue-next` 的 `History`）。
+      将导航项调整为 4 项：`书架 (/)`、`历史 (/history)`、`发现 (/explore)`、`设置 (/settings)`（图标使用 `lucide-vue-next` 的 `History`）。
 
 - [ ] **Step 2: 创建 `apps/web/src/views/HistoryView.vue`**
-  按设计文档第 6.2 节实现：
+      按设计文档第 6.2 节实现：
   - 顶部搜索框（按 `novelTitle` / `chapterTitle` 实时过滤）+ 「清空历史」按钮（点击弹出二次确认对话框）。
   - 按本地时区自然日分组（`今天`、`昨天`、`YYYY年MM月DD日`），展示封面（点进详情）、书名、卷/章标题、阅读时间 `HH:mm` 与设备标签、主按钮「继续」（直达 `/read/...`）和单条删除按钮（立即调用 `removeHistoryItem` 并展示 2s 轻提示「已从历史记录移除」，不提供撤销）。
   - 无历史 / 搜索无结果空态。
 
 - [ ] **Step 3: 验证并提交**
-  Run: `fnm env --use-on-cd --shell powershell | Out-String | Invoke-Expression; pnpm --filter=@acanthis-dec/web run check-types; pnpm exec biome check apps/web/src/router/index.ts apps/web/src/components/AppShell.vue apps/web/src/views/HistoryView.vue`
-  Expected: 0 errors, 0 warnings。
+      Run: `fnm env --use-on-cd --shell powershell | Out-String | Invoke-Expression; pnpm --filter=@acanthis-dec/web run check-types; pnpm exec biome check apps/web/src/router/index.ts apps/web/src/components/AppShell.vue apps/web/src/views/HistoryView.vue`
+      Expected: 0 errors, 0 warnings。
+
   ```bash
   git add apps/web/src/router/index.ts apps/web/src/components/AppShell.vue apps/web/src/views/HistoryView.vue
   git commit -m "feat(web): 新增 LNReader 风格阅读历史页面与导航入口" -m "- 桌面侧边栏与移动端底栏扩展为 4 个一级入口（书架/历史/发现/设置）\n- 新增 HistoryView 支持按日期分组、搜索、一键继续阅读、单条删除与清空确认"
@@ -243,11 +258,13 @@
 ### Task 6: Web 端「多书架 + 元数据标签筛选」书架页与管理弹窗
 
 **Files:**
+
 - Create: `apps/web/src/components/ShelfManagerModal.vue`
 - Create: `apps/web/src/components/ShelfAssignModal.vue`
 - Modify: `apps/web/src/views/BookshelfView.vue`
 
 **Interfaces:**
+
 - Consumes: `useLibraryStore` 的分类/筛选/归属方法；URL query `?genre=...`
 - Produces: 可复用的 `ShelfAssignModal.vue`（`NovelDetailView.vue` 在 Task 7 复用）
 
@@ -262,8 +279,9 @@
   - 卡片三点菜单新增「管理所属书架」打开 `ShelfAssignModal`。
 
 - [ ] **Step 3: 验证并提交**
-  Run: `fnm env --use-on-cd --shell powershell | Out-String | Invoke-Expression; pnpm --filter=@acanthis-dec/web run check-types; pnpm exec biome check apps/web/src/components/ShelfManagerModal.vue apps/web/src/components/ShelfAssignModal.vue apps/web/src/views/BookshelfView.vue`
-  Expected: 0 errors, 0 warnings。
+      Run: `fnm env --use-on-cd --shell powershell | Out-String | Invoke-Expression; pnpm --filter=@acanthis-dec/web run check-types; pnpm exec biome check apps/web/src/components/ShelfManagerModal.vue apps/web/src/components/ShelfAssignModal.vue apps/web/src/views/BookshelfView.vue`
+      Expected: 0 errors, 0 warnings。
+
   ```bash
   git add apps/web/src/components/ShelfManagerModal.vue apps/web/src/components/ShelfAssignModal.vue apps/web/src/views/BookshelfView.vue
   git commit -m "feat(web): 书架页支持多书架管理、本地搜索与元数据标签筛选" -m "- 新增 ShelfManagerModal 与 ShelfAssignModal 弹窗组件\n- BookshelfView 新增全部/默认/自定义书架切换、题材多选 AND 筛选、状态筛选与 URL 联动"
@@ -274,10 +292,12 @@
 ### Task 7: Web 端详情页标签点击/多书架归属 + 发现页服务器缓存筛选
 
 **Files:**
+
 - Modify: `apps/web/src/views/NovelDetailView.vue`
 - Modify: `apps/web/src/views/ExploreView.vue`
 
 **Interfaces:**
+
 - Consumes: Task 4 的 `fetchCachedNovels` / `fetchCachedGenres`、Task 6 的 `ShelfAssignModal.vue` 与 `/?genre=...` 路由
 
 - [ ] **Step 1: 更新 `apps/web/src/views/NovelDetailView.vue`**
@@ -290,8 +310,9 @@
   - 在「服务器缓存」Tab 加载 `fetchCachedGenres(platform)`，新增关键词搜索框（防抖 300ms）、连载状态 Chip、题材标签多选 Chip 条（AND 交集），筛选变化时重置到第 1 页重新请求 `fetchCachedNovels`。
 
 - [ ] **Step 3: 验证并提交**
-  Run: `fnm env --use-on-cd --shell powershell | Out-String | Invoke-Expression; pnpm --filter=@acanthis-dec/web run check-types; pnpm --filter=@acanthis-dec/web run build; pnpm exec biome check apps/web/src/views/NovelDetailView.vue apps/web/src/views/ExploreView.vue`
-  Expected: 0 errors, 0 warnings。
+      Run: `fnm env --use-on-cd --shell powershell | Out-String | Invoke-Expression; pnpm --filter=@acanthis-dec/web run check-types; pnpm --filter=@acanthis-dec/web run build; pnpm exec biome check apps/web/src/views/NovelDetailView.vue apps/web/src/views/ExploreView.vue`
+      Expected: 0 errors, 0 warnings。
+
   ```bash
   git add apps/web/src/views/NovelDetailView.vue apps/web/src/views/ExploreView.vue
   git commit -m "feat(web): 详情页支持标签跳转与多书架分配，发现页服务器缓存支持标签筛选" -m "- NovelDetailView 收藏透传 genres/status，标签胶囊可点击跳书架筛选，支持多书架分配\n- ExploreView 服务器缓存 Tab 支持按题材多选、连载状态与关键词组合筛选"
@@ -302,16 +323,18 @@
 ### Task 8: Acanthis 全量校验与 Changeset 补充
 
 **Files:**
+
 - Create: `.changeset/library-history-shelves-tags.md`
 
 - [ ] **Step 1: 新增 Changeset 文件**
-  创建 `.changeset/library-history-shelves-tags.md`，frontmatter 标注 `@acanthis-dec/core: minor`、`@acanthis-dec/storage: minor`、`@acanthis-dec/api-server: minor`、`@acanthis-dec/web: minor`，正文简明中文概括三项新功能。
+      创建 `.changeset/library-history-shelves-tags.md`，frontmatter 标注 `@acanthis-dec/core: minor`、`@acanthis-dec/storage: minor`、`@acanthis-dec/api-server: minor`、`@acanthis-dec/web: minor`，正文简明中文概括三项新功能。
 
 - [ ] **Step 2: 执行 Acanthis 全量校验**
-  Run: `fnm env --use-on-cd --shell powershell | Out-String | Invoke-Expression; pnpm check-types; pnpm build; pnpm --filter=@acanthis-dec/api-server run openapi:check; pnpm exec changeset status; pnpm exec biome check .changeset/library-history-shelves-tags.md`
-  Expected: 所有 9 个包 `check-types` 与 `build` 0 错误，`openapi:check` 通过，`changeset status` 正确识别 4 个 minor 包。
+      Run: `fnm env --use-on-cd --shell powershell | Out-String | Invoke-Expression; pnpm check-types; pnpm build; pnpm --filter=@acanthis-dec/api-server run openapi:check; pnpm exec changeset status; pnpm exec biome check .changeset/library-history-shelves-tags.md`
+      Expected: 所有 9 个包 `check-types` 与 `build` 0 错误，`openapi:check` 通过，`changeset status` 正确识别 4 个 minor 包。
 
 - [ ] **Step 3: 提交 Changeset**
+
   ```bash
   git add .changeset/library-history-shelves-tags.md
   git commit -m "chore(changeset): 为阅读历史、多书架与标签筛选添加发版变更集" -m "- 声明 core/storage/api-server/web 四个包的 minor 版本变更"
@@ -324,6 +347,7 @@
 ### Task 9: App Room v3、显式 `MIGRATION_2_3` 与 `ServerConfigStore` 升级游标重置
 
 **Files:**
+
 - Modify: `composeApp/src/commonMain/kotlin/io/acanthis/app/core/database/Entities.kt`
 - Modify: `composeApp/src/commonMain/kotlin/io/acanthis/app/core/database/Daos.kt`
 - Modify: `composeApp/src/commonMain/kotlin/io/acanthis/app/core/database/AppDatabase.kt`
@@ -332,6 +356,7 @@
 - Test: `composeApp/src/commonTest/kotlin/io/acanthis/app/core/database/AppDatabaseMigrationTest.kt`
 
 **Interfaces:**
+
 - Produces:
   - `BookshelfCategoryEntity` & `BookshelfCategoryDao`
   - `BookshelfEntity` 新增 `categoryIdsJson: String = "[]"`, `genresJson: String = "[]"`, `status: String = "unknown"`
@@ -341,14 +366,14 @@
   - `ServerConfigStore.ensureSyncSchemaVersion(targetVersion: Int)`（首次升到 `2` 时把 `lastSyncCursor` 置 `0L`）
 
 - [ ] **Step 1: 编写失败的迁移与 DAO 单元测试 (`AppDatabaseMigrationTest.kt`)**
-  测试内容：用内存 `BundledSQLiteDriver` 先按 `2.json` 建 v2 表并插入 1 条书架与 1 条阅读进度，执行 `MIGRATION_2_3.migrate(connection)` 后验证：
+      测试内容：用内存 `BundledSQLiteDriver` 先按 `2.json` 建 v2 表并插入 1 条书架与 1 条阅读进度，执行 `MIGRATION_2_3.migrate(connection)` 后验证：
   - `bookshelf_categories` 表存在且可读写；
   - 原有 `bookshelf_items` 行完整保留，新列默认值为 `'[]'`、`'[]'`、`'unknown'`；
   - 原有 `reading_progress` 行完整保留，`historyHiddenAt` 为 `NULL`。
 
 - [ ] **Step 2: 运行测试确认失败**
-  Run: `cd c:\Users\ConstasJ\Coding\acanthis-mobile; .\gradlew.bat :composeApp:testAndroidHostTest --tests "io.acanthis.app.core.database.AppDatabaseMigrationTest"`
-  Expected: FAIL（`MIGRATION_2_3` 不存在）。
+      Run: `cd c:\Users\ConstasJ\Coding\acanthis-mobile; .\gradlew.bat :composeApp:testAndroidHostTest --tests "io.acanthis.app.core.database.AppDatabaseMigrationTest"`
+      Expected: FAIL（`MIGRATION_2_3` 不存在）。
 
 - [ ] **Step 3: 更新 `Entities.kt`、`Daos.kt`、`AppDatabase.kt` 与 `ServerConfigStore.kt`**
   - 新增 `BookshelfCategoryEntity`、`BookshelfCategoryDao`（`observeActiveCategories` 按 `sortOrder ASC, createdAt ASC, id ASC`、`getById`、`getAll`、`upsert`、`upsertAll`）。
@@ -357,8 +382,9 @@
   - `ServerConfigStore` 新增 `syncSchemaVersion` 字段与 `ensureSyncSchemaVersion(2)` 一次性重置 `lastSyncCursor = 0L`。
 
 - [ ] **Step 4: 运行测试并提交**
-  Run: `cd c:\Users\ConstasJ\Coding\acanthis-mobile; .\gradlew.bat :composeApp:testAndroidHostTest --tests "io.acanthis.app.core.database.AppDatabaseMigrationTest"`
-  Expected: PASS，且 `composeApp/schemas/.../3.json` 已生成。
+      Run: `cd c:\Users\ConstasJ\Coding\acanthis-mobile; .\gradlew.bat :composeApp:testAndroidHostTest --tests "io.acanthis.app.core.database.AppDatabaseMigrationTest"`
+      Expected: PASS，且 `composeApp/schemas/.../3.json` 已生成。
+
   ```bash
   git add composeApp/src composeApp/schemas
   git commit -m "feat(database): 升级 Room v3 并提供显式 MIGRATION_2_3 支持多书架与历史隐藏" -m "- 新增 BookshelfCategoryEntity/Dao 与 bookshelf_items/reading_progress 扩展列\n- 注册 MIGRATION_2_3 保护本地数据升级不丢失，并在 ServerConfigStore 中支持升级一次性归零同步游标"
@@ -369,6 +395,7 @@
 ### Task 10: App 网络模型、`AcanthisApiClient`、`LibraryRepository` 与 `SyncCoordinator`
 
 **Files:**
+
 - Modify: `composeApp/src/commonMain/kotlin/io/acanthis/app/core/network/ApiModels.kt`
 - Modify: `composeApp/src/commonMain/kotlin/io/acanthis/app/core/network/AcanthisApiClient.kt`
 - Modify: `composeApp/src/commonMain/kotlin/io/acanthis/app/data/LibraryLocalStore.kt`
@@ -378,21 +405,22 @@
 - Test: `composeApp/src/commonTest/kotlin/io/acanthis/app/data/SyncCoordinatorTest.kt`
 
 **Interfaces:**
+
 - Consumes: Task 9 的 Entities/DAOs 与后端 Task 3 的 HTTP API
 - Produces:
   - `AcanthisApiClient.getCachedNovels(platform, page, pageSize, genres, status, query)`、`getCachedGenres(platform)`
   - `LibraryRepository`: `observeActiveCategories()`, `observeVisibleHistory()`, `createCategory(name)`, `renameCategory(id, name)`, `deleteCategory(id)`, `reorderCategories(orderedIds)`, `setBookshelfCategories(platform, novelId, categoryIds)`, `removeHistoryItem(platform, novelId)`, `clearAllHistory()`
 
 - [ ] **Step 1: 在 `AcanthisApiClientTest.kt` 与 `SyncCoordinatorTest.kt` 新增失败测试**
-  覆盖：
+      覆盖：
   - `getCachedNovels` 正确拼接 `genres` / `status` / `q` 查询参数与 `getCachedGenres` 解析；
   - `SyncCoordinator` 推送与拉取 `categories` LWW 合并；
   - `historyHiddenAt` max-wins 合并（远端旧进度不覆盖本地已隐藏状态，本地重读 `updatedAt = max(now, hiddenAt + 1)` 自动重现，满足 Review Focus #2）；
   - `createCategory`/`renameCategory` 拒绝空白与超 32 字符名称（Review Focus #4）。
 
 - [ ] **Step 2: 运行测试确认失败**
-  Run: `cd c:\Users\ConstasJ\Coding\acanthis-mobile; .\gradlew.bat :composeApp:testAndroidHostTest --tests "io.acanthis.app.core.network.AcanthisApiClientTest" --tests "io.acanthis.app.data.SyncCoordinatorTest"`
-  Expected: FAIL。
+      Run: `cd c:\Users\ConstasJ\Coding\acanthis-mobile; .\gradlew.bat :composeApp:testAndroidHostTest --tests "io.acanthis.app.core.network.AcanthisApiClientTest" --tests "io.acanthis.app.data.SyncCoordinatorTest"`
+      Expected: FAIL。
 
 - [ ] **Step 3: 实现 DTO、API Client、LocalStore、Repository 与 SyncCoordinator 变更**
   - `ApiModels.kt` 扩展 `BookshelfItemDto`、`ReadingProgressDto`、`SyncState*Dto`，新增 `BookshelfCategoryDto`、`CachedGenreDto`。
@@ -400,8 +428,9 @@
   - `SyncCoordinator.syncNow()` 启动前调用 `serverConfigStore.ensureSyncSchemaVersion(2)`，随后推送 `bookshelf`/`progress`/`categories` 脏数据并合并拉取结果。
 
 - [ ] **Step 4: 运行测试并提交**
-  Run: `cd c:\Users\ConstasJ\Coding\acanthis-mobile; .\gradlew.bat :composeApp:testAndroidHostTest --tests "io.acanthis.app.core.network.AcanthisApiClientTest" --tests "io.acanthis.app.data.SyncCoordinatorTest"`
-  Expected: PASS。
+      Run: `cd c:\Users\ConstasJ\Coding\acanthis-mobile; .\gradlew.bat :composeApp:testAndroidHostTest --tests "io.acanthis.app.core.network.AcanthisApiClientTest" --tests "io.acanthis.app.data.SyncCoordinatorTest"`
+      Expected: PASS。
+
   ```bash
   git add composeApp/src
   git commit -m "feat(sync): App 端接入多书架、历史软隐藏同步与服务器缓存筛选接口" -m "- 扩展同步 DTO、AcanthisApiClient 与 SyncCoordinator 支持 categories 及 historyHiddenAt max-wins\n- LibraryRepository 新增分类管理、多书架归属与历史删除/清空能力，并补齐单元测试"
@@ -412,6 +441,7 @@
 ### Task 11: App 4-Tab 导航与「历史记录」页
 
 **Files:**
+
 - Modify: `composeApp/src/commonMain/kotlin/io/acanthis/app/app/navigation/Routes.kt`
 - Modify: `composeApp/src/commonMain/kotlin/io/acanthis/app/app/AcanthisApp.kt`
 - Create: `composeApp/src/commonMain/kotlin/io/acanthis/app/feature/history/HistoryViewModel.kt`
@@ -419,23 +449,25 @@
 - Test: `composeApp/src/commonTest/kotlin/io/acanthis/app/feature/history/HistoryViewModelTest.kt`
 
 **Interfaces:**
+
 - Consumes: Task 10 的 `LibraryRepository.observeVisibleHistory()`, `removeHistoryItem()`, `clearAllHistory()`
 - Produces: `HistoryRoute` 与 `HistoryScreen`
 
 - [ ] **Step 1: 编写 `HistoryViewModelTest.kt`**
-  验证按自然日分组（今天 / 昨天 / 具体日期）、按书名与章节名过滤、调用单条删除与清空历史。
+      验证按自然日分组（今天 / 昨天 / 具体日期）、按书名与章节名过滤、调用单条删除与清空历史。
 
 - [ ] **Step 2: 运行测试确认失败**
-  Run: `cd c:\Users\ConstasJ\Coding\acanthis-mobile; .\gradlew.bat :composeApp:testAndroidHostTest --tests "io.acanthis.app.feature.history.HistoryViewModelTest"`
-  Expected: FAIL。
+      Run: `cd c:\Users\ConstasJ\Coding\acanthis-mobile; .\gradlew.bat :composeApp:testAndroidHostTest --tests "io.acanthis.app.feature.history.HistoryViewModelTest"`
+      Expected: FAIL。
 
 - [ ] **Step 3: 实现 `HistoryViewModel`、`HistoryScreen` 并接入 `Routes.kt` / `AcanthisApp.kt`**
   - `TopLevelTab` 扩展为 4 项：`书架`、`历史`、`发现`、`设置`。
   - `HistoryScreen` 参考 LNReader 样式：顶部搜索框 + 清空按钮（带二次确认 Dialog）、`LazyColumn` 粘性/分组日期头、每行展示封面（点击进详情）、书名、卷/章与时间、继续阅读按钮（直达 `ReaderRoute`）与单条删除按钮（立即落库 + Snackbar 轻提示，无 Undo）。
 
 - [ ] **Step 4: 运行测试并提交**
-  Run: `cd c:\Users\ConstasJ\Coding\acanthis-mobile; .\gradlew.bat :composeApp:testAndroidHostTest --tests "io.acanthis.app.feature.history.HistoryViewModelTest"`
-  Expected: PASS。
+      Run: `cd c:\Users\ConstasJ\Coding\acanthis-mobile; .\gradlew.bat :composeApp:testAndroidHostTest --tests "io.acanthis.app.feature.history.HistoryViewModelTest"`
+      Expected: PASS。
+
   ```bash
   git add composeApp/src
   git commit -m "feat(history): App 端新增 LNReader 风格阅读历史页面与底栏入口" -m "- 底栏扩展为书架/历史/发现/设置 4 个 Tab\n- 新增 HistoryViewModel/HistoryScreen 支持日期分组、搜索、继续阅读、单条删除与清空确认"
@@ -446,32 +478,35 @@
 ### Task 12: App「多书架 + 元数据标签筛选」书架页与管理弹窗
 
 **Files:**
+
 - Modify: `composeApp/src/commonMain/kotlin/io/acanthis/app/feature/bookshelf/BookshelfViewModel.kt`
 - Create: `composeApp/src/commonMain/kotlin/io/acanthis/app/feature/bookshelf/BookshelfDialogs.kt`
 - Modify: `composeApp/src/commonMain/kotlin/io/acanthis/app/feature/bookshelf/BookshelfScreen.kt`
 - Test: `composeApp/src/commonTest/kotlin/io/acanthis/app/feature/bookshelf/BookshelfViewModelTest.kt`
 
 **Interfaces:**
+
 - Consumes: Task 10 的 `LibraryRepository` 分类与书架流
 - Produces: `BookshelfViewModel.applyGenreFilterFromOutside(genre: String)`、`ShelfAssignDialog`（Task 13 详情页复用）
 
 - [ ] **Step 1: 编写 `BookshelfViewModelTest.kt`**
-  验证：
+      验证：
   - 「全部」/「默认」/自定义书架过滤，含已删除书架残留 ID 自动回落「默认」（Review Focus #3）；
   - 多选题材标签 AND 交集筛选 + 状态筛选 + 关键词搜索 + 三种排序；
   - `applyGenreFilterFromOutside("奇幻")` 自动切到「全部」并激活该标签。
 
 - [ ] **Step 2: 运行测试确认失败**
-  Run: `cd c:\Users\ConstasJ\Coding\acanthis-mobile; .\gradlew.bat :composeApp:testAndroidHostTest --tests "io.acanthis.app.feature.bookshelf.BookshelfViewModelTest"`
-  Expected: FAIL。
+      Run: `cd c:\Users\ConstasJ\Coding\acanthis-mobile; .\gradlew.bat :composeApp:testAndroidHostTest --tests "io.acanthis.app.feature.bookshelf.BookshelfViewModelTest"`
+      Expected: FAIL。
 
 - [ ] **Step 3: 实现 `BookshelfViewModel`、`BookshelfDialogs` 与 `BookshelfScreen`**
   - `BookshelfDialogs.kt` 包含 `ShelfManagerDialog`（新建/重命名/上下排序/删除）与 `ShelfAssignDialog`（多选书架归属 + 快捷新建）。
   - `BookshelfScreen.kt` 顶部增加水平可滚动书架 Tab 条（全部/默认/自定义书架/管理）、搜索栏、标签多选弹窗按钮、状态筛选与排序菜单、已选筛选 Chip 条；长按卡片菜单提供「管理所属书架」与「移出书架」；标签筛选空态提供“去服务器缓存中查看”回调。
 
 - [ ] **Step 4: 运行测试并提交**
-  Run: `cd c:\Users\ConstasJ\Coding\acanthis-mobile; .\gradlew.bat :composeApp:testAndroidHostTest --tests "io.acanthis.app.feature.bookshelf.BookshelfViewModelTest"`
-  Expected: PASS。
+      Run: `cd c:\Users\ConstasJ\Coding\acanthis-mobile; .\gradlew.bat :composeApp:testAndroidHostTest --tests "io.acanthis.app.feature.bookshelf.BookshelfViewModelTest"`
+      Expected: PASS。
+
   ```bash
   git add composeApp/src
   git commit -m "feat(bookshelf): App 端书架页支持多书架分类、本地搜索与元数据标签筛选" -m "- 新增 ShelfManagerDialog 与 ShelfAssignDialog\n- BookshelfViewModel/Screen 支持全部/默认/自定义书架切换、多选标签 AND 筛选与状态排序"
@@ -482,6 +517,7 @@
 ### Task 13: App 详情页标签点击/多书架分配 + 发现页服务器缓存筛选 + 终验
 
 **Files:**
+
 - Modify: `composeApp/src/commonMain/kotlin/io/acanthis/app/feature/detail/NovelDetailViewModel.kt`
 - Modify: `composeApp/src/commonMain/kotlin/io/acanthis/app/feature/detail/NovelDetailScreen.kt`
 - Modify: `composeApp/src/commonMain/kotlin/io/acanthis/app/data/ExploreRepository.kt`
@@ -492,24 +528,26 @@
 - Test: `composeApp/src/commonTest/kotlin/io/acanthis/app/feature/explore/ExploreViewModelTest.kt`
 
 **Interfaces:**
+
 - Consumes: Task 10 `getCachedNovels`/`getCachedGenres`、Task 12 `ShelfAssignDialog` 与 `applyGenreFilterFromOutside`
 
 - [ ] **Step 1: 在 `ExploreRepositoryTest.kt` 与 `ExploreViewModelTest.kt` 补充服务器缓存筛选测试**
-  验证加载 `cachedGenres`、切换多选标签/状态/搜索词触发重置第 1 页并透传参数。
+      验证加载 `cachedGenres`、切换多选标签/状态/搜索词触发重置第 1 页并透传参数。
 
 - [ ] **Step 2: 运行测试确认失败**
-  Run: `cd c:\Users\ConstasJ\Coding\acanthis-mobile; .\gradlew.bat :composeApp:testAndroidHostTest --tests "io.acanthis.app.data.ExploreRepositoryTest" --tests "io.acanthis.app.feature.explore.ExploreViewModelTest"`
-  Expected: FAIL。
+      Run: `cd c:\Users\ConstasJ\Coding\acanthis-mobile; .\gradlew.bat :composeApp:testAndroidHostTest --tests "io.acanthis.app.data.ExploreRepositoryTest" --tests "io.acanthis.app.feature.explore.ExploreViewModelTest"`
+      Expected: FAIL。
 
 - [ ] **Step 3: 实现详情页与发现页联动**
   - `NovelDetailViewModel` / `NovelDetailScreen`：收藏时透传 `genres` 与 `status`；支持打开 `ShelfAssignDialog` 编辑多书架归属；`FlowRow` 中的标签徽章改为可点击，通过 `onGenreClick(genre)` 导航回 `BookshelfRoute` 并调用 `applyGenreFilterFromOutside(genre)`。
   - `ExploreRepository` / `ExploreViewModel` / `ExploreScreen`：「服务器缓存」Tab 加载 `getCachedGenres(platform)`，提供搜索框、状态筛选与题材标签多选面板；支持从书架空态通过 `openCachedWithGenre(genre)` 直达该 Tab 并预选标签。
 
 - [ ] **Step 4: 运行 App 全量单测与 Debug APK 构建**
-  Run: `cd c:\Users\ConstasJ\Coding\acanthis-mobile; .\gradlew.bat :composeApp:testAndroidHostTest :androidApp:assembleDebug`
-  Expected: 所有单元测试 PASS，Debug APK 构建成功（0 errors）。
+      Run: `cd c:\Users\ConstasJ\Coding\acanthis-mobile; .\gradlew.bat :composeApp:testAndroidHostTest :androidApp:assembleDebug`
+      Expected: 所有单元测试 PASS，Debug APK 构建成功（0 errors）。
 
 - [ ] **Step 5: 提交**
+
   ```bash
   git add composeApp/src
   git commit -m "feat(detail,explore): App 详情页支持标签跳转与多书架分配，发现页支持缓存标签筛选" -m "- 详情页标签徽章可点击跳书架筛选，收藏透传元数据并支持编辑所属书架\n- 发现页服务器缓存 Tab 接入题材标签/状态/关键词组合筛选"
