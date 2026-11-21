@@ -1,31 +1,60 @@
 <script setup lang="ts">
-import type { BookshelfItem, ReadingProgress } from "@acanthis-dec/core";
+import type {
+	BookshelfItem,
+	NovelStatus,
+	ReadingProgress,
+} from "@acanthis-dec/core";
 import {
 	ArrowUpDown,
 	BookOpen,
 	Compass,
+	FolderKanban,
 	MoreVertical,
 	Play,
 	RefreshCw,
+	Search,
+	SlidersHorizontal,
 	Smartphone,
+	Tag,
 	Trash2,
+	X,
 } from "lucide-vue-next";
-import { computed, onBeforeUnmount, onMounted, ref } from "vue";
-import { RouterLink } from "vue-router";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { RouterLink, useRoute, useRouter } from "vue-router";
 import { rebaseMediaUrl } from "@/api/client";
 import SetupBanner from "@/components/SetupBanner.vue";
+import ShelfAssignModal from "@/components/ShelfAssignModal.vue";
+import ShelfManagerModal from "@/components/ShelfManagerModal.vue";
 import { makeCompositeKey } from "@/db/indexedDb";
 import { useLibraryStore } from "@/stores/library";
 import { useSettingsStore } from "@/stores/settings";
 import { useSourcesStore } from "@/stores/sources";
 
-type SortMode = "recentRead" | "recentAdded";
+type SortMode = "recentRead" | "recentAdded" | "title";
+type StatusFilter = "all" | "ongoing" | "completed";
+type ShelfSelection = "all" | "default" | string;
 
+interface GenreOption {
+	name: string;
+	count: number;
+}
+
+const route = useRoute();
+const router = useRouter();
 const libraryStore = useLibraryStore();
 const settingsStore = useSettingsStore();
 const sourcesStore = useSourcesStore();
 
+const selectedShelf = ref<ShelfSelection>("all");
+const searchQuery = ref<string>("");
+const selectedGenres = ref<string[]>([]);
+const statusFilter = ref<StatusFilter>("all");
 const sortMode = ref<SortMode>("recentRead");
+const genrePanelOpen = ref<boolean>(false);
+
+const shelfManagerOpen = ref<boolean>(false);
+const assignTarget = ref<BookshelfItem | null>(null);
+
 const openMenuKey = ref<string | null>(null);
 const failedCovers = ref<Set<string>>(new Set());
 
@@ -79,14 +108,148 @@ function calcProgressPercent(progress: ReadingProgress): number {
 	return Math.min(100, Math.max(0, Math.round(ratio * 100)));
 }
 
+function applyGenreFromRouteQuery(): void {
+	const raw = route.query.genre;
+	const list = Array.isArray(raw) ? raw : raw ? [raw] : [];
+	const parsed = Array.from(
+		new Set(
+			list
+				.flatMap((entry) => (typeof entry === "string" ? entry.split(",") : []))
+				.map((entry) => entry.trim())
+				.filter(Boolean),
+		),
+	);
+	if (parsed.length > 0) {
+		selectedShelf.value = "all";
+		selectedGenres.value = parsed;
+	}
+}
+
+watch(
+	() => route.query.genre,
+	() => {
+		applyGenreFromRouteQuery();
+	},
+	{ immediate: true },
+);
+
+watch(
+	() => libraryStore.activeCategories,
+	(categories) => {
+		if (
+			selectedShelf.value !== "all" &&
+			selectedShelf.value !== "default" &&
+			!categories.some((category) => category.id === selectedShelf.value)
+		) {
+			selectedShelf.value = "all";
+		}
+	},
+);
+
 const continueReading = computed(() => libraryStore.continueReadingItem);
 
-const sortedBookshelf = computed<BookshelfItem[]>(() => {
-	const list = [...libraryStore.activeBookshelf];
-	if (sortMode.value === "recentAdded") {
-		return list.sort((a, b) => b.addedAt - a.addedAt);
+const shelfCounts = computed(() => {
+	let defaultCount = 0;
+	const byCategory = new Map<string, number>();
+
+	for (const item of libraryStore.activeBookshelf) {
+		const effectiveIds = libraryStore.getEffectiveCategoryIds(item);
+		if (effectiveIds.length === 0) {
+			defaultCount += 1;
+		} else {
+			for (const id of effectiveIds) {
+				byCategory.set(id, (byCategory.get(id) ?? 0) + 1);
+			}
+		}
 	}
-	return list.sort((a, b) => {
+
+	return {
+		all: libraryStore.activeBookshelf.length,
+		default: defaultCount,
+		byCategory,
+	};
+});
+
+const itemsInSelectedShelf = computed<BookshelfItem[]>(() => {
+	const shelf = selectedShelf.value;
+	if (shelf === "all") {
+		return libraryStore.activeBookshelf;
+	}
+	if (shelf === "default") {
+		return libraryStore.activeBookshelf.filter(
+			(item) => libraryStore.getEffectiveCategoryIds(item).length === 0,
+		);
+	}
+	return libraryStore.activeBookshelf.filter((item) =>
+		libraryStore.getEffectiveCategoryIds(item).includes(shelf),
+	);
+});
+
+const availableGenres = computed<GenreOption[]>(() => {
+	const counts = new Map<string, number>();
+	for (const item of itemsInSelectedShelf.value) {
+		for (const genre of item.genres ?? []) {
+			const trimmed = genre.trim();
+			if (trimmed) {
+				counts.set(trimmed, (counts.get(trimmed) ?? 0) + 1);
+			}
+		}
+	}
+	const list: GenreOption[] = [];
+	for (const [name, count] of counts.entries()) {
+		list.push({ name, count });
+	}
+	list.sort((a, b) => {
+		if (b.count !== a.count) {
+			return b.count - a.count;
+		}
+		return a.name.localeCompare(b.name, "zh-CN");
+	});
+	return list;
+});
+
+const hasActiveFilters = computed<boolean>(
+	() =>
+		searchQuery.value.trim().length > 0 ||
+		selectedGenres.value.length > 0 ||
+		statusFilter.value !== "all",
+);
+
+const filteredBookshelf = computed<BookshelfItem[]>(() => {
+	const keyword = searchQuery.value.trim().toLowerCase();
+	const requiredGenres = selectedGenres.value;
+	const targetStatus: NovelStatus | null =
+		statusFilter.value === "all" ? null : statusFilter.value;
+
+	const matched = itemsInSelectedShelf.value.filter((item) => {
+		if (keyword) {
+			const titleMatch = item.title.toLowerCase().includes(keyword);
+			const authorMatch = item.author.toLowerCase().includes(keyword);
+			if (!titleMatch && !authorMatch) {
+				return false;
+			}
+		}
+		if (targetStatus !== null && (item.status ?? "unknown") !== targetStatus) {
+			return false;
+		}
+		if (requiredGenres.length > 0) {
+			const itemGenreSet = new Set(item.genres ?? []);
+			for (const genre of requiredGenres) {
+				if (!itemGenreSet.has(genre)) {
+					return false;
+				}
+			}
+		}
+		return true;
+	});
+
+	if (sortMode.value === "recentAdded") {
+		return [...matched].sort((a, b) => b.addedAt - a.addedAt);
+	}
+	if (sortMode.value === "title") {
+		return [...matched].sort((a, b) => a.title.localeCompare(b.title, "zh-CN"));
+	}
+	return [...matched].sort((a, b) => {
 		const progA = libraryStore.getProgress(a.platform, a.novelId);
 		const progB = libraryStore.getProgress(b.platform, b.novelId);
 		const timeA = Math.max(progA?.updatedAt ?? 0, a.addedAt);
@@ -94,6 +257,30 @@ const sortedBookshelf = computed<BookshelfItem[]>(() => {
 		return timeB - timeA;
 	});
 });
+
+function toggleGenreFilter(genre: string): void {
+	if (selectedGenres.value.includes(genre)) {
+		selectedGenres.value = selectedGenres.value.filter((item) => item !== genre);
+	} else {
+		selectedGenres.value = [...selectedGenres.value, genre];
+	}
+}
+
+function resetFilters(): void {
+	searchQuery.value = "";
+	selectedGenres.value = [];
+	statusFilter.value = "all";
+	if (route.query.genre !== undefined) {
+		const nextQuery = { ...route.query };
+		delete nextQuery.genre;
+		void router.replace({ query: nextQuery });
+	}
+}
+
+function openAssignModal(item: BookshelfItem): void {
+	openMenuKey.value = null;
+	assignTarget.value = item;
+}
 
 function toggleMenu(key: string): void {
 	openMenuKey.value = openMenuKey.value === key ? null : key;
@@ -119,18 +306,23 @@ function novelDetailRoute(platform: string, novelId: string): string {
 }
 
 function handleDocumentClick(event: MouseEvent): void {
-	if (openMenuKey.value === null) {
-		return;
-	}
 	const target = event.target as HTMLElement | null;
-	if (!target?.closest("[data-bookshelf-menu]")) {
+	if (openMenuKey.value !== null && !target?.closest("[data-bookshelf-menu]")) {
 		openMenuKey.value = null;
+	}
+	if (genrePanelOpen.value && !target?.closest("[data-genre-filter]")) {
+		genrePanelOpen.value = false;
 	}
 }
 
 function handleDocumentKeyDown(event: KeyboardEvent): void {
-	if (event.key === "Escape" && openMenuKey.value !== null) {
-		openMenuKey.value = null;
+	if (event.key === "Escape") {
+		if (openMenuKey.value !== null) {
+			openMenuKey.value = null;
+		}
+		if (genrePanelOpen.value) {
+			genrePanelOpen.value = false;
+		}
 	}
 }
 
@@ -146,14 +338,14 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-	<div class="space-y-6">
+	<div class="space-y-5">
 		<SetupBanner />
 
 		<header class="flex items-center justify-between gap-3">
 			<div>
 				<h1 class="text-xl sm:text-2xl font-bold tracking-tight">我的书架</h1>
 				<p class="mt-0.5 text-xs sm:text-sm text-[var(--text-secondary)]">
-					本地优先存储 · 已收藏 {{ sortedBookshelf.length }} 部作品
+					本地优先存储 · 共收藏 {{ shelfCounts.all }} 部作品
 				</p>
 			</div>
 
@@ -261,18 +453,220 @@ onBeforeUnmount(() => {
 			</RouterLink>
 		</section>
 
-		<!-- Bookshelf Grid Header -->
-		<section class="space-y-4">
-			<div class="flex items-center justify-between gap-2">
-				<h2 class="text-sm font-semibold text-[var(--text-secondary)]">
-					收藏列表
-				</h2>
+		<!-- Shelf Tabs Bar -->
+		<section class="space-y-3">
+			<div class="flex items-center gap-2">
 				<div
-					class="inline-flex items-center rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] p-0.5 text-xs"
+					class="flex flex-1 items-center gap-1.5 overflow-x-auto pb-1"
+					role="tablist"
+					aria-label="书架分组"
 				>
 					<button
 						type="button"
-						class="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 font-medium transition-colors"
+						role="tab"
+						:aria-selected="selectedShelf === 'all'"
+						class="inline-flex shrink-0 items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-medium transition-colors"
+						:class="
+							selectedShelf === 'all'
+								? 'bg-[var(--accent)] text-white'
+								: 'border border-[var(--border-subtle)] bg-[var(--bg-elevated)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+						"
+						@click="selectedShelf = 'all'"
+					>
+						<span>全部</span>
+						<span class="opacity-75">{{ shelfCounts.all }}</span>
+					</button>
+
+					<button
+						type="button"
+						role="tab"
+						:aria-selected="selectedShelf === 'default'"
+						class="inline-flex shrink-0 items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-medium transition-colors"
+						:class="
+							selectedShelf === 'default'
+								? 'bg-[var(--accent)] text-white'
+								: 'border border-[var(--border-subtle)] bg-[var(--bg-elevated)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+						"
+						@click="selectedShelf = 'default'"
+					>
+						<span>默认</span>
+						<span class="opacity-75">{{ shelfCounts.default }}</span>
+					</button>
+
+					<button
+						v-for="category in libraryStore.activeCategories"
+						:key="category.id"
+						type="button"
+						role="tab"
+						:aria-selected="selectedShelf === category.id"
+						class="inline-flex shrink-0 items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-medium transition-colors"
+						:class="
+							selectedShelf === category.id
+								? 'bg-[var(--accent)] text-white'
+								: 'border border-[var(--border-subtle)] bg-[var(--bg-elevated)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+						"
+						@click="selectedShelf = category.id"
+					>
+						<span class="max-w-32 truncate">{{ category.name }}</span>
+						<span class="opacity-75">
+							{{ shelfCounts.byCategory.get(category.id) ?? 0 }}
+						</span>
+					</button>
+				</div>
+
+				<button
+					type="button"
+					class="inline-flex shrink-0 items-center gap-1 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] hover:text-[var(--text-primary)]"
+					@click="shelfManagerOpen = true"
+				>
+					<SlidersHorizontal class="h-3.5 w-3.5" />
+					管理
+				</button>
+			</div>
+
+			<!-- Search, Filter & Sort Toolbar -->
+			<div class="flex flex-wrap items-center gap-2">
+				<!-- Search Input -->
+				<div class="relative min-w-48 flex-1">
+					<Search
+						class="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--text-muted)]"
+					/>
+					<input
+						v-model="searchQuery"
+						type="search"
+						placeholder="搜索书名或作者…"
+						aria-label="搜索书架作品"
+						class="w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] py-1.5 pl-8 pr-8 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent)] focus:outline-none"
+					/>
+					<button
+						v-if="searchQuery"
+						type="button"
+						aria-label="清除搜索"
+						class="absolute right-2 top-1/2 -translate-y-1/2 rounded p-0.5 text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+						@click="searchQuery = ''"
+					>
+						<X class="h-3.5 w-3.5" />
+					</button>
+				</div>
+
+				<!-- Genre Multi-Select Dropdown -->
+				<div class="relative" data-genre-filter>
+					<button
+						type="button"
+						class="inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-medium transition-colors"
+						:class="
+							selectedGenres.length > 0
+								? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]'
+								: 'border-[var(--border-subtle)] bg-[var(--bg-elevated)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+						"
+						@click="genrePanelOpen = !genrePanelOpen"
+					>
+						<Tag class="h-3.5 w-3.5" />
+						<span>标签</span>
+						<span
+							v-if="selectedGenres.length > 0"
+							class="rounded-full bg-[var(--accent)] px-1.5 text-[10px] text-white"
+						>
+							{{ selectedGenres.length }}
+						</span>
+					</button>
+
+					<div
+						v-if="genrePanelOpen"
+						class="absolute left-0 top-full z-30 mt-2 w-72 max-w-[calc(100vw-2rem)] rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] p-3 shadow-xl space-y-2.5 sm:left-auto sm:right-0"
+					>
+						<div class="flex items-center justify-between">
+							<span class="text-xs font-semibold text-[var(--text-primary)]">
+								题材标签（多选交集）
+							</span>
+							<button
+								v-if="selectedGenres.length > 0"
+								type="button"
+								class="text-[11px] text-[var(--accent)] hover:underline"
+								@click="selectedGenres = []"
+							>
+								清空标签
+							</button>
+						</div>
+
+						<p
+							v-if="availableGenres.length === 0"
+							class="py-3 text-center text-xs text-[var(--text-muted)]"
+						>
+							当前书架内暂无题材标签数据
+						</p>
+
+						<div v-else class="flex max-h-52 flex-wrap gap-1.5 overflow-y-auto">
+							<button
+								v-for="genre in availableGenres"
+								:key="genre.name"
+								type="button"
+								class="inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-medium transition-colors"
+								:class="
+									selectedGenres.includes(genre.name)
+										? 'bg-[var(--accent)] text-white'
+										: 'bg-[var(--bg-secondary)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+								"
+								@click="toggleGenreFilter(genre.name)"
+							>
+								<span>{{ genre.name }}</span>
+								<span class="text-[10px] opacity-75">{{ genre.count }}</span>
+							</button>
+						</div>
+					</div>
+				</div>
+
+				<!-- Status Filter -->
+				<fieldset
+					class="inline-flex items-center rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] p-0.5 text-xs"
+					aria-label="连载状态筛选"
+				>
+					<button
+						type="button"
+						class="rounded-lg px-2 py-1 font-medium transition-colors"
+						:class="
+							statusFilter === 'all'
+								? 'bg-[var(--accent-soft)] text-[var(--accent)]'
+								: 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+						"
+						@click="statusFilter = 'all'"
+					>
+						全部状态
+					</button>
+					<button
+						type="button"
+						class="rounded-lg px-2 py-1 font-medium transition-colors"
+						:class="
+							statusFilter === 'ongoing'
+								? 'bg-[var(--accent-soft)] text-[var(--accent)]'
+								: 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+						"
+						@click="statusFilter = 'ongoing'"
+					>
+						连载中
+					</button>
+					<button
+						type="button"
+						class="rounded-lg px-2 py-1 font-medium transition-colors"
+						:class="
+							statusFilter === 'completed'
+								? 'bg-[var(--accent-soft)] text-[var(--accent)]'
+								: 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+						"
+						@click="statusFilter = 'completed'"
+					>
+						已完结
+					</button>
+				</fieldset>
+
+				<!-- Sort Switch -->
+				<fieldset
+					class="inline-flex items-center rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] p-0.5 text-xs"
+					aria-label="排序方式"
+				>
+					<button
+						type="button"
+						class="inline-flex items-center gap-1 rounded-lg px-2 py-1 font-medium transition-colors"
 						:class="
 							sortMode === 'recentRead'
 								? 'bg-[var(--accent-soft)] text-[var(--accent)]'
@@ -285,7 +679,7 @@ onBeforeUnmount(() => {
 					</button>
 					<button
 						type="button"
-						class="rounded-lg px-2.5 py-1.5 font-medium transition-colors"
+						class="rounded-lg px-2 py-1 font-medium transition-colors"
 						:class="
 							sortMode === 'recentAdded'
 								? 'bg-[var(--accent-soft)] text-[var(--accent)]'
@@ -295,12 +689,82 @@ onBeforeUnmount(() => {
 					>
 						最近添加
 					</button>
-				</div>
+					<button
+						type="button"
+						class="rounded-lg px-2 py-1 font-medium transition-colors"
+						:class="
+							sortMode === 'title'
+								? 'bg-[var(--accent-soft)] text-[var(--accent)]'
+								: 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+						"
+						@click="sortMode = 'title'"
+					>
+						书名
+					</button>
+				</fieldset>
 			</div>
 
-			<!-- Empty State -->
+			<!-- Active Filters Bar -->
+			<div v-if="hasActiveFilters" class="flex flex-wrap items-center gap-1.5">
+				<span
+					v-for="genre in selectedGenres"
+					:key="genre"
+					class="inline-flex items-center gap-1 rounded-lg bg-[var(--accent-soft)] px-2 py-1 text-xs font-medium text-[var(--accent)]"
+				>
+					<Tag class="h-3 w-3" />
+					{{ genre }}
+					<button
+						type="button"
+						:aria-label="`移除标签 ${genre}`"
+						class="rounded hover:bg-[var(--accent)]/20"
+						@click="toggleGenreFilter(genre)"
+					>
+						<X class="h-3 w-3" />
+					</button>
+				</span>
+
+				<span
+					v-if="statusFilter !== 'all'"
+					class="inline-flex items-center gap-1 rounded-lg bg-[var(--accent-soft)] px-2 py-1 text-xs font-medium text-[var(--accent)]"
+				>
+					{{ statusFilter === "ongoing" ? "连载中" : "已完结" }}
+					<button
+						type="button"
+						aria-label="清除状态筛选"
+						class="rounded hover:bg-[var(--accent)]/20"
+						@click="statusFilter = 'all'"
+					>
+						<X class="h-3 w-3" />
+					</button>
+				</span>
+
+				<span
+					v-if="searchQuery.trim()"
+					class="inline-flex items-center gap-1 rounded-lg bg-[var(--bg-secondary)] px-2 py-1 text-xs text-[var(--text-secondary)]"
+				>
+					关键词：{{ searchQuery.trim() }}
+					<button
+						type="button"
+						aria-label="清除关键词"
+						class="rounded hover:bg-[var(--bg-primary)]"
+						@click="searchQuery = ''"
+					>
+						<X class="h-3 w-3" />
+					</button>
+				</span>
+
+				<button
+					type="button"
+					class="ml-1 text-xs text-[var(--text-muted)] hover:text-[var(--accent)] hover:underline"
+					@click="resetFilters"
+				>
+					重置筛选
+				</button>
+			</div>
+
+			<!-- Empty State: Entire bookshelf empty -->
 			<div
-				v-if="sortedBookshelf.length === 0"
+				v-if="shelfCounts.all === 0"
 				class="rounded-2xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-elevated)] p-10 text-center space-y-3"
 			>
 				<BookOpen class="mx-auto h-10 w-10 text-[var(--text-muted)]" />
@@ -312,13 +776,75 @@ onBeforeUnmount(() => {
 						前往「发现」页浏览或搜索轻小说，将其加入书架后即可跨设备同步阅读进度。
 					</p>
 				</div>
-				<RouterLink
-					to="/explore"
-					class="inline-flex items-center gap-1.5 rounded-xl bg-[var(--accent)] px-4 py-2 text-xs font-medium text-white hover:opacity-90"
-				>
-					<Compass class="h-4 w-4" />
-					去发现好书
-				</RouterLink>
+				<div class="flex flex-wrap items-center justify-center gap-2">
+					<RouterLink
+						v-if="selectedGenres.length > 0"
+						:to="{
+							name: 'explore',
+							query: { tab: 'cached', genre: selectedGenres.join(',') },
+						}"
+						class="inline-flex items-center gap-1.5 rounded-xl bg-[var(--accent)] px-4 py-2 text-xs font-medium text-white hover:opacity-90"
+					>
+						<Compass class="h-4 w-4" />
+						去服务器缓存中查看「{{ selectedGenres.join(" · ") }}」
+					</RouterLink>
+					<RouterLink
+						to="/explore"
+						class="inline-flex items-center gap-1.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-secondary)] px-4 py-2 text-xs font-medium text-[var(--text-primary)] hover:bg-[var(--bg-primary)]"
+					>
+						<Compass class="h-4 w-4" />
+						去发现好书
+					</RouterLink>
+				</div>
+			</div>
+
+			<!-- Empty State: Current shelf or filter has no matches -->
+			<div
+				v-else-if="filteredBookshelf.length === 0"
+				class="rounded-2xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-elevated)] p-10 text-center space-y-3"
+			>
+				<BookOpen class="mx-auto h-9 w-9 text-[var(--text-muted)]" />
+				<div class="space-y-1">
+					<p class="text-sm font-medium text-[var(--text-primary)]">
+						{{ hasActiveFilters ? "没有符合当前筛选条件的作品" : "当前书架暂无作品" }}
+					</p>
+					<p class="text-xs text-[var(--text-secondary)]">
+						{{
+							hasActiveFilters
+								? "可以调整标签/状态筛选，或去服务器缓存中按题材查找更多作品。"
+								: "可在任意作品卡片菜单中选择「管理所属书架」将作品加入此分组。"
+						}}
+					</p>
+				</div>
+				<div class="flex flex-wrap items-center justify-center gap-2">
+					<RouterLink
+						v-if="selectedGenres.length > 0"
+						:to="{
+							name: 'explore',
+							query: { tab: 'cached', genre: selectedGenres.join(',') },
+						}"
+						class="inline-flex items-center gap-1.5 rounded-xl bg-[var(--accent)] px-4 py-2 text-xs font-medium text-white hover:opacity-90"
+					>
+						<Compass class="h-4 w-4" />
+						去服务器缓存中查看「{{ selectedGenres.join(" · ") }}」
+					</RouterLink>
+					<button
+						v-if="hasActiveFilters"
+						type="button"
+						class="inline-flex items-center gap-1.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-secondary)] px-4 py-2 text-xs font-medium text-[var(--text-primary)] hover:bg-[var(--bg-primary)]"
+						@click="resetFilters"
+					>
+						重置筛选
+					</button>
+					<button
+						v-else-if="selectedShelf !== 'all'"
+						type="button"
+						class="inline-flex items-center gap-1.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-secondary)] px-4 py-2 text-xs font-medium text-[var(--text-primary)] hover:bg-[var(--bg-primary)]"
+						@click="selectedShelf = 'all'"
+					>
+						查看全部藏书
+					</button>
+				</div>
 			</div>
 
 			<!-- Grid -->
@@ -327,7 +853,7 @@ onBeforeUnmount(() => {
 				class="grid grid-cols-2 gap-3.5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5"
 			>
 				<div
-					v-for="item in sortedBookshelf"
+					v-for="item in filteredBookshelf"
 					:key="makeCompositeKey(item.platform, item.novelId)"
 					class="group relative flex flex-col rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] overflow-visible transition-shadow hover:shadow-sm"
 				>
@@ -410,8 +936,17 @@ onBeforeUnmount(() => {
 								openMenuKey === makeCompositeKey(item.platform, item.novelId)
 							"
 							role="menu"
-							class="absolute bottom-8 right-0 z-20 w-32 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] p-1 shadow-lg"
+							class="absolute bottom-8 right-0 z-20 w-36 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] p-1 shadow-lg space-y-0.5"
 						>
+							<button
+								type="button"
+								role="menuitem"
+								class="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-medium text-[var(--text-primary)] hover:bg-[var(--bg-secondary)]"
+								@click="openAssignModal(item)"
+							>
+								<FolderKanban class="h-3.5 w-3.5 text-[var(--text-secondary)]" />
+								管理所属书架
+							</button>
 							<button
 								type="button"
 								role="menuitem"
@@ -426,5 +961,22 @@ onBeforeUnmount(() => {
 				</div>
 			</div>
 		</section>
+
+		<!-- Modals -->
+		<ShelfManagerModal
+			:open="shelfManagerOpen"
+			@close="shelfManagerOpen = false"
+		/>
+
+		<ShelfAssignModal
+			:open="assignTarget !== null"
+			:platform="assignTarget?.platform ?? ''"
+			:novel-id="assignTarget?.novelId ?? ''"
+			:title="assignTarget?.title ?? ''"
+			:initial-category-ids="
+				assignTarget ? libraryStore.getEffectiveCategoryIds(assignTarget) : []
+			"
+			@close="assignTarget = null"
+		/>
 	</div>
 </template>
