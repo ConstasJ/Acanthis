@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type {
 	ExploreHomeData,
+	ExploreNovelItem,
 	ExploreSchema,
 	ExploreSection,
 	ExploreSectionMoreTarget,
@@ -20,17 +21,27 @@ import {
 	isChallengeBlockedError,
 	resolveDefaultHomeChannel,
 } from "@/components/explore/exploreUtils";
+import { makeCompositeKey } from "@/db/indexedDb";
 
-const props = defineProps<{
-	platform: string;
-	schema: ExploreSchema;
-	channel: string;
-}>();
+const props = withDefaults(
+	defineProps<{
+		platform: string;
+		schema: ExploreSchema;
+		channel: string;
+		selectionMode?: boolean | undefined;
+		selectedKeys?: ReadonlySet<string> | undefined;
+	}>(),
+	{
+		selectionMode: false,
+	},
+);
 
 const emit = defineEmits<{
 	"update:channel": [channel: string];
 	navigateMore: [target: ExploreSectionMoreTarget];
 	switchTab: [tab: ExploreTab];
+	toggleSelect: [item: ExploreNovelItem];
+	visibleItems: [items: ExploreNovelItem[]];
 }>();
 
 const homeData = ref<ExploreHomeData | null>(null);
@@ -70,6 +81,30 @@ const errorMessage = computed<string | null>(() => {
 
 const visibleSections = computed<ExploreSection[]>(() =>
 	(homeData.value?.sections ?? []).filter((sec) => sec.items.length > 0),
+);
+
+function isItemSelected(item: ExploreNovelItem): boolean {
+	if (!props.selectedKeys) {
+		return false;
+	}
+	return props.selectedKeys.has(
+		makeCompositeKey(item.platform || props.platform, item.id),
+	);
+}
+
+watch(
+	[visibleSections, loading, errorMessage],
+	([sections, isLoading, err]) => {
+		if (isLoading || err) {
+			emit("visibleItems", []);
+			return;
+		}
+		emit(
+			"visibleItems",
+			sections.flatMap((section) => section.items),
+		);
+	},
+	{ immediate: true },
 );
 
 function clearSlowHintTimer(): void {
@@ -374,6 +409,9 @@ onBeforeUnmount(() => {
 								:fallback-platform="platform"
 								:variant="cardVariant(section.layout)"
 								:rank-fallback="section.layout === 'rank' ? idx + 1 : undefined"
+								:selection-mode="selectionMode"
+								:selected="isItemSelected(item)"
+								@toggle-select="emit('toggleSelect', $event)"
 							/>
 						</div>
 					</section>

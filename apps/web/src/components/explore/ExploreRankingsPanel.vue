@@ -1,5 +1,9 @@
 <script setup lang="ts">
-import type { ExplorePage, ExploreSchema } from "@acanthis-dec/core";
+import type {
+	ExploreNovelItem,
+	ExplorePage,
+	ExploreSchema,
+} from "@acanthis-dec/core";
 import { ChevronLeft, ChevronRight } from "lucide-vue-next";
 import { computed, onBeforeUnmount, ref, watch } from "vue";
 import { fetchExploreRankings, isAbortError } from "@/api/client";
@@ -8,17 +12,27 @@ import {
 	formatApiErrorMessage,
 	resolveRankingSelection,
 } from "@/components/explore/exploreUtils";
+import { makeCompositeKey } from "@/db/indexedDb";
 
-const props = defineProps<{
-	platform: string;
-	schema: ExploreSchema;
-	rank: string;
-	full: boolean;
-	page: number;
-}>();
+const props = withDefaults(
+	defineProps<{
+		platform: string;
+		schema: ExploreSchema;
+		rank: string;
+		full: boolean;
+		page: number;
+		selectionMode?: boolean | undefined;
+		selectedKeys?: ReadonlySet<string> | undefined;
+	}>(),
+	{
+		selectionMode: false,
+	},
+);
 
 const emit = defineEmits<{
 	"update:selection": [payload: { rank: string; full: boolean; page: number }];
+	toggleSelect: [item: ExploreNovelItem];
+	visibleItems: [items: ExploreNovelItem[]];
 }>();
 
 const pageData = ref<ExplorePage | null>(null);
@@ -145,6 +159,27 @@ function goToPage(targetPage: number): void {
 		page: targetPage,
 	});
 }
+
+function isItemSelected(item: ExploreNovelItem): boolean {
+	if (!props.selectedKeys) {
+		return false;
+	}
+	return props.selectedKeys.has(
+		makeCompositeKey(item.platform || props.platform, item.id),
+	);
+}
+
+watch(
+	[pageData, loading, errorMessage],
+	([data, isLoading, err]) => {
+		if (isLoading || err || !data) {
+			emit("visibleItems", []);
+			return;
+		}
+		emit("visibleItems", data.items);
+	},
+	{ immediate: true },
+);
 
 watch(
 	[
@@ -301,6 +336,9 @@ onBeforeUnmount(() => {
 							:fallback-platform="platform"
 							variant="detailed"
 							:rank-fallback="(page - 1) * 30 + idx + 1"
+							:selection-mode="selectionMode"
+							:selected="isItemSelected(item)"
+							@toggle-select="emit('toggleSelect', $event)"
 						/>
 					</div>
 				</template>

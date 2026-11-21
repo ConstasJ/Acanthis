@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type {
 	ExploreFilterGroup,
-	ExploreFilterOption,
+	ExploreNovelItem,
 	ExplorePage,
 	ExploreSchema,
 } from "@acanthis-dec/core";
@@ -24,19 +24,32 @@ import {
 	formatApiErrorMessage,
 	isChallengeBlockedError,
 } from "@/components/explore/exploreUtils";
+import SearchableTagPicker, {
+	type TagPickerOption,
+} from "@/components/SearchableTagPicker.vue";
+import { makeCompositeKey } from "@/db/indexedDb";
 
-const COLLAPSE_THRESHOLD = 12;
+const SEARCHABLE_PICKER_THRESHOLD = 8;
 
-const props = defineProps<{
-	platform: string;
-	schema: ExploreSchema;
-	filters: Record<string, string>;
-	page: number;
-}>();
+const props = withDefaults(
+	defineProps<{
+		platform: string;
+		schema: ExploreSchema;
+		filters: Record<string, string>;
+		page: number;
+		selectionMode?: boolean | undefined;
+		selectedKeys?: ReadonlySet<string> | undefined;
+	}>(),
+	{
+		selectionMode: false,
+	},
+);
 
 const emit = defineEmits<{
 	"update:query": [payload: { filters: Record<string, string>; page: number }];
 	switchTab: [tab: ExploreTab];
+	toggleSelect: [item: ExploreNovelItem];
+	visibleItems: [items: ExploreNovelItem[]];
 }>();
 
 const pageData = ref<ExplorePage | null>(null);
@@ -46,7 +59,6 @@ const errorState = ref<unknown>(null);
 const panelExpanded = ref<boolean>(
 	typeof window === "undefined" ? true : window.innerWidth >= 768,
 );
-const manualGroupExpand = ref<Record<string, boolean>>({});
 
 let abortController: AbortController | null = null;
 
@@ -120,46 +132,33 @@ const totalPages = computed<number>(() =>
 	Math.max(1, pageData.value?.totalPages ?? 1),
 );
 
-function isSelectedBeyondThreshold(group: ExploreFilterGroup): boolean {
-	if (group.options.length <= COLLAPSE_THRESHOLD) {
+function useSearchablePicker(group: ExploreFilterGroup): boolean {
+	return group.options.length > SEARCHABLE_PICKER_THRESHOLD;
+}
+
+function toPickerOptions(group: ExploreFilterGroup): TagPickerOption[] {
+	return group.options.map((opt) => ({
+		value: opt.value,
+		label: opt.label,
+	}));
+}
+
+function handlePickerSelect(
+	group: ExploreFilterGroup,
+	value: string | string[],
+): void {
+	const nextValue =
+		typeof value === "string" ? value : (value[0] ?? group.defaultValue);
+	selectOption(group.key, nextValue);
+}
+
+function isItemSelected(item: ExploreNovelItem): boolean {
+	if (!props.selectedKeys) {
 		return false;
 	}
-	const val = resolvedFilters.value[group.key] ?? group.defaultValue;
-	const idx = group.options.findIndex((opt) => opt.value === val);
-	return idx >= COLLAPSE_THRESHOLD;
-}
-
-function isGroupExpanded(group: ExploreFilterGroup): boolean {
-	if (group.options.length <= COLLAPSE_THRESHOLD) {
-		return true;
-	}
-	const manual = manualGroupExpand.value[group.key];
-	if (manual !== undefined) {
-		return manual;
-	}
-	return isSelectedBeyondThreshold(group);
-}
-
-function toggleGroupExpand(group: ExploreFilterGroup): void {
-	manualGroupExpand.value = {
-		...manualGroupExpand.value,
-		[group.key]: !isGroupExpanded(group),
-	};
-}
-
-function visibleOptions(group: ExploreFilterGroup): ExploreFilterOption[] {
-	if (isGroupExpanded(group)) {
-		return group.options;
-	}
-	const head = group.options.slice(0, COLLAPSE_THRESHOLD);
-	const val = resolvedFilters.value[group.key] ?? group.defaultValue;
-	const selectedIdx = group.options.findIndex((opt) => opt.value === val);
-	const selectedOption =
-		selectedIdx >= COLLAPSE_THRESHOLD ? group.options[selectedIdx] : undefined;
-	if (selectedOption) {
-		return [...head, selectedOption];
-	}
-	return head;
+	return props.selectedKeys.has(
+		makeCompositeKey(item.platform || props.platform, item.id),
+	);
 }
 
 function selectOption(groupKey: string, value: string): void {
@@ -255,10 +254,15 @@ async function loadCatalog(): Promise<void> {
 }
 
 watch(
-	() => props.platform,
-	() => {
-		manualGroupExpand.value = {};
+	[pageData, loading, errorMessage],
+	([data, isLoading, err]) => {
+		if (isLoading || err || !data) {
+			emit("visibleItems", []);
+			return;
+		}
+		emit("visibleItems", data.items);
 	},
+	{ immediate: true },
 );
 
 watch(
@@ -368,9 +372,26 @@ onBeforeUnmount(() => {
 							{{ group.label }}
 						</span>
 
-						<fieldset class="min-w-0 flex-1 flex flex-wrap items-center gap-1.5 border-0 p-0 m-0" :aria-label="group.label">
+						<div v-if="useSearchablePicker(group)" class="min-w-0 flex-1">
+							<SearchableTagPicker
+								:options="toPickerOptions(group)"
+								:model-value="resolvedFilters[group.key] ?? group.defaultValue"
+								:multiple="false"
+								:label="group.label"
+								:panel-title="`选择${group.label}`"
+								:placeholder="`搜索${group.label}…`"
+								:default-value="group.defaultValue"
+								@update:model-value="handlePickerSelect(group, $event)"
+							/>
+						</div>
+
+						<fieldset
+							v-else
+							class="min-w-0 flex-1 flex flex-wrap items-center gap-1.5 border-0 p-0 m-0"
+							:aria-label="group.label"
+						>
 							<button
-								v-for="opt in visibleOptions(group)"
+								v-for="opt in group.options"
 								:key="opt.value"
 								type="button"
 								:aria-pressed="resolvedFilters[group.key] === opt.value"
@@ -383,23 +404,6 @@ onBeforeUnmount(() => {
 								@click="selectOption(group.key, opt.value)"
 							>
 								{{ opt.label }}
-							</button>
-
-							<button
-								v-if="group.options.length > COLLAPSE_THRESHOLD"
-								type="button"
-								:aria-expanded="isGroupExpanded(group)"
-								class="inline-flex items-center gap-1 rounded-lg border border-dashed border-[var(--border-subtle)] px-2.5 py-1 text-xs font-medium text-[var(--accent)] hover:bg-[var(--accent-soft)]/50"
-								@click="toggleGroupExpand(group)"
-							>
-								<template v-if="isGroupExpanded(group)">
-									<span>收起</span>
-									<ChevronUp class="h-3.5 w-3.5" />
-								</template>
-								<template v-else>
-									<span>展开全部 ({{ group.options.length }})</span>
-									<ChevronDown class="h-3.5 w-3.5" />
-								</template>
 							</button>
 						</fieldset>
 					</div>
@@ -513,6 +517,9 @@ onBeforeUnmount(() => {
 							:item="item"
 							:fallback-platform="platform"
 							variant="detailed"
+							:selection-mode="selectionMode"
+							:selected="isItemSelected(item)"
+							@toggle-select="emit('toggleSelect', $event)"
 						/>
 					</div>
 				</template>

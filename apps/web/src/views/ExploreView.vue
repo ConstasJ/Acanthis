@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type {
 	CachedGenreItem,
+	ExploreNovelItem,
 	ExploreSchema,
 	ExploreSectionMoreTarget,
 	NovelInfo,
@@ -8,6 +9,9 @@ import type {
 	NovelStatus,
 } from "@acanthis-dec/core";
 import {
+	BookmarkPlus,
+	Check,
+	CheckSquare,
 	ChevronLeft,
 	ChevronRight,
 	Clock,
@@ -37,12 +41,17 @@ import {
 	resolveDefaultHomeChannel,
 	resolveRankingSelection,
 } from "@/components/explore/exploreUtils";
+import SearchableTagPicker, {
+	type TagPickerOption,
+} from "@/components/SearchableTagPicker.vue";
 import SetupBanner from "@/components/SetupBanner.vue";
+import ShelfAssignModal from "@/components/ShelfAssignModal.vue";
+import { makeCompositeKey } from "@/db/indexedDb";
+import { type BatchBookshelfEntry, useLibraryStore } from "@/stores/library";
 import { useSettingsStore } from "@/stores/settings";
 import { useSourcesStore } from "@/stores/sources";
 
 const PAGE_SIZE = 20;
-const CACHED_GENRES_COLLAPSED_LIMIT = 20;
 const RESERVED_QUERY_KEYS = new Set([
 	"platform",
 	"tab",
@@ -63,6 +72,7 @@ const cachedGenresMemoryCache = new Map<string, CachedGenreItem[]>();
 
 const route = useRoute();
 const router = useRouter();
+const libraryStore = useLibraryStore();
 const settingsStore = useSettingsStore();
 const sourcesStore = useSourcesStore();
 
@@ -95,12 +105,21 @@ const selectedCachedGenres = ref<string[]>([]);
 const cachedStatusFilter = ref<CachedStatusFilter>("all");
 const cachedKeywordInput = ref<string>("");
 const cachedKeyword = ref<string>("");
-const showAllCachedGenres = ref<boolean>(false);
 
 const searchResults = ref<NovelSearchResult[]>([]);
 const loadingSearch = ref<boolean>(false);
 const showSlowHint = ref<boolean>(false);
 const searchErrorMessage = ref<string | null>(null);
+
+const selectionMode = ref<boolean>(false);
+const selectedMap = ref<Map<string, BatchBookshelfEntry>>(new Map());
+const batchAssignModalOpen = ref<boolean>(false);
+const batchAdding = ref<boolean>(false);
+const batchToastMessage = ref<string | null>(null);
+
+const homeVisibleItems = ref<ExploreNovelItem[]>([]);
+const rankingsVisibleItems = ref<ExploreNovelItem[]>([]);
+const catalogVisibleItems = ref<ExploreNovelItem[]>([]);
 
 let schemaAbortController: AbortController | null = null;
 let searchAbortController: AbortController | null = null;
@@ -108,6 +127,7 @@ let cachedNovelsAbortController: AbortController | null = null;
 let cachedGenresAbortController: AbortController | null = null;
 let cachedKeywordDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 let slowHintTimer: ReturnType<typeof setTimeout> | null = null;
+let batchToastTimer: ReturnType<typeof setTimeout> | null = null;
 let lastWrittenQueryKey: string | null = null;
 let loadedCachedSignature: string | null = null;
 let hasAppliedInitialPlatformFromRoute = false;
@@ -182,15 +202,175 @@ const hasActiveCachedFilters = computed<boolean>(
 		cachedKeyword.value.trim().length > 0,
 );
 
-const displayedCachedGenres = computed<CachedGenreItem[]>(() => {
-	if (
-		showAllCachedGenres.value ||
-		cachedGenres.value.length <= CACHED_GENRES_COLLAPSED_LIMIT
-	) {
-		return cachedGenres.value;
+const cachedGenrePickerOptions = computed<TagPickerOption[]>(() =>
+	cachedGenres.value.map((genre) => ({
+		value: genre.name,
+		label: genre.name,
+		count: genre.count,
+	})),
+);
+
+const selectedKeySet = computed<ReadonlySet<string>>(
+	() => new Set(selectedMap.value.keys()),
+);
+
+const selectedCount = computed<number>(() => selectedMap.value.size);
+
+function toBatchEntry(
+	item: ExploreNovelItem,
+	fallbackPlatform: string,
+): BatchBookshelfEntry {
+	const entry: BatchBookshelfEntry = {
+		platform: item.platform || fallbackPlatform,
+		novelId: item.id,
+		title: item.title,
+		author: item.author ?? "",
+		coverUrl: item.coverUrl ?? "",
+	};
+	if (item.genres && item.genres.length > 0) {
+		entry.genres = item.genres;
 	}
-	return cachedGenres.value.slice(0, CACHED_GENRES_COLLAPSED_LIMIT);
+	if (item.status) {
+		entry.status = item.status;
+	}
+	return entry;
+}
+
+const currentVisibleEntries = computed<BatchBookshelfEntry[]>(() => {
+	let rawItems: ExploreNovelItem[];
+	if (isSearchMode.value) {
+		rawItems = searchResults.value;
+	} else if (effectiveTab.value === "cached") {
+		rawItems = novels.value;
+	} else if (effectiveTab.value === "home") {
+		rawItems = homeVisibleItems.value;
+	} else if (effectiveTab.value === "rankings") {
+		rawItems = rankingsVisibleItems.value;
+	} else {
+		rawItems = catalogVisibleItems.value;
+	}
+
+	const deduped: BatchBookshelfEntry[] = [];
+	const seen = new Set<string>();
+	for (const item of rawItems) {
+		const entry = toBatchEntry(item, activePlatform.value);
+		const key = makeCompositeKey(entry.platform, entry.novelId);
+		if (!seen.has(key)) {
+			seen.add(key);
+			deduped.push(entry);
+		}
+	}
+	return deduped;
 });
+
+const allCurrentSelected = computed<boolean>(() => {
+	const entries = currentVisibleEntries.value;
+	if (entries.length === 0) {
+		return false;
+	}
+	return entries.every((entry) =>
+		selectedMap.value.has(makeCompositeKey(entry.platform, entry.novelId)),
+	);
+});
+
+function isCardSelected(item: ExploreNovelItem): boolean {
+	return selectedMap.value.has(
+		makeCompositeKey(item.platform || activePlatform.value, item.id),
+	);
+}
+
+function showBatchToast(message: string): void {
+	if (batchToastTimer !== null) {
+		clearTimeout(batchToastTimer);
+		batchToastTimer = null;
+	}
+	batchToastMessage.value = message;
+	batchToastTimer = setTimeout(() => {
+		batchToastTimer = null;
+		batchToastMessage.value = null;
+	}, 3000);
+}
+
+function toggleSelectionMode(): void {
+	if (selectionMode.value) {
+		selectionMode.value = false;
+		selectedMap.value = new Map();
+		batchAssignModalOpen.value = false;
+	} else {
+		selectionMode.value = true;
+	}
+}
+
+function handleToggleSelect(item: ExploreNovelItem): void {
+	const entry = toBatchEntry(item, activePlatform.value);
+	const key = makeCompositeKey(entry.platform, entry.novelId);
+	const next = new Map(selectedMap.value);
+	if (next.has(key)) {
+		next.delete(key);
+	} else {
+		next.set(key, entry);
+	}
+	selectedMap.value = next;
+}
+
+function handleSelectAllCurrent(): void {
+	const entries = currentVisibleEntries.value;
+	if (entries.length === 0) {
+		return;
+	}
+	const next = new Map(selectedMap.value);
+	if (allCurrentSelected.value) {
+		for (const entry of entries) {
+			next.delete(makeCompositeKey(entry.platform, entry.novelId));
+		}
+	} else {
+		for (const entry of entries) {
+			next.set(makeCompositeKey(entry.platform, entry.novelId), entry);
+		}
+	}
+	selectedMap.value = next;
+}
+
+function handleClearSelection(): void {
+	selectedMap.value = new Map();
+}
+
+async function commitBatchAdd(categoryIds: string[]): Promise<void> {
+	if (batchAdding.value || selectedMap.value.size === 0) {
+		return;
+	}
+	batchAdding.value = true;
+	try {
+		const entries = Array.from(selectedMap.value.values());
+		const addedCount = await libraryStore.batchAddToBookshelf(
+			entries,
+			categoryIds,
+		);
+		selectionMode.value = false;
+		selectedMap.value = new Map();
+		batchAssignModalOpen.value = false;
+		if (addedCount > 0) {
+			showBatchToast(`已将 ${addedCount} 部作品加入书架`);
+		}
+	} finally {
+		batchAdding.value = false;
+	}
+}
+
+function handleBatchAddClick(): void {
+	if (selectedMap.value.size === 0 || batchAdding.value) {
+		return;
+	}
+	if (libraryStore.activeCategories.length > 0) {
+		batchAssignModalOpen.value = true;
+	} else {
+		void commitBatchAdd([]);
+	}
+}
+
+function handleBatchAssignSaved(categoryIds: string[]): void {
+	void commitBatchAdd(categoryIds);
+}
 
 function firstQueryValue(raw: LocationQuery[string] | undefined): string {
 	if (typeof raw === "string") {
@@ -640,6 +820,14 @@ function toggleCachedGenre(genre: string): void {
 	syncUrlQuery();
 }
 
+function handleCachedGenresUpdate(value: string | string[]): void {
+	const next = Array.isArray(value) ? value : value ? [value] : [];
+	selectedCachedGenres.value = Array.from(new Set(next));
+	cachedPage.value = 1;
+	loadedCachedSignature = null;
+	syncUrlQuery();
+}
+
 function setCachedStatus(status: CachedStatusFilter): void {
 	if (cachedStatusFilter.value === status) {
 		return;
@@ -801,7 +989,6 @@ function handleSelectPlatform(platformId: string): void {
 	cachedStatusFilter.value = "all";
 	cachedKeywordInput.value = "";
 	cachedKeyword.value = "";
-	showAllCachedGenres.value = false;
 	novels.value = [];
 	totalNovels.value = 0;
 	loadedCachedSignature = null;
@@ -1044,23 +1231,44 @@ onBeforeUnmount(() => {
 	abortSchemaRequest();
 	abortInFlightSearch();
 	abortCachedRequests();
+	if (batchToastTimer !== null) {
+		clearTimeout(batchToastTimer);
+		batchToastTimer = null;
+	}
 });
 </script>
 
 <template>
-	<div class="space-y-5">
+	<div class="space-y-5" :class="{ 'pb-24': selectionMode }">
 		<SetupBanner />
 
 		<header class="space-y-3">
-			<div>
-				<h1 class="text-xl sm:text-2xl font-bold tracking-tight">书源 · 发现</h1>
-				<p class="mt-0.5 text-xs sm:text-sm text-[var(--text-secondary)]">
-					{{
-						supportsExplore
-							? "浏览首页专题、排行榜、多维书库或实时搜索"
-							: "切换服务端书源浏览已缓存书库或实时搜索"
-					}}
-				</p>
+			<div class="flex items-start justify-between gap-3">
+				<div>
+					<h1 class="text-xl sm:text-2xl font-bold tracking-tight">书源 · 发现</h1>
+					<p class="mt-0.5 text-xs sm:text-sm text-[var(--text-secondary)]">
+						{{
+							supportsExplore
+								? "浏览首页专题、排行榜、多维书库或实时搜索"
+								: "切换服务端书源浏览已缓存书库或实时搜索"
+						}}
+					</p>
+				</div>
+
+				<button
+					type="button"
+					:aria-pressed="selectionMode"
+					class="inline-flex shrink-0 items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-medium transition-colors"
+					:class="
+						selectionMode
+							? 'border-[var(--accent)] bg-[var(--accent)] text-white hover:opacity-90'
+							: 'border-[var(--border-subtle)] bg-[var(--bg-elevated)] text-[var(--text-primary)] hover:bg-[var(--bg-secondary)]'
+					"
+					@click="toggleSelectionMode"
+				>
+					<CheckSquare class="h-3.5 w-3.5" />
+					{{ selectionMode ? "退出选择" : "批量选择" }}
+				</button>
 			</div>
 
 			<!-- Source Pills -->
@@ -1218,6 +1426,9 @@ onBeforeUnmount(() => {
 					:item="item"
 					:fallback-platform="activePlatform"
 					variant="grid"
+					:selection-mode="selectionMode"
+					:selected="isCardSelected(item)"
+					@toggle-select="handleToggleSelect"
 				/>
 			</div>
 		</section>
@@ -1281,9 +1492,13 @@ onBeforeUnmount(() => {
 				:platform="activePlatform"
 				:schema="exploreSchema"
 				:channel="homeChannel"
+				:selection-mode="selectionMode"
+				:selected-keys="selectedKeySet"
 				@update:channel="handleUpdateHomeChannel"
 				@navigate-more="handleNavigateMore"
 				@switch-tab="handleSelectTab"
+				@toggle-select="handleToggleSelect"
+				@visible-items="homeVisibleItems = $event"
 			/>
 
 			<ExploreRankingsPanel
@@ -1293,7 +1508,11 @@ onBeforeUnmount(() => {
 				:rank="rankingRank"
 				:full="rankingFull"
 				:page="rankingPage"
+				:selection-mode="selectionMode"
+				:selected-keys="selectedKeySet"
 				@update:selection="handleUpdateRankingSelection"
+				@toggle-select="handleToggleSelect"
+				@visible-items="rankingsVisibleItems = $event"
 			/>
 
 			<ExploreCatalogPanel
@@ -1302,8 +1521,12 @@ onBeforeUnmount(() => {
 				:schema="exploreSchema"
 				:filters="catalogFilters"
 				:page="catalogPage"
+				:selection-mode="selectionMode"
+				:selected-keys="selectedKeySet"
 				@update:query="handleUpdateCatalogQuery"
 				@switch-tab="handleSelectTab"
+				@toggle-select="handleToggleSelect"
+				@visible-items="catalogVisibleItems = $event"
 			/>
 		</template>
 
@@ -1338,6 +1561,21 @@ onBeforeUnmount(() => {
 							<X class="h-3.5 w-3.5" />
 						</button>
 					</div>
+
+					<!-- Cached Genre Searchable Multi-Select -->
+					<SearchableTagPicker
+						v-if="loadingCachedGenres || cachedGenres.length > 0"
+						:options="cachedGenrePickerOptions"
+						:model-value="selectedCachedGenres"
+						:multiple="true"
+						label="题材标签"
+						panel-title="题材标签（多选交集）"
+						placeholder="搜索题材标签…"
+						empty-text="当前书源暂无已缓存题材标签"
+						:loading="loadingCachedGenres"
+						align="right"
+						@update:model-value="handleCachedGenresUpdate"
+					/>
 
 					<!-- Cached Status Filter -->
 					<fieldset
@@ -1381,54 +1619,6 @@ onBeforeUnmount(() => {
 							已完结
 						</button>
 					</fieldset>
-				</div>
-
-				<!-- Cached Genres Multi-Select Chips -->
-				<div v-if="loadingCachedGenres || cachedGenres.length > 0" class="space-y-2">
-					<div class="flex items-center justify-between gap-2 text-xs">
-						<span class="inline-flex items-center gap-1 font-medium text-[var(--text-secondary)]">
-							<Tag class="h-3.5 w-3.5" />
-							题材标签（多选交集）
-						</span>
-						<button
-							v-if="cachedGenres.length > CACHED_GENRES_COLLAPSED_LIMIT"
-							type="button"
-							class="text-[11px] text-[var(--accent)] hover:underline"
-							@click="showAllCachedGenres = !showAllCachedGenres"
-						>
-							{{
-								showAllCachedGenres
-									? "收起标签"
-									: `展开全部 (${cachedGenres.length})`
-							}}
-						</button>
-					</div>
-
-					<div v-if="loadingCachedGenres && cachedGenres.length === 0" class="flex flex-wrap gap-1.5">
-						<span
-							v-for="idx in 8"
-							:key="idx"
-							class="h-6 w-16 rounded-lg bg-[var(--bg-secondary)] animate-pulse"
-						/>
-					</div>
-
-					<div v-else class="flex flex-wrap gap-1.5">
-						<button
-							v-for="genre in displayedCachedGenres"
-							:key="genre.name"
-							type="button"
-							class="inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-medium transition-colors"
-							:class="
-								selectedCachedGenres.includes(genre.name)
-									? 'bg-[var(--accent)] text-white'
-									: 'bg-[var(--bg-secondary)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-							"
-							@click="toggleCachedGenre(genre.name)"
-						>
-							<span>{{ genre.name }}</span>
-							<span class="text-[10px] opacity-75">{{ genre.count }}</span>
-						</button>
-					</div>
 				</div>
 
 				<!-- Active Cached Filters Summary -->
@@ -1555,6 +1745,9 @@ onBeforeUnmount(() => {
 					:item="item"
 					:fallback-platform="activePlatform"
 					variant="grid"
+					:selection-mode="selectionMode"
+					:selected="isCardSelected(item)"
+					@toggle-select="handleToggleSelect"
 				/>
 			</div>
 
@@ -1588,5 +1781,73 @@ onBeforeUnmount(() => {
 				</button>
 			</div>
 		</section>
+
+		<!-- Batch Selection Floating Action Bar -->
+		<div
+			v-if="selectionMode"
+			class="pointer-events-none fixed inset-x-0 bottom-[calc(4.25rem+env(safe-area-inset-bottom))] z-40 px-4 md:bottom-5 md:pl-24 lg:pl-60"
+		>
+			<div
+				class="pointer-events-auto mx-auto flex max-w-3xl flex-wrap items-center justify-between gap-2 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)]/95 px-4 py-3 shadow-xl backdrop-blur"
+			>
+				<div class="flex items-center gap-2 text-xs sm:text-sm font-medium text-[var(--text-primary)]">
+					<span>已选 {{ selectedCount }} 本</span>
+				</div>
+
+				<div class="flex flex-wrap items-center gap-2">
+					<button
+						type="button"
+						:disabled="currentVisibleEntries.length === 0"
+						class="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-primary)] px-3 py-1.5 text-xs font-medium text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] disabled:opacity-40"
+						@click="handleSelectAllCurrent"
+					>
+						{{ allCurrentSelected ? "取消全选" : "全选当前" }}
+					</button>
+					<button
+						type="button"
+						:disabled="selectedCount === 0"
+						class="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-primary)] px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] disabled:opacity-40"
+						@click="handleClearSelection"
+					>
+						清空选择
+					</button>
+					<button
+						type="button"
+						:disabled="selectedCount === 0 || batchAdding"
+						class="inline-flex items-center gap-1.5 rounded-xl bg-[var(--accent)] px-3.5 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-40"
+						@click="handleBatchAddClick"
+					>
+						<BookmarkPlus class="h-3.5 w-3.5" />
+						{{ batchAdding ? "加入中…" : "加入书架" }}
+					</button>
+				</div>
+			</div>
+		</div>
+
+		<!-- Batch Add Success Toast -->
+		<div
+			v-if="batchToastMessage"
+			role="status"
+			aria-live="polite"
+			class="pointer-events-none fixed inset-x-0 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-50 flex justify-center px-4 md:bottom-6"
+		>
+			<div
+				class="pointer-events-auto inline-flex items-center gap-2 rounded-full border border-[var(--accent)]/30 bg-[var(--bg-elevated)] px-4 py-2 text-xs sm:text-sm font-medium text-[var(--text-primary)] shadow-lg"
+			>
+				<Check class="h-4 w-4 text-[var(--accent)]" />
+				<span>{{ batchToastMessage }}</span>
+			</div>
+		</div>
+
+		<!-- Batch Shelf Assignment Modal -->
+		<ShelfAssignModal
+			:open="batchAssignModalOpen"
+			mode="batch"
+			:batch-count="selectedCount"
+			:title="`已选择 ${selectedCount} 部作品`"
+			:initial-category-ids="[]"
+			@close="batchAssignModalOpen = false"
+			@saved="handleBatchAssignSaved"
+		/>
 	</div>
 </template>

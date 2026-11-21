@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import type { ExploreNovelItem } from "@acanthis-dec/core";
-import { BookOpen } from "lucide-vue-next";
+import { BookMarked, BookOpen, Check } from "lucide-vue-next";
 import { computed, ref, watch } from "vue";
 import { RouterLink } from "vue-router";
 import { rebaseMediaUrl } from "@/api/client";
 import { formatNovelStatusLabel } from "@/components/explore/exploreUtils";
+import { useLibraryStore } from "@/stores/library";
 import { useSettingsStore } from "@/stores/settings";
 
 const props = withDefaults(
@@ -13,12 +14,21 @@ const props = withDefaults(
 		fallbackPlatform: string;
 		variant?: "grid" | "detailed" | "compact" | undefined;
 		rankFallback?: number | undefined;
+		selectionMode?: boolean | undefined;
+		selected?: boolean | undefined;
 	}>(),
 	{
 		variant: "grid",
+		selectionMode: false,
+		selected: false,
 	},
 );
 
+const emit = defineEmits<{
+	toggleSelect: [item: ExploreNovelItem];
+}>();
+
+const libraryStore = useLibraryStore();
 const settingsStore = useSettingsStore();
 const coverFailed = ref<boolean>(false);
 
@@ -58,6 +68,20 @@ const displayGenres = computed<string[]>(() =>
 	(props.item.genres ?? []).slice(0, 3),
 );
 
+const inBookshelf = computed<boolean>(() =>
+	libraryStore.isInBookshelf(resolvedPlatform.value, props.item.id),
+);
+
+const selectionCardClass = computed<string>(() => {
+	if (!props.selectionMode) {
+		return "border-[var(--border-subtle)] hover:shadow-sm";
+	}
+	if (props.selected) {
+		return "border-[var(--accent)] ring-2 ring-[var(--accent)]/30 bg-[var(--accent-soft)]/25";
+	}
+	return "border-[var(--border-subtle)] hover:border-[var(--accent)]/50";
+});
+
 function rankBadgeClass(rank: number): string {
 	if (rank <= 3) {
 		return "bg-[var(--accent)] text-white";
@@ -68,11 +92,38 @@ function rankBadgeClass(rank: number): string {
 
 <template>
 	<!-- Compact Row Variant (for rank / updates lists) -->
-	<RouterLink
+	<div
 		v-if="variant === 'compact'"
-		:to="detailRoute"
-		class="group flex items-center gap-3 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] p-3 transition-shadow hover:shadow-sm"
+		class="group relative flex items-center gap-3 rounded-2xl border bg-[var(--bg-elevated)] p-3 transition-all"
+		:class="selectionCardClass"
 	>
+		<button
+			v-if="selectionMode"
+			type="button"
+			:aria-pressed="selected"
+			:aria-label="`选择 ${item.title}`"
+			class="absolute inset-0 z-20 cursor-pointer rounded-2xl focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
+			@click="emit('toggleSelect', item)"
+		/>
+		<RouterLink
+			v-else
+			:to="detailRoute"
+			:aria-label="item.title"
+			class="absolute inset-0 z-10 rounded-2xl focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
+		/>
+		<span
+			v-if="selectionMode"
+			aria-hidden="true"
+			class="flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-colors"
+			:class="
+				selected
+					? 'border-[var(--accent)] bg-[var(--accent)] text-white'
+					: 'border-[var(--border-subtle)] bg-[var(--bg-primary)] text-transparent'
+			"
+		>
+			<Check class="h-3.5 w-3.5 stroke-[2.5]" />
+		</span>
+
 		<span
 			v-if="displayRank !== undefined"
 			class="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg text-xs font-bold"
@@ -111,12 +162,21 @@ function rankBadgeClass(rank: number): string {
 				>
 					{{ item.title }}
 				</h3>
-				<span
-					v-if="statusLabel"
-					class="shrink-0 rounded-md bg-[var(--bg-secondary)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--text-secondary)]"
-				>
-					{{ statusLabel }}
-				</span>
+				<div class="flex shrink-0 items-center gap-1">
+					<span
+						v-if="inBookshelf"
+						class="inline-flex items-center gap-0.5 rounded-md bg-[var(--accent-soft)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--accent)]"
+					>
+						<BookMarked class="h-2.5 w-2.5" />
+						已在书架
+					</span>
+					<span
+						v-if="statusLabel"
+						class="rounded-md bg-[var(--bg-secondary)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--text-secondary)]"
+					>
+						{{ statusLabel }}
+					</span>
+				</div>
 			</div>
 
 			<div
@@ -149,14 +209,28 @@ function rankBadgeClass(rank: number): string {
 				</span>
 			</div>
 		</div>
-	</RouterLink>
+	</div>
 
 	<!-- Detailed Horizontal Variant (for featured / rankings / catalog) -->
-	<RouterLink
+	<div
 		v-else-if="variant === 'detailed'"
-		:to="detailRoute"
-		class="group flex gap-3.5 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] p-3.5 transition-shadow hover:shadow-sm"
+		class="group relative flex gap-3.5 rounded-2xl border bg-[var(--bg-elevated)] p-3.5 transition-all"
+		:class="selectionCardClass"
 	>
+		<button
+			v-if="selectionMode"
+			type="button"
+			:aria-pressed="selected"
+			:aria-label="`选择 ${item.title}`"
+			class="absolute inset-0 z-20 cursor-pointer rounded-2xl focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
+			@click="emit('toggleSelect', item)"
+		/>
+		<RouterLink
+			v-else
+			:to="detailRoute"
+			:aria-label="item.title"
+			class="absolute inset-0 z-10 rounded-2xl focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
+		/>
 		<div
 			class="relative aspect-[3/4] w-20 sm:w-24 shrink-0 overflow-hidden rounded-xl bg-[var(--bg-secondary)]"
 		>
@@ -182,6 +256,19 @@ function rankBadgeClass(rank: number): string {
 			>
 				#{{ displayRank }}
 			</span>
+
+			<span
+				v-if="selectionMode"
+				aria-hidden="true"
+				class="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-md border shadow-xs transition-colors"
+				:class="
+					selected
+						? 'border-[var(--accent)] bg-[var(--accent)] text-white'
+						: 'border-white/80 bg-black/45 text-transparent backdrop-blur-xs'
+				"
+			>
+				<Check class="h-3.5 w-3.5 stroke-[2.5]" />
+			</span>
 		</div>
 
 		<div class="min-w-0 flex-1 flex flex-col justify-between gap-1.5">
@@ -192,12 +279,21 @@ function rankBadgeClass(rank: number): string {
 					>
 						{{ item.title }}
 					</h3>
-					<span
-						v-if="statusLabel"
-						class="shrink-0 rounded-md bg-[var(--bg-secondary)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--text-secondary)]"
-					>
-						{{ statusLabel }}
-					</span>
+					<div class="flex shrink-0 flex-wrap items-center justify-end gap-1">
+						<span
+							v-if="inBookshelf"
+							class="inline-flex items-center gap-0.5 rounded-md bg-[var(--accent-soft)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--accent)]"
+						>
+							<BookMarked class="h-2.5 w-2.5" />
+							已在书架
+						</span>
+						<span
+							v-if="statusLabel"
+							class="rounded-md bg-[var(--bg-secondary)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--text-secondary)]"
+						>
+							{{ statusLabel }}
+						</span>
+					</div>
 				</div>
 
 				<div
@@ -255,14 +351,28 @@ function rankBadgeClass(rank: number): string {
 				</span>
 			</div>
 		</div>
-	</RouterLink>
+	</div>
 
 	<!-- Default Grid Poster Variant -->
-	<RouterLink
+	<div
 		v-else
-		:to="detailRoute"
-		class="group flex flex-col overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] transition-shadow hover:shadow-sm"
+		class="group relative flex flex-col overflow-hidden rounded-2xl border bg-[var(--bg-elevated)] transition-all"
+		:class="selectionCardClass"
 	>
+		<button
+			v-if="selectionMode"
+			type="button"
+			:aria-pressed="selected"
+			:aria-label="`选择 ${item.title}`"
+			class="absolute inset-0 z-20 cursor-pointer rounded-2xl focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
+			@click="emit('toggleSelect', item)"
+		/>
+		<RouterLink
+			v-else
+			:to="detailRoute"
+			:aria-label="item.title"
+			class="absolute inset-0 z-10 rounded-2xl focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
+		/>
 		<div
 			class="relative aspect-[3/4] w-full overflow-hidden bg-[var(--bg-secondary)]"
 		>
@@ -290,10 +400,31 @@ function rankBadgeClass(rank: number): string {
 			</span>
 
 			<span
-				v-if="statusLabel"
+				v-if="selectionMode"
+				aria-hidden="true"
+				class="absolute right-2 top-2 z-10 flex h-5 w-5 items-center justify-center rounded-md border shadow-xs transition-colors"
+				:class="
+					selected
+						? 'border-[var(--accent)] bg-[var(--accent)] text-white'
+						: 'border-white/80 bg-black/45 text-transparent backdrop-blur-xs'
+				"
+			>
+				<Check class="h-3.5 w-3.5 stroke-[2.5]" />
+			</span>
+
+			<span
+				v-if="statusLabel && !selectionMode"
 				class="absolute right-2 top-2 rounded-md bg-black/65 px-1.5 py-0.5 text-[10px] font-medium text-white backdrop-blur-xs"
 			>
 				{{ statusLabel }}
+			</span>
+
+			<span
+				v-if="inBookshelf"
+				class="absolute bottom-2 left-2 inline-flex items-center gap-0.5 rounded-md bg-emerald-600/85 px-1.5 py-0.5 text-[10px] font-medium text-white backdrop-blur-xs"
+			>
+				<BookMarked class="h-2.5 w-2.5" />
+				已在书架
 			</span>
 		</div>
 
@@ -341,5 +472,5 @@ function rankBadgeClass(rank: number): string {
 				</span>
 			</div>
 		</div>
-	</RouterLink>
+	</div>
 </template>
