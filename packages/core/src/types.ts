@@ -52,6 +52,15 @@ export interface NovelSourceDescriptor {
 	capabilities: SourceCapability[];
 }
 
+export interface BookshelfCategory {
+	id: string;
+	name: string;
+	sortOrder: number;
+	createdAt: number;
+	updatedAt: number;
+	deletedAt: number | null;
+}
+
 export interface BookshelfItem {
 	platform: string;
 	novelId: string;
@@ -61,6 +70,9 @@ export interface BookshelfItem {
 	addedAt: number;
 	updatedAt: number;
 	deletedAt: number | null;
+	categoryIds?: string[] | undefined;
+	genres?: string[] | undefined;
+	status?: NovelStatus | undefined;
 }
 
 export interface ReadingProgress {
@@ -76,6 +88,12 @@ export interface ReadingProgress {
 	totalParagraphs: number;
 	deviceLabel: string;
 	updatedAt: number;
+	historyHiddenAt?: number | null | undefined;
+}
+
+export interface CachedGenreItem {
+	name: string;
+	count: number;
 }
 
 export interface ExploreFilterOption {

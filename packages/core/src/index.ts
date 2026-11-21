@@ -6,7 +6,9 @@ export {
 	restoreByMapping,
 } from "./descramble";
 export type {
+	BookshelfCategory,
 	BookshelfItem,
+	CachedGenreItem,
 	Chapter,
 	ChapterContent,
 	ExploreChannelOption,
