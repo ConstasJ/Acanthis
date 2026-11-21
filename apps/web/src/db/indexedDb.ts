@@ -1,11 +1,18 @@
-import type { BookshelfItem, Novel, ReadingProgress } from "@acanthis-dec/core";
+import type {
+	BookshelfCategory,
+	BookshelfItem,
+	Novel,
+	NovelStatus,
+	ReadingProgress,
+} from "@acanthis-dec/core";
 
 const DB_NAME = "acanthis-web";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 const STORES = {
 	bookshelf: "bookshelf",
 	progress: "progress",
+	categories: "categories",
 	dirtyQueue: "dirtyQueue",
 	novels: "novels",
 	chapters: "chapters",
@@ -28,7 +35,7 @@ export interface ChapterCacheStats {
 
 export interface DirtySyncEntry {
 	key: string;
-	kind: "bookshelf" | "progress";
+	kind: "bookshelf" | "progress" | "category";
 	platform: string;
 	novelId: string;
 	updatedAt: number;
@@ -39,6 +46,7 @@ type StoredProgressRecord = ReadingProgress & { compositeKey: string };
 type StoredNovelRecord = Novel & { compositeKey: string };
 
 let dbPromise: Promise<IDBDatabase> | null = null;
+let migratedFromV1 = false;
 
 export function makeCompositeKey(platform: string, novelId: string): string {
 	return `${platform}:${novelId}`;
@@ -51,6 +59,39 @@ export function makeChapterCacheKey(
 	return `${platform}:${chapterId}`;
 }
 
+function normalizeStringArray(raw: unknown): string[] {
+	if (!Array.isArray(raw)) {
+		return [];
+	}
+	const seen = new Set<string>();
+	const result: string[] = [];
+	for (const entry of raw) {
+		if (typeof entry !== "string") {
+			continue;
+		}
+		const trimmed = entry.trim();
+		if (trimmed && !seen.has(trimmed)) {
+			seen.add(trimmed);
+			result.push(trimmed);
+		}
+	}
+	return result;
+}
+
+function normalizeNovelStatus(raw: unknown): NovelStatus {
+	if (raw === "ongoing" || raw === "completed" || raw === "unknown") {
+		return raw;
+	}
+	return "unknown";
+}
+
+function normalizeNullableTimestamp(raw: unknown): number | null {
+	if (typeof raw === "number" && Number.isFinite(raw)) {
+		return raw;
+	}
+	return null;
+}
+
 function stripBookshelfRecord(record: StoredBookshelfRecord): BookshelfItem {
 	return {
 		platform: record.platform,
@@ -61,6 +102,9 @@ function stripBookshelfRecord(record: StoredBookshelfRecord): BookshelfItem {
 		addedAt: record.addedAt,
 		updatedAt: record.updatedAt,
 		deletedAt: record.deletedAt,
+		categoryIds: normalizeStringArray(record.categoryIds),
+		genres: normalizeStringArray(record.genres),
+		status: normalizeNovelStatus(record.status),
 	};
 }
 
@@ -78,6 +122,21 @@ function stripProgressRecord(record: StoredProgressRecord): ReadingProgress {
 		totalParagraphs: record.totalParagraphs,
 		deviceLabel: record.deviceLabel,
 		updatedAt: record.updatedAt,
+		historyHiddenAt: normalizeNullableTimestamp(record.historyHiddenAt),
+	};
+}
+
+function stripCategoryRecord(record: BookshelfCategory): BookshelfCategory {
+	return {
+		id: record.id,
+		name: record.name,
+		sortOrder:
+			typeof record.sortOrder === "number" && Number.isFinite(record.sortOrder)
+				? Math.trunc(record.sortOrder)
+				: 0,
+		createdAt: record.createdAt,
+		updatedAt: record.updatedAt,
+		deletedAt: normalizeNullableTimestamp(record.deletedAt),
 	};
 }
 
@@ -134,14 +193,20 @@ function openDb(): Promise<IDBDatabase> {
 	dbPromise = new Promise<IDBDatabase>((resolve, reject) => {
 		const request = indexedDB.open(DB_NAME, DB_VERSION);
 
-		request.onupgradeneeded = () => {
+		request.onupgradeneeded = (event) => {
 			const db = request.result;
+			if (event.oldVersion > 0 && event.oldVersion < 2) {
+				migratedFromV1 = true;
+			}
 
 			if (!db.objectStoreNames.contains(STORES.bookshelf)) {
 				db.createObjectStore(STORES.bookshelf, { keyPath: "compositeKey" });
 			}
 			if (!db.objectStoreNames.contains(STORES.progress)) {
 				db.createObjectStore(STORES.progress, { keyPath: "compositeKey" });
+			}
+			if (!db.objectStoreNames.contains(STORES.categories)) {
+				db.createObjectStore(STORES.categories, { keyPath: "id" });
 			}
 			if (!db.objectStoreNames.contains(STORES.dirtyQueue)) {
 				db.createObjectStore(STORES.dirtyQueue, { keyPath: "key" });
@@ -183,6 +248,12 @@ function openDb(): Promise<IDBDatabase> {
 }
 
 export const webDb = {
+	consumeSchemaUpgradeFlag(): boolean {
+		const flag = migratedFromV1;
+		migratedFromV1 = false;
+		return flag;
+	},
+
 	async getAllBookshelf(): Promise<BookshelfItem[]> {
 		const db = await openDb();
 		const tx = db.transaction(STORES.bookshelf, "readonly");
@@ -247,6 +318,34 @@ export const webDb = {
 		await transactionDone(tx);
 	},
 
+	async getAllCategories(): Promise<BookshelfCategory[]> {
+		const db = await openDb();
+		const tx = db.transaction(STORES.categories, "readonly");
+		const store = tx.objectStore(STORES.categories);
+		const records = await requestToPromise(
+			store.getAll() as IDBRequest<BookshelfCategory[]>,
+		);
+		await transactionDone(tx);
+		return records.map(stripCategoryRecord);
+	},
+
+	async putCategory(category: BookshelfCategory): Promise<void> {
+		await this.bulkPutCategories([category]);
+	},
+
+	async bulkPutCategories(categories: BookshelfCategory[]): Promise<void> {
+		if (categories.length === 0) {
+			return;
+		}
+		const db = await openDb();
+		const tx = db.transaction(STORES.categories, "readwrite");
+		const store = tx.objectStore(STORES.categories);
+		for (const category of categories) {
+			store.put(stripCategoryRecord(category));
+		}
+		await transactionDone(tx);
+	},
+
 	async getDirtyEntries(): Promise<DirtySyncEntry[]> {
 		const db = await openDb();
 		const tx = db.transaction(STORES.dirtyQueue, "readonly");
@@ -265,16 +364,25 @@ export const webDb = {
 	},
 
 	async putDirtyEntry(entry: DirtySyncEntry): Promise<void> {
+		await this.bulkPutDirtyEntries([entry]);
+	},
+
+	async bulkPutDirtyEntries(entries: DirtySyncEntry[]): Promise<void> {
+		if (entries.length === 0) {
+			return;
+		}
 		const db = await openDb();
 		const tx = db.transaction(STORES.dirtyQueue, "readwrite");
 		const store = tx.objectStore(STORES.dirtyQueue);
-		store.put({
-			key: entry.key,
-			kind: entry.kind,
-			platform: entry.platform,
-			novelId: entry.novelId,
-			updatedAt: entry.updatedAt,
-		} satisfies DirtySyncEntry);
+		for (const entry of entries) {
+			store.put({
+				key: entry.key,
+				kind: entry.kind,
+				platform: entry.platform,
+				novelId: entry.novelId,
+				updatedAt: entry.updatedAt,
+			} satisfies DirtySyncEntry);
+		}
 		await transactionDone(tx);
 	},
 

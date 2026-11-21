@@ -1,5 +1,7 @@
 import type {
+	BookshelfCategory,
 	BookshelfItem,
+	CachedGenreItem,
 	ExploreHomeData,
 	ExplorePage,
 	ExploreSchema,
@@ -7,6 +9,7 @@ import type {
 	NovelInfo,
 	NovelSearchResult,
 	NovelSourceDescriptor,
+	NovelStatus,
 	ReadingProgress,
 } from "@acanthis-dec/core";
 import {
@@ -23,20 +26,31 @@ export interface PaginatedNovelsResponse {
 	pageSize: number;
 }
 
+export interface FetchCachedNovelsOptions {
+	page: number;
+	pageSize?: number;
+	genres?: string[];
+	status?: NovelStatus;
+	q?: string;
+}
+
 export interface SyncStatePullResponse {
 	bookshelf: BookshelfItem[];
 	progress: ReadingProgress[];
+	categories?: BookshelfCategory[];
 	cursor: number;
 }
 
 export interface SyncStatePushPayload {
 	bookshelf?: BookshelfItem[];
 	progress?: ReadingProgress[];
+	categories?: BookshelfCategory[];
 }
 
 export interface SyncStatePushResponse {
 	bookshelf: BookshelfItem[];
 	progress: ReadingProgress[];
+	categories?: BookshelfCategory[];
 	serverTime: number;
 }
 
@@ -225,20 +239,59 @@ export async function fetchSources(): Promise<NovelSourceDescriptor[]> {
 	return await requestJson<NovelSourceDescriptor[]>("/v1/sources");
 }
 
+export async function fetchCachedNovels(
+	platform: string,
+	options: FetchCachedNovelsOptions,
+	signal?: AbortSignal,
+): Promise<PaginatedNovelsResponse> {
+	const params = new URLSearchParams();
+	params.set("page", String(options.page));
+	if (options.pageSize !== undefined) {
+		params.set("pageSize", String(options.pageSize));
+	}
+	if (options.genres && options.genres.length > 0) {
+		const cleaned = Array.from(
+			new Set(options.genres.map((genre) => genre.trim()).filter(Boolean)),
+		);
+		if (cleaned.length > 0) {
+			params.set("genres", cleaned.join(","));
+		}
+	}
+	if (options.status !== undefined) {
+		params.set("status", options.status);
+	}
+	const trimmedQ = options.q?.trim();
+	if (trimmedQ) {
+		params.set("q", trimmedQ);
+	}
+	const encodedPlatform = encodeURIComponent(platform);
+	return await requestJson<PaginatedNovelsResponse>(
+		`/v1/${encodedPlatform}/novels?${params.toString()}`,
+		buildSignalOptions(signal),
+	);
+}
+
+export async function fetchCachedGenres(
+	platform: string,
+	signal?: AbortSignal,
+): Promise<CachedGenreItem[]> {
+	const encodedPlatform = encodeURIComponent(platform);
+	return await requestJson<CachedGenreItem[]>(
+		`/v1/${encodedPlatform}/genres`,
+		buildSignalOptions(signal),
+	);
+}
+
 export async function fetchNovels(
 	platform: string,
 	page: number,
 	pageSize?: number,
 ): Promise<PaginatedNovelsResponse> {
-	const params = new URLSearchParams();
-	params.set("page", String(page));
+	const options: FetchCachedNovelsOptions = { page };
 	if (pageSize !== undefined) {
-		params.set("pageSize", String(pageSize));
+		options.pageSize = pageSize;
 	}
-	const encodedPlatform = encodeURIComponent(platform);
-	return await requestJson<PaginatedNovelsResponse>(
-		`/v1/${encodedPlatform}/novels?${params.toString()}`,
-	);
+	return await fetchCachedNovels(platform, options);
 }
 
 export async function searchNovels(
