@@ -2,7 +2,7 @@
 
 ## Repository shape
 
-- TypeScript ESM monorepo managed by `pnpm@11.6.0` and Turbo.
+- TypeScript ESM monorepo managed by `pnpm@12.21.0` and Turbo.
 - Workspaces are `apps/*`, `packages/*`, and `tools/*` from `pnpm-workspace.yaml`.
 - Source packages export TypeScript sources for workspace consumers and publish `dist` artifacts through `publishConfig`.
 - High-complexity boundaries have their own nested guides:
@@ -14,13 +14,18 @@
 ## Commands and checks
 
 - Install with `pnpm install --frozen-lockfile` when reproducing CI or Docker builds.
+- Windows non-interactive shells (where PowerShell profile is not loaded): initialize `fnm` first via `fnm env --use-on-cd --shell powershell | Out-String | Invoke-Expression` so `node` and workspace binaries (`biome`, `tsc`, `tsx`, `changeset`) are on `PATH`.
 - Root scripts:
   - `pnpm build` -> `turbo run build`
-  - `pnpm check-types` -> `turbo run check-types`
+  - `pnpm check-types` -> `turbo run check-types` (covers 9 packages, including `vue-tsc --noEmit && tsc -p tsconfig.worker.json --noEmit` in `apps/web`; must pass with 0 errors)
   - `pnpm format-and-lint` -> `biome check .`
   - `pnpm format-and-lint:fix` -> `biome check . --write`
   - `pnpm test` delegates to Turbo, but there are currently no test files or package test scripts.
-- Use `pnpm --filter=<package> run build` or `pnpm --filter=<package> run check-types` for focused validation.
+- Use `pnpm --filter=<package> run build` or `pnpm --filter=<package> run check-types` for focused validation; for `apps/api-server`, also verify `pnpm --filter=@acanthis-dec/api-server run openapi:check` when touching routes/schemas.
+- Known Biome / Windows environment caveats:
+  - Biome (`biome.json`, v2.6.8) enforces `LF` line endings by default (`lineEnding: "lf"`). On Windows machines with global Git `core.autocrlf=true`, running repo-wide `biome check .` reports CRLF (`\r`) format errors on untouched checked-out files (e.g. `CHANGELOG.md`, `package.json`, `docs/`).
+  - `.github/scripts/promote-api-server-image.mjs` currently emits 6 `lint/suspicious/noUndeclaredEnvVars` warnings because Biome's Turbo rule checks `process.env.*` against `turbo.json` even for standalone CI scripts.
+  - Because of the above, always run targeted `pnpm exec biome check <changed-files...>` on every file you create or edit (ensuring LF line endings and 0 errors / 0 warnings), and avoid running repo-wide `biome check . --write` unless explicitly doing a dedicated formatting/line-ending cleanup.
 - There is no LSP-specific project wiring beyond TypeScript configs; when changing TS, at minimum run the package `check-types` and related build where practical.
 
 ## Formatting and TypeScript conventions
