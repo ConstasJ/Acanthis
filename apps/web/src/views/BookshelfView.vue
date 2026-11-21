@@ -5,7 +5,8 @@ import type {
 	ReadingProgress,
 } from "@acanthis-dec/core";
 import {
-	ArrowUpDown,
+	ArrowDownWideNarrow,
+	ArrowUpNarrowWide,
 	BookOpen,
 	Compass,
 	FolderKanban,
@@ -34,6 +35,7 @@ import { useSettingsStore } from "@/stores/settings";
 import { useSourcesStore } from "@/stores/sources";
 
 type SortMode = "recentRead" | "recentAdded" | "title";
+type SortDirection = "asc" | "desc";
 type StatusFilter = "all" | "ongoing" | "completed";
 type ShelfSelection = "all" | "default" | string;
 
@@ -53,6 +55,7 @@ const searchQuery = ref<string>("");
 const selectedGenres = ref<string[]>([]);
 const statusFilter = ref<StatusFilter>("all");
 const sortMode = ref<SortMode>("recentRead");
+const sortDirection = ref<SortDirection>("desc");
 
 const shelfManagerOpen = ref<boolean>(false);
 const assignTarget = ref<BookshelfItem | null>(null);
@@ -225,6 +228,33 @@ const hasActiveFilters = computed<boolean>(
 		statusFilter.value !== "all",
 );
 
+function defaultSortDirection(mode: SortMode): SortDirection {
+	return mode === "title" ? "asc" : "desc";
+}
+
+function selectSortMode(mode: SortMode): void {
+	if (sortMode.value === mode) {
+		sortDirection.value = sortDirection.value === "desc" ? "asc" : "desc";
+		return;
+	}
+	sortMode.value = mode;
+	sortDirection.value = defaultSortDirection(mode);
+}
+
+function toggleSortDirection(): void {
+	sortDirection.value = sortDirection.value === "desc" ? "asc" : "desc";
+}
+
+function compareBookshelfFallback(a: BookshelfItem, b: BookshelfItem): number {
+	const titleDiff = a.title.localeCompare(b.title, "zh-CN");
+	if (titleDiff !== 0) {
+		return titleDiff;
+	}
+	return makeCompositeKey(a.platform, a.novelId).localeCompare(
+		makeCompositeKey(b.platform, b.novelId),
+	);
+}
+
 const filteredBookshelf = computed<BookshelfItem[]>(() => {
 	const keyword = searchQuery.value.trim().toLowerCase();
 	const requiredGenres = selectedGenres.value;
@@ -253,18 +283,45 @@ const filteredBookshelf = computed<BookshelfItem[]>(() => {
 		return true;
 	});
 
+	const dir = sortDirection.value === "asc" ? 1 : -1;
+
 	if (sortMode.value === "recentAdded") {
-		return [...matched].sort((a, b) => b.addedAt - a.addedAt);
+		return [...matched].sort((a, b) => {
+			if (a.addedAt !== b.addedAt) {
+				return (a.addedAt - b.addedAt) * dir;
+			}
+			return compareBookshelfFallback(a, b);
+		});
 	}
 	if (sortMode.value === "title") {
-		return [...matched].sort((a, b) => a.title.localeCompare(b.title, "zh-CN"));
+		return [...matched].sort((a, b) => {
+			const titleDiff = a.title.localeCompare(b.title, "zh-CN");
+			if (titleDiff !== 0) {
+				return titleDiff * dir;
+			}
+			return (
+				makeCompositeKey(a.platform, a.novelId).localeCompare(
+					makeCompositeKey(b.platform, b.novelId),
+				) * dir
+			);
+		});
 	}
 	return [...matched].sort((a, b) => {
-		const progA = libraryStore.getProgress(a.platform, a.novelId);
-		const progB = libraryStore.getProgress(b.platform, b.novelId);
-		const timeA = Math.max(progA?.updatedAt ?? 0, a.addedAt);
-		const timeB = Math.max(progB?.updatedAt ?? 0, b.addedAt);
-		return timeB - timeA;
+		const readA = libraryStore.getProgress(a.platform, a.novelId)?.updatedAt ?? null;
+		const readB = libraryStore.getProgress(b.platform, b.novelId)?.updatedAt ?? null;
+		if (readA !== null && readB === null) {
+			return -1;
+		}
+		if (readA === null && readB !== null) {
+			return 1;
+		}
+		if (readA !== null && readB !== null && readA !== readB) {
+			return (readA - readB) * dir;
+		}
+		if (a.addedAt !== b.addedAt) {
+			return (a.addedAt - b.addedAt) * dir;
+		}
+		return compareBookshelfFallback(a, b);
 	});
 });
 
@@ -620,40 +677,68 @@ onBeforeUnmount(() => {
 				>
 					<button
 						type="button"
-						class="inline-flex items-center gap-1 rounded-lg px-2 py-1 font-medium transition-colors"
+						:aria-pressed="sortMode === 'recentRead'"
+						class="rounded-lg px-2 py-1 font-medium transition-colors"
 						:class="
 							sortMode === 'recentRead'
 								? 'bg-[var(--accent-soft)] text-[var(--accent)]'
 								: 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
 						"
-						@click="sortMode = 'recentRead'"
+						@click="selectSortMode('recentRead')"
 					>
-						<ArrowUpDown class="h-3 w-3" />
 						最近阅读
 					</button>
 					<button
 						type="button"
+						:aria-pressed="sortMode === 'recentAdded'"
 						class="rounded-lg px-2 py-1 font-medium transition-colors"
 						:class="
 							sortMode === 'recentAdded'
 								? 'bg-[var(--accent-soft)] text-[var(--accent)]'
 								: 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
 						"
-						@click="sortMode = 'recentAdded'"
+						@click="selectSortMode('recentAdded')"
 					>
 						最近添加
 					</button>
 					<button
 						type="button"
+						:aria-pressed="sortMode === 'title'"
 						class="rounded-lg px-2 py-1 font-medium transition-colors"
 						:class="
 							sortMode === 'title'
 								? 'bg-[var(--accent-soft)] text-[var(--accent)]'
 								: 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
 						"
-						@click="sortMode = 'title'"
+						@click="selectSortMode('title')"
 					>
 						书名
+					</button>
+					<span
+						aria-hidden="true"
+						class="mx-0.5 h-3.5 w-px bg-[var(--border-subtle)]"
+					/>
+					<button
+						type="button"
+						:title="
+							sortDirection === 'desc'
+								? '当前降序，点击切换为升序'
+								: '当前升序，点击切换为降序'
+						"
+						:aria-label="
+							sortDirection === 'desc'
+								? '当前降序，点击切换为升序'
+								: '当前升序，点击切换为降序'
+						"
+						class="inline-flex items-center gap-1 rounded-lg px-2 py-1 font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-secondary)] hover:text-[var(--text-primary)]"
+						@click="toggleSortDirection"
+					>
+						<ArrowDownWideNarrow
+							v-if="sortDirection === 'desc'"
+							class="h-3.5 w-3.5"
+						/>
+						<ArrowUpNarrowWide v-else class="h-3.5 w-3.5" />
+						<span>{{ sortDirection === "desc" ? "降序" : "升序" }}</span>
 					</button>
 				</fieldset>
 			</div>
