@@ -1042,14 +1042,23 @@ export function createLinovelibRoutes(deps: LinovelibRouteDeps) {
 		}),
 		validator("query", searchQuerySchema),
 		async (c) => {
+			const startAt = Date.now();
+			let searchKeyword: string | undefined;
 			try {
 				const host = resolveHost(c, deps.host);
 				const { keyword, style } = c.req.valid("query");
+				searchKeyword = keyword;
+				logger.debug(
+					`[Search] 收到搜索请求: keyword=${JSON.stringify(keyword)} style=${style}`,
+				);
 				const cachedResults = await storageService.searchNovels(
 					keyword,
 					"linovelib",
 				);
 				if (cachedResults) {
+					logger.debug(
+						`[Search] 命中本地搜索缓存: keyword=${JSON.stringify(keyword)} count=${cachedResults.length} duration=${Date.now() - startAt}ms`,
+					);
 					return c.json({
 						code: 0,
 						message: "Success",
@@ -1059,9 +1068,23 @@ export function createLinovelibRoutes(deps: LinovelibRouteDeps) {
 						}),
 					});
 				}
+				logger.debug(
+					`[Search] 本地搜索缓存未命中，开始回源抓取: keyword=${JSON.stringify(keyword)}`,
+				);
+				const upstreamStartAt = Date.now();
 				const results = await linovelibClient.searchNovels(keyword);
+				logger.debug(
+					`[Search] 回源搜索完成: keyword=${JSON.stringify(keyword)} count=${results.length} upstreamDuration=${Date.now() - upstreamStartAt}ms`,
+				);
 				if (results.length > 0) {
 					await storageService.addSearchResult(keyword, "linovelib", results);
+					logger.debug(
+						`[Search] 搜索结果已写入本地缓存: keyword=${JSON.stringify(keyword)} count=${results.length} totalDuration=${Date.now() - startAt}ms`,
+					);
+				} else {
+					logger.debug(
+						`[Search] 回源搜索结果为空，跳过写入缓存: keyword=${JSON.stringify(keyword)} totalDuration=${Date.now() - startAt}ms`,
+					);
 				}
 				return c.json({
 					code: 0,
@@ -1072,6 +1095,9 @@ export function createLinovelibRoutes(deps: LinovelibRouteDeps) {
 					}),
 				});
 			} catch (error) {
+				logger.debug(
+					`[Search] 搜索请求异常: keyword=${JSON.stringify(searchKeyword ?? "")} duration=${Date.now() - startAt}ms error=${error instanceof Error ? `${error.name}: ${error.message}` : String(error)}`,
+				);
 				return handleLinovelibError(c, logger, error);
 			}
 		},
