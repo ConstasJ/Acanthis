@@ -14,7 +14,7 @@
 ## Commands and checks
 
 - Install with `pnpm install --frozen-lockfile` when reproducing CI or Docker builds.
-- Windows non-interactive shells (where PowerShell profile is not loaded): initialize `fnm` first via `fnm env --use-on-cd --shell powershell | Out-String | Invoke-Expression` so `node` and workspace binaries (`biome`, `tsc`, `tsx`, `changeset`) are on `PATH`.
+- Node version is pinned to Node 24 in root `package.json` (`volta.node`) for `webcrack` compatibility; with Volta installed, `node` and workspace binaries (`biome`, `tsc`, `tsx`, `changeset`) are available directly on `PATH` even in Windows non-interactive shells.
 - Root scripts:
   - `pnpm build` -> `turbo run build`
   - `pnpm check-types` -> `turbo run check-types` (covers 9 packages, including `vue-tsc --noEmit && tsc -p tsconfig.worker.json --noEmit` in `apps/web`; must pass with 0 errors)
