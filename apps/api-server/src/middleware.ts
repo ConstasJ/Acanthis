@@ -27,10 +27,15 @@ function parseClientIp(c: Context): string {
 	}
 }
 
+const SILENT_LOG_PATHS = new Set(["/v1/health"]);
+
 export function createLoggerMiddleware(logger: {
 	info: (message: string) => unknown;
 }) {
 	return createMiddleware(async (c, next) => {
+		if (SILENT_LOG_PATHS.has(c.req.path)) {
+			return next();
+		}
 		const start = Date.now();
 		await next();
 		const end = Date.now();

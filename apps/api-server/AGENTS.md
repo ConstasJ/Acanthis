@@ -18,7 +18,7 @@ This directory is the deployable HTTP service for Acanthis. It wires configurati
 - Defaults include port `5301`, localhost listen host, data/log/cookie paths under local data directories, impersonation profile `chrome-latest-linux`, FlareSolverr enabled with a default local endpoint, and `docs.enabled` (`DOCS_ENABLED`) set to `true`.
 - When `docs.enabled` is `true`, `/v1/openapi.json` and `/v1/docs` (Scalar UI) are mounted ahead of `createAuthMiddleware` so clients and agents can inspect the contract even when `AUTH_TOKEN` is configured.
 - Cookie storage supports memory, file, and database modes. Database cookie mode requires the shared `StorageService` passed into linovelib.
-- Logger behavior is centralized in `src/services.ts`; route code should log through the injected logger, not ad-hoc console calls.
+- Logger behavior is centralized in `src/services.ts`; route code should log through the injected logger, not ad-hoc console calls. `createLoggerMiddleware` in `src/middleware.ts` skips request logging for `/v1/health` so Docker/probe healthchecks do not spam logs.
 - Keep Hono route schemas in `src/schemas/` and `describeRoute` metadata close to route definitions so request surface changes remain visible.
 
 ## Build and deployment
