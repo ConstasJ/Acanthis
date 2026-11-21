@@ -35,3 +35,4 @@ export {
 	rewriteChapterIllustrations,
 } from "./illustration";
 export { isUnresolvedChapterId } from "./novel";
+export { SearchRateLimitError, SearchVerificationError } from "./search";
