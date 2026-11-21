@@ -1,4 +1,7 @@
-import type { BrowserFetchClient } from "@acanthis-dec/browser-fetch";
+import type {
+	BrowserFetchClient,
+	RetryOptions,
+} from "@acanthis-dec/browser-fetch";
 import type { NovelSearchResult } from "@acanthis-dec/core";
 import { Mutex } from "async-mutex";
 import { load } from "cheerio";
@@ -13,8 +16,17 @@ const ORIGIN = "https://www.linovelib.com";
 const MIN_SEARCH_INTERVAL_MS = 5200;
 const MAX_VERIFICATION_ATTEMPTS = 3;
 const MAX_RATE_LIMIT_ATTEMPTS = 3;
+const MAX_SEARCH_PAGES = 15;
 const NEXT_PAGE_DELAY_MIN_MS = 300;
 const NEXT_PAGE_DELAY_MAX_MS = 800;
+
+const SEARCH_REQUEST_RETRY: RetryOptions = {
+	retries: 2,
+	minRetryDelayMs: 500,
+	maxRetryDelayMs: 2000,
+	randomize: true,
+	factor: 2,
+};
 
 const searchRequestHeaders = {
 	origin: ORIGIN,
@@ -137,14 +149,29 @@ export class SearchSession {
 		startHref: string,
 	): Promise<NovelSearchResult[]> {
 		const results: NovelSearchResult[] = [];
+		const visitedUrls = new Set<string>();
 		let href: string | undefined = startHref;
 		let pageNumber = 2;
 
 		while (href) {
+			if (pageNumber > MAX_SEARCH_PAGES) {
+				this.logger?.debug(
+					`[SearchSession] 搜索翻页达到上限 (${MAX_SEARCH_PAGES} 页)，停止继续抓取: keyword=${JSON.stringify(keyword)}`,
+				);
+				break;
+			}
+			const url = new URL(href, SEARCH_URL).toString();
+			if (visitedUrls.has(url)) {
+				this.logger?.debug(
+					`[SearchSession] 检测到重复翻页链接，终止翻页防死循环: keyword=${JSON.stringify(keyword)} url=${url}`,
+				);
+				break;
+			}
+			visitedUrls.add(url);
+
 			const delay =
 				NEXT_PAGE_DELAY_MIN_MS +
 				Math.random() * (NEXT_PAGE_DELAY_MAX_MS - NEXT_PAGE_DELAY_MIN_MS);
-			const url = new URL(href, SEARCH_URL).toString();
 			this.logger?.debug(
 				`[SearchSession] 准备抓取搜索翻页: keyword=${JSON.stringify(keyword)} page=${pageNumber} delay=${Math.round(delay)}ms url=${url}`,
 			);
@@ -167,6 +194,7 @@ export class SearchSession {
 	private async fetchPage(url: string): Promise<string> {
 		let response = await this.fetchClient.text(url, {
 			headers: searchRefererHeaders,
+			retry: SEARCH_REQUEST_RETRY,
 		});
 		if (response.mimeType !== "text/html") {
 			throw new Error(`Unexpected response type: ${response.mimeType}`);
@@ -182,6 +210,7 @@ export class SearchSession {
 			);
 			response = await this.fetchClient.text(url, {
 				headers: searchRefererHeaders,
+				retry: SEARCH_REQUEST_RETRY,
 			});
 			if (response.mimeType !== "text/html") {
 				throw new Error(`Unexpected response type: ${response.mimeType}`);
@@ -209,6 +238,7 @@ export class SearchSession {
 					searchkey: keyword,
 				}),
 				headers: searchRequestHeaders,
+				retry: SEARCH_REQUEST_RETRY,
 			});
 			this.lastSearchAt = Date.now();
 
@@ -261,6 +291,7 @@ export class SearchSession {
 			);
 			const image = await this.fetchClient.binary(imageUrl, {
 				headers: searchRefererHeaders,
+				retry: SEARCH_REQUEST_RETRY,
 			});
 			if (!image.mimeType.startsWith("image/")) {
 				throw new SearchVerificationError(
@@ -279,6 +310,11 @@ export class SearchSession {
 					`验证码识别失败: ${error instanceof Error ? error.message : String(error)}`,
 				);
 			}
+			if (code.length !== 4) {
+				this.logger?.debug(
+					`[SearchSession] 验证码识别长度异常 (length=${code.length}): attempt=${attempt + 1}/${MAX_VERIFICATION_ATTEMPTS} code=${JSON.stringify(code)}`,
+				);
+			}
 
 			await this.waitForSearchSlot();
 			const submitStartAt = Date.now();
@@ -294,11 +330,21 @@ export class SearchSession {
 					search_code: code,
 				}),
 				headers: searchRefererHeaders,
+				retry: SEARCH_REQUEST_RETRY,
 			});
 			this.lastSearchAt = Date.now();
 
 			if (response.mimeType !== "text/html") {
 				throw new Error(`Unexpected response type: ${response.mimeType}`);
+			}
+			if (response.data === "") {
+				throw new Error("Empty response body when submitting search captcha");
+			}
+			if (isRateLimitedPage(response.data)) {
+				this.logger?.debug(
+					`[SearchSession] 提交验证码后触发站点搜索限流: attempt=${attempt + 1}/${MAX_VERIFICATION_ATTEMPTS} duration=${this.lastSearchAt - submitStartAt}ms`,
+				);
+				throw new SearchRateLimitError("提交搜索验证码时触发站点搜索限流");
 			}
 
 			if (!isVerificationPage(response.data)) {
