@@ -3,9 +3,15 @@ interface CacheEntry<T> {
 	expiresAt: number;
 }
 
+export interface MemoryTtlCacheLogger {
+	debug: (message: string) => unknown;
+}
+
 export interface MemoryTtlCacheOptions {
 	ttlMs?: number | undefined;
 	maxEntries?: number | undefined;
+	name?: string | undefined;
+	logger?: MemoryTtlCacheLogger | undefined;
 }
 
 const DEFAULT_CACHE_TTL_MS = 5 * 60 * 1000;
@@ -19,10 +25,14 @@ export class MemoryTtlCache<T> {
 	private readonly inFlight = new Map<string, Promise<T>>();
 	private readonly ttlMs: number;
 	private readonly maxEntries: number;
+	private readonly name: string;
+	private readonly logger?: MemoryTtlCacheLogger | undefined;
 
 	constructor(options?: MemoryTtlCacheOptions) {
 		this.ttlMs = options?.ttlMs ?? DEFAULT_CACHE_TTL_MS;
 		this.maxEntries = options?.maxEntries ?? DEFAULT_CACHE_MAX_ENTRIES;
+		this.name = options?.name ?? "MemoryTtlCache";
+		this.logger = options?.logger;
 	}
 
 	get size(): number {
@@ -86,17 +96,26 @@ export class MemoryTtlCache<T> {
 	async getOrLoad(key: string, loader: () => Promise<T>): Promise<T> {
 		const cached = this.get(key);
 		if (cached !== undefined) {
+			this.logger?.debug(`[Cache:${this.name}] 命中内存缓存: key=${key}`);
 			return cached;
 		}
 
 		const existingInFlight = this.inFlight.get(key);
 		if (existingInFlight) {
+			this.logger?.debug(`[Cache:${this.name}] 复用在途加载请求: key=${key}`);
 			return await existingInFlight;
 		}
 
+		const loadStartAt = Date.now();
+		this.logger?.debug(
+			`[Cache:${this.name}] 缓存未命中，开始回源加载: key=${key}`,
+		);
 		const loadPromise = (async () => {
 			const value = await loader();
 			this.set(key, value);
+			this.logger?.debug(
+				`[Cache:${this.name}] 回源加载完成并写入缓存: key=${key} duration=${Date.now() - loadStartAt}ms size=${this.entries.size}`,
+			);
 			return value;
 		})().finally(() => {
 			if (this.inFlight.get(key) === loadPromise) {

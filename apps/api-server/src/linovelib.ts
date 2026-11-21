@@ -9,11 +9,14 @@ import type {
 	ExploreNovelItem,
 	ExplorePage,
 	Novel,
+	NovelSearchResult,
 } from "@acanthis-dec/core";
 import {
 	extractChapterIllustrationUrls,
 	type LinovelibClient,
 	rewriteChapterIllustrations,
+	SearchRateLimitError,
+	SearchVerificationError,
 } from "@acanthis-dec/linovelib";
 import {
 	getUrlHash,
@@ -150,6 +153,34 @@ function handleLinovelibError(
 			},
 		);
 	}
+	if (error instanceof SearchRateLimitError) {
+		logger.warn(`Upstream search rate limited: ${error.message}`);
+		return c.json(
+			{
+				code: 20001,
+				message: "Upstream search rate limited, please retry later",
+			},
+			503,
+			{
+				"Retry-After": "15",
+				"Cache-Control": "no-store",
+			},
+		);
+	}
+	if (error instanceof SearchVerificationError) {
+		logger.warn(`Upstream search verification failed: ${error.message}`);
+		return c.json(
+			{
+				code: 20002,
+				message: "Upstream search verification failed, please retry later",
+			},
+			503,
+			{
+				"Retry-After": "15",
+				"Cache-Control": "no-store",
+			},
+		);
+	}
 	if (error instanceof HttpStatusError) {
 		if (error.status === 404 && notFound) {
 			logger.warn(`Upstream returned 404 for ${error.url}`);
@@ -223,9 +254,25 @@ export function createLinovelibRoutes(deps: LinovelibRouteDeps) {
 		string,
 		Promise<{ data: Buffer; mimeType: string } | null>
 	>();
-	const homeCache = new MemoryTtlCache<ExploreHomeData>();
-	const rankingsCache = new MemoryTtlCache<ExplorePage>();
-	const catalogCache = new MemoryTtlCache<ExplorePage>();
+	const inFlightSearches = new Map<string, Promise<NovelSearchResult[]>>();
+	const emptySearchCache = new MemoryTtlCache<true>({
+		ttlMs: 2 * 60 * 1000,
+		maxEntries: 200,
+		name: "emptySearch",
+		logger,
+	});
+	const homeCache = new MemoryTtlCache<ExploreHomeData>({
+		name: "home",
+		logger,
+	});
+	const rankingsCache = new MemoryTtlCache<ExplorePage>({
+		name: "rankings",
+		logger,
+	});
+	const catalogCache = new MemoryTtlCache<ExplorePage>({
+		name: "catalog",
+		logger,
+	});
 
 	app.get(
 		"/explore/schema",
@@ -431,6 +478,7 @@ export function createLinovelibRoutes(deps: LinovelibRouteDeps) {
 		validator("query", chapterQuerySchema),
 		async (c) => {
 			try {
+				const startAt = Date.now();
 				const { chapterId } = c.req.valid("param");
 				const { novelId } = c.req.valid("query");
 				let chapterMeta = await storageService.getChapterFromId(
@@ -439,6 +487,9 @@ export function createLinovelibRoutes(deps: LinovelibRouteDeps) {
 				);
 				if (!chapterMeta && novelId) {
 					if (/^\d+$/.test(novelId)) {
+						logger.debug(
+							`[Chapter] 本地章节元数据缺失，尝试通过 novelId 回源补齐目录: chapterId=${chapterId} novelId=${novelId}`,
+						);
 						try {
 							const novel = await linovelibClient.getNovelInfo(novelId);
 							if (
@@ -493,7 +544,15 @@ export function createLinovelibRoutes(deps: LinovelibRouteDeps) {
 				let rawHtml = hash
 					? await storageService.getNovelContent(hash)
 					: undefined;
-				if (!rawHtml) {
+				if (rawHtml) {
+					logger.debug(
+						`[Chapter] 命中本地章节正文缓存: chapterId=${chapterId} novelId=${chapterMeta.novelId} duration=${Date.now() - startAt}ms`,
+					);
+				} else {
+					logger.debug(
+						`[Chapter] 章节正文缓存未命中，开始回源抓取: chapterId=${chapterId} novelId=${chapterMeta.novelId}`,
+					);
+					const upstreamStartAt = Date.now();
 					rawHtml = await linovelibClient.getChapter(
 						chapterMeta.novelId,
 						chapterId,
@@ -504,6 +563,9 @@ export function createLinovelibRoutes(deps: LinovelibRouteDeps) {
 							"linovelib",
 							chapterId,
 							contentHash,
+						);
+						logger.debug(
+							`[Chapter] 章节回源抓取完成并写入缓存: chapterId=${chapterId} novelId=${chapterMeta.novelId} upstreamDuration=${Date.now() - upstreamStartAt}ms`,
 						);
 					}
 				}
@@ -516,6 +578,9 @@ export function createLinovelibRoutes(deps: LinovelibRouteDeps) {
 					await storageService.registerIllustrations(
 						"linovelib",
 						illustrationUrls,
+					);
+					logger.debug(
+						`[Chapter] 已注册章节插图映射: chapterId=${chapterId} count=${illustrationUrls.length}`,
 					);
 				}
 				const host = resolveHost(c, deps.host);
@@ -776,6 +841,7 @@ export function createLinovelibRoutes(deps: LinovelibRouteDeps) {
 		validator("query", novelStyleQuerySchema),
 		async (c) => {
 			try {
+				const startAt = Date.now();
 				const host = resolveHost(c, deps.host);
 				const { novelId } = c.req.valid("param");
 				const { style } = c.req.valid("query");
@@ -818,11 +884,19 @@ export function createLinovelibRoutes(deps: LinovelibRouteDeps) {
 							`Update check failed for cached novel ${novelId}, serving cached novel: ${updateError instanceof Error ? updateError.message : String(updateError)}`,
 						);
 					}
+					logger.debug(
+						`[Novel] 命中本地小说缓存: novelId=${novelId} updateNeeded=${updateNeeded} duration=${Date.now() - startAt}ms`,
+					);
 					if (!updateNeeded) {
 						return respondWithNovel(validCachedNovel);
 					}
+				} else {
+					logger.debug(
+						`[Novel] 本地小说缓存未命中或信息不完整，开始回源抓取: novelId=${novelId}`,
+					);
 				}
 				let novel: Novel | undefined;
+				const upstreamStartAt = Date.now();
 				try {
 					novel = await linovelibClient.getNovelInfo(novelId);
 				} catch (fetchError) {
@@ -840,6 +914,9 @@ export function createLinovelibRoutes(deps: LinovelibRouteDeps) {
 						(novel.title.trim() !== "" && novel.volumes.length > 0))
 				) {
 					await storageService.addNovelCache(novel);
+					logger.debug(
+						`[Novel] 小说回源抓取完成并写入缓存: novelId=${novelId} volumes=${novel.volumes.length} upstreamDuration=${Date.now() - upstreamStartAt}ms`,
+					);
 					return respondWithNovel(novel);
 				}
 				if (validCachedNovel) {
@@ -894,6 +971,9 @@ export function createLinovelibRoutes(deps: LinovelibRouteDeps) {
 					novelId,
 				);
 				if (novelInfo?.coverUrl) {
+					logger.debug(
+						`[Cover] 小说封面缓存未命中，使用元数据 URL 回源: novelId=${novelId} url=${novelInfo.coverUrl}`,
+					);
 					const coverData = await linovelibClient.getCover(novelInfo.coverUrl);
 					if (coverData) {
 						await storageService.setCoverData(
@@ -909,6 +989,9 @@ export function createLinovelibRoutes(deps: LinovelibRouteDeps) {
 						return c.body(new Uint8Array(coverData.data));
 					}
 				} else {
+					logger.debug(
+						`[Cover] 小说封面缓存未命中且无元数据 URL，按规则拼接回源: novelId=${novelId}`,
+					);
 					const { data: coverData, url: coverUrl } =
 						await linovelibClient.getNovelCover(novelId);
 					if (coverData) {
@@ -986,6 +1069,9 @@ export function createLinovelibRoutes(deps: LinovelibRouteDeps) {
 					volumeId,
 				);
 				if (volumeInfo?.coverUrl) {
+					logger.debug(
+						`[Cover] 分卷封面缓存未命中，开始回源: volumeId=${volumeId} url=${volumeInfo.coverUrl}`,
+					);
 					const coverData = await linovelibClient.getCover(volumeInfo.coverUrl);
 					if (coverData) {
 						await storageService.setCoverData(
@@ -1051,6 +1137,16 @@ export function createLinovelibRoutes(deps: LinovelibRouteDeps) {
 				logger.debug(
 					`[Search] 收到搜索请求: keyword=${JSON.stringify(keyword)} style=${style}`,
 				);
+				const formatSearchResults = (items: NovelSearchResult[]) =>
+					items.map((novel) =>
+						transformOutputStyleForSearchResult(
+							{
+								...novel,
+								coverUrl: `${host}/v1/linovelib/cover/novel/${novel.id}`,
+							},
+							style,
+						),
+					);
 				const cachedResults = await storageService.searchNovels(
 					keyword,
 					"linovelib",
@@ -1062,37 +1158,62 @@ export function createLinovelibRoutes(deps: LinovelibRouteDeps) {
 					return c.json({
 						code: 0,
 						message: "Success",
-						data: cachedResults.map((novel) => {
-							novel.coverUrl = `${host}/v1/linovelib/cover/novel/${novel.id}`;
-							return transformOutputStyleForSearchResult(novel, style);
-						}),
+						data: formatSearchResults(cachedResults),
 					});
 				}
-				logger.debug(
-					`[Search] 本地搜索缓存未命中，开始回源抓取: keyword=${JSON.stringify(keyword)}`,
-				);
-				const upstreamStartAt = Date.now();
-				const results = await linovelibClient.searchNovels(keyword);
-				logger.debug(
-					`[Search] 回源搜索完成: keyword=${JSON.stringify(keyword)} count=${results.length} upstreamDuration=${Date.now() - upstreamStartAt}ms`,
-				);
-				if (results.length > 0) {
-					await storageService.addSearchResult(keyword, "linovelib", results);
+				if (emptySearchCache.get(keyword)) {
 					logger.debug(
-						`[Search] 搜索结果已写入本地缓存: keyword=${JSON.stringify(keyword)} count=${results.length} totalDuration=${Date.now() - startAt}ms`,
+						`[Search] 命中短期空结果负缓存: keyword=${JSON.stringify(keyword)} duration=${Date.now() - startAt}ms`,
+					);
+					return c.json({
+						code: 0,
+						message: "Success",
+						data: [],
+					});
+				}
+				let searchPromise = inFlightSearches.get(keyword);
+				if (searchPromise) {
+					logger.debug(
+						`[Search] 复用同关键词在途回源请求: keyword=${JSON.stringify(keyword)}`,
 					);
 				} else {
 					logger.debug(
-						`[Search] 回源搜索结果为空，跳过写入缓存: keyword=${JSON.stringify(keyword)} totalDuration=${Date.now() - startAt}ms`,
+						`[Search] 本地搜索缓存未命中，开始回源抓取: keyword=${JSON.stringify(keyword)}`,
 					);
+					const upstreamStartAt = Date.now();
+					searchPromise = (async () => {
+						const upstreamResults = await linovelibClient.searchNovels(keyword);
+						logger.debug(
+							`[Search] 回源搜索完成: keyword=${JSON.stringify(keyword)} count=${upstreamResults.length} upstreamDuration=${Date.now() - upstreamStartAt}ms`,
+						);
+						if (upstreamResults.length > 0) {
+							await storageService.addSearchResult(
+								keyword,
+								"linovelib",
+								upstreamResults,
+							);
+							logger.debug(
+								`[Search] 搜索结果已写入本地缓存: keyword=${JSON.stringify(keyword)} count=${upstreamResults.length} totalDuration=${Date.now() - startAt}ms`,
+							);
+						} else {
+							emptySearchCache.set(keyword, true);
+							logger.debug(
+								`[Search] 回源搜索结果为空，已写入短期负缓存: keyword=${JSON.stringify(keyword)} totalDuration=${Date.now() - startAt}ms`,
+							);
+						}
+						return upstreamResults;
+					})().finally(() => {
+						if (inFlightSearches.get(keyword) === searchPromise) {
+							inFlightSearches.delete(keyword);
+						}
+					});
+					inFlightSearches.set(keyword, searchPromise);
 				}
+				const results = await searchPromise;
 				return c.json({
 					code: 0,
 					message: "Success",
-					data: results.map((novel) => {
-						novel.coverUrl = `${host}/v1/linovelib/cover/novel/${novel.id}`;
-						return transformOutputStyleForSearchResult(novel, style);
-					}),
+					data: formatSearchResults(results),
 				});
 			} catch (error) {
 				logger.debug(

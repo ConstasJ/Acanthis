@@ -30,6 +30,7 @@ function parseClientIp(c: Context): string {
 const SILENT_LOG_PATHS = new Set(["/v1/health"]);
 
 export function createLoggerMiddleware(logger: {
+	debug?: (message: string) => unknown;
 	info: (message: string) => unknown;
 }) {
 	return createMiddleware(async (c, next) => {
@@ -37,6 +38,13 @@ export function createLoggerMiddleware(logger: {
 			return next();
 		}
 		const start = Date.now();
+		const queryIndex = c.req.url.indexOf("?");
+		const rawQuery = queryIndex >= 0 ? c.req.url.slice(queryIndex + 1) : "";
+		if (rawQuery) {
+			logger.debug?.(
+				`[HTTP] method=${c.req.method} path=${c.req.path} query=${rawQuery} ip=${parseClientIp(c)}`,
+			);
+		}
 		await next();
 		const end = Date.now();
 		const logMessage = `method=${c.req.method} path=${c.req.path} status=${c.res.status} duration=${end - start}ms ip=${parseClientIp(c)}`;

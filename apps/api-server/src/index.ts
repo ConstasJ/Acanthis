@@ -18,6 +18,9 @@ const server = serve(
 	},
 	(info) => {
 		logger.info(`服务器正在监听 ${info.address}:${info.port}`);
+		logger.debug(
+			`[Config] env=${config.env} logLevel=${logger.level} auth=${Boolean(config.auth?.token)} docs=${config.docs.enabled} cookies=${config.cookies.type} session=${Boolean(config.credentials?.linovelib)} impersonate=${config.impersonate?.enabled ? config.impersonate.profile : "disabled"} flareSolverr=${config.flaresolverr.enabled ? config.flaresolverr.host : "disabled"} proxy=${Boolean(config.proxy)}`,
+		);
 	},
 );
 

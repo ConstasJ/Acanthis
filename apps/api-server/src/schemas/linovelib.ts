@@ -130,7 +130,11 @@ export const novelsQuerySchema = z.object({
 });
 
 export const searchQuerySchema = z.object({
-	keyword: z.string().min(1, "Keyword is required").describe("搜索关键词"),
+	keyword: z
+		.string()
+		.trim()
+		.min(1, "Keyword is required")
+		.describe("搜索关键词"),
 	style: outputStyleSchema.optional(),
 });
 
