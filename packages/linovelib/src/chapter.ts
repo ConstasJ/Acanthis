@@ -5,6 +5,7 @@ import {
 } from "@acanthis-dec/core";
 import * as cheerio from "cheerio";
 import type { AnyNode, Element } from "domhandler";
+import type { Logger } from "winston";
 import { getCoefficientsFromPage } from "./coefficients";
 import type { NovelChapterQueue } from "./queue";
 import { transformContent } from "./utils";
@@ -36,12 +37,14 @@ async function decrypt(
 	fetchClient: BrowserFetchClient,
 	cachedJsVersion?: string,
 	cachedCoefficients?: DescrambleCoefficients,
+	logger?: Logger,
 ): Promise<DecryptResult> {
 	const $ = cheerio.load(html);
 	const coefficientResult = await getCoefficientsFromPage(
 		html,
 		fetchClient,
 		cachedJsVersion,
+		logger,
 	);
 	const version = coefficientResult?.version || cachedJsVersion;
 	const coefficients = coefficientResult?.coefficients || cachedCoefficients;
@@ -135,7 +138,9 @@ export async function getChapter(
 	fetchClient: BrowserFetchClient,
 	cachedJsVersion?: string,
 	cachedCoefficients?: DescrambleCoefficients,
+	logger?: Logger,
 ): Promise<DecryptResult | undefined> {
+	const startAt = Date.now();
 	const firstPageHtml = await chapterQueue.fetchChapterPart(
 		`https://www.linovelib.com/novel/${novelId}/${id}.html`,
 	);
@@ -152,10 +157,16 @@ export async function getChapter(
 		fetchClient,
 		cachedJsVersion,
 		cachedCoefficients,
+		logger,
 	);
 	cachedCoefficients = content.coefficients;
 	cachedJsVersion = content.version;
+	let partCount = 1;
 	while (nextPageId?.includes(id)) {
+		partCount += 1;
+		logger?.debug(
+			`[Chapter] 继续抓取章节分页: novelId=${novelId} chapterId=${id} part=${partCount} nextPageId=${nextPageId}`,
+		);
 		const nextPageHtml = await chapterQueue.fetchChapterPart(
 			`https://www.linovelib.com/novel/${novelId}/${nextPageId}.html`,
 		);
@@ -164,6 +175,7 @@ export async function getChapter(
 			fetchClient,
 			cachedJsVersion,
 			cachedCoefficients,
+			logger,
 		);
 		content = {
 			...content,
@@ -182,5 +194,8 @@ export async function getChapter(
 		...content,
 		content: `<h2>${chapterName}</h2>\n${transformContent(content.content)}`,
 	};
+	logger?.debug(
+		`[Chapter] 章节解扰与拼接完成: novelId=${novelId} chapterId=${id} parts=${partCount} htmlLength=${content.content.length} duration=${Date.now() - startAt}ms`,
+	);
 	return content;
 }

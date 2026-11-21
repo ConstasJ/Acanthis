@@ -164,6 +164,9 @@ export class LinovelibClient {
 					type: "memory",
 				};
 		}
+		if (this.logger) {
+			browserFetchOptions.logger = this.logger;
+		}
 		this.fetchClient = new BrowserFetchClient(browserFetchOptions);
 		this.novelChapterQueue = new NovelChapterQueue(
 			this.fetchClient,
@@ -188,10 +191,14 @@ export class LinovelibClient {
 		}
 		if (!this.sessionCheckPromise) {
 			const { username, password } = this.options.session;
-			this.sessionCheckPromise = ensureValidSession(this.fetchClient, {
-				username,
-				password,
-			})
+			this.sessionCheckPromise = ensureValidSession(
+				this.fetchClient,
+				{
+					username,
+					password,
+				},
+				this.logger,
+			)
 				.then((valid) => {
 					this.isSessionValid = valid;
 					return valid;
@@ -284,6 +291,7 @@ export class LinovelibClient {
 			this.fetchClient,
 			cachedJsVersion,
 			cachedCoefficients,
+			this.logger,
 		);
 		if (this.storage && result) {
 			await this.storage.setCache("chapterlog_js_version", result.version);

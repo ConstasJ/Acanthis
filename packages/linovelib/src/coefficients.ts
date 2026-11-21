@@ -5,6 +5,7 @@ import { parse } from "@babel/parser";
 import traverseModule from "@babel/traverse";
 import * as t from "@babel/types";
 import * as cheerio from "cheerio";
+import type { Logger } from "winston";
 import { z } from "zod";
 
 type TraverseFunction = typeof traverseModule;
@@ -125,6 +126,7 @@ export async function getCoefficientsFromPage(
 	html: string,
 	fetchClient: BrowserFetchClient,
 	cachedVersion?: string,
+	logger?: Logger,
 ): Promise<CoefficientResult | undefined> {
 	const scriptUrl = extractChapterLogScriptUrl(html);
 	if (!scriptUrl) {
@@ -132,13 +134,23 @@ export async function getCoefficientsFromPage(
 	}
 	const version = scriptUrl.match(/chapterlog\.js\?(v.*)/)?.[1] || "";
 	if (version === cachedVersion) {
+		logger?.debug(
+			`[Coefficients] 命中已缓存的 chapterlog.js 版本: version=${version}`,
+		);
 		return undefined; // No need to fetch and extract again
 	}
+	const startAt = Date.now();
+	logger?.debug(
+		`[Coefficients] chapterlog.js 版本变化 (${cachedVersion ?? "none"} -> ${version})，开始拉取并反混淆提取系数: url=${scriptUrl}`,
+	);
 	const scriptContent = await fetchClient.text(scriptUrl);
 	if (!scriptContent.mimeType.includes("javascript")) {
 		throw new Error("Fetched content is not JavaScript");
 	}
 	const coefficients = await extractCoefficients(scriptContent.data);
+	logger?.debug(
+		`[Coefficients] 解扰系数提取完成: version=${version} duration=${Date.now() - startAt}ms`,
+	);
 	return {
 		coefficients,
 		version: version,
