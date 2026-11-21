@@ -3,13 +3,23 @@ import { FolderPlus, X } from "lucide-vue-next";
 import { ref, watch } from "vue";
 import { MAX_CATEGORY_NAME_LENGTH, useLibraryStore } from "@/stores/library";
 
-const props = defineProps<{
-	open: boolean;
-	platform: string;
-	novelId: string;
-	title: string;
-	initialCategoryIds: string[];
-}>();
+const props = withDefaults(
+	defineProps<{
+		open: boolean;
+		platform?: string;
+		novelId?: string;
+		title: string;
+		initialCategoryIds: string[];
+		mode?: "single" | "batch";
+		batchCount?: number;
+	}>(),
+	{
+		platform: "",
+		novelId: "",
+		mode: "single",
+		batchCount: 0,
+	},
+);
 
 const emit = defineEmits<{
 	close: [];
@@ -25,7 +35,14 @@ const creating = ref<boolean>(false);
 const saving = ref<boolean>(false);
 
 watch(
-	() => [props.open, props.platform, props.novelId, props.initialCategoryIds] as const,
+	() =>
+		[
+			props.open,
+			props.mode,
+			props.platform,
+			props.novelId,
+			props.initialCategoryIds,
+		] as const,
 	([isOpen]) => {
 		if (isOpen) {
 			const activeIds = new Set(
@@ -87,11 +104,13 @@ async function handleSave(): Promise<void> {
 	saving.value = true;
 	try {
 		const ids = Array.from(selectedIds.value);
-		await libraryStore.setBookshelfCategories(
-			props.platform,
-			props.novelId,
-			ids,
-		);
+		if (props.mode === "single") {
+			await libraryStore.setBookshelfCategories(
+				props.platform,
+				props.novelId,
+				ids,
+			);
+		}
 		emit("saved", ids);
 		emit("close");
 	} finally {
@@ -122,10 +141,14 @@ async function handleSave(): Promise<void> {
 						id="shelf-assign-title"
 						class="text-base font-semibold text-[var(--text-primary)]"
 					>
-						管理所属书架
+						{{ mode === "batch" ? "选择目标书架" : "管理所属书架" }}
 					</h2>
 					<p class="mt-0.5 truncate text-xs text-[var(--text-muted)]">
-						{{ title }}
+						{{
+							mode === "batch"
+								? title || `已选择 ${batchCount} 部作品`
+								: title
+						}}
 					</p>
 				</div>
 				<button
@@ -191,7 +214,11 @@ async function handleSave(): Promise<void> {
 				</form>
 
 				<p class="text-[11px] text-[var(--text-muted)]">
-					不勾选任何自定义书架时，作品将保留在「默认」视图中；如需移出书架，请使用移出操作。
+					{{
+						mode === "batch"
+							? "不勾选任何自定义书架时，将归入「默认」书架；已在书架中的作品会保留其原有分组并合并新勾选的分组。"
+							: "不勾选任何自定义书架时，作品将保留在「默认」视图中；如需移出书架，请使用移出操作。"
+					}}
 				</p>
 			</div>
 
@@ -213,7 +240,15 @@ async function handleSave(): Promise<void> {
 					class="rounded-xl bg-[var(--accent)] px-4 py-2 text-xs font-medium text-white hover:opacity-90 disabled:opacity-50"
 					@click="handleSave"
 				>
-					{{ saving ? "保存中…" : "保存" }}
+					{{
+						mode === "batch"
+							? saving
+								? "加入中…"
+								: "确认加入"
+							: saving
+								? "保存中…"
+								: "保存"
+					}}
 				</button>
 			</div>
 		</div>
