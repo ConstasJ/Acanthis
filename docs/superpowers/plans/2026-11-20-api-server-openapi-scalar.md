@@ -32,33 +32,34 @@
 
 ## File Structure
 
-| 路径 | 操作 | 职责 |
-|---|---|---|
-| `apps/api-server/package.json` | Modify | 添加 `hono-openapi`、`@scalar/hono-api-reference`，移除 `@hono/zod-validator`，新增 `openapi:generate` 与 `openapi:check` 脚本 |
-| `apps/api-server/src/config.ts` | Modify | 增加 `docs.enabled`（默认 `true`）及 `DOCS_ENABLED` 环境变量解析 |
-| `apps/api-server/src/middleware.ts` | Modify | 将 `loggerMiddleware` 改为 `createLoggerMiddleware(logger)`，解除顶层 `services.ts` 依赖 |
-| `apps/api-server/src/utils.ts` | Modify | `resolveHost(c, configuredHost)` 不再默认读取顶层 `config`，消除 `utils.ts` 对 `config.ts` 的顶层副作用 |
-| `apps/api-server/src/schemas/common.ts` | Create | 响应信封工厂、通用错误 Schema、`OutputStyle`/LNReader Schema、通用 OpenAPI 错误响应片段与校验错误格式 |
-| `apps/api-server/src/schemas/sources.ts` | Create | `NovelSourceDescriptor` 与 `SourceCapability` Zod Schema |
-| `apps/api-server/src/schemas/sync.ts` | Create | Sync 请求参数、请求体与响应体 Zod Schema |
-| `apps/api-server/src/schemas/linovelib.ts` | Create | Linovelib 全量请求参数（含完整枚举）与响应体 Zod Schema（含 `acanthis`/`lnreader` 多态） |
-| `apps/api-server/src/openapi.ts` | Create | `OPENAPI_CONTRACT_VERSION`、`openApiDocumentation` 配置与 `scalarConfig` |
-| `apps/api-server/src/sources.ts` | Modify | 改为 `createSourcesRoutes()` 并添加 `describeRoute` |
-| `apps/api-server/src/sync.ts` | Modify | 改为 `createSyncRoutes(deps)`，替换为 `hono-openapi` `validator()` 并添加 `describeRoute` |
-| `apps/api-server/src/linovelib.ts` | Modify | 改为 `createLinovelibRoutes(deps)`，替换为 `hono-openapi` `validator()` 并为 11 个路由添加 `describeRoute` |
-| `apps/api-server/src/app.ts` | Create | 导出 `createApp(deps)`，挂载中间件、`/v1/health`、条件挂载 `/v1/openapi.json` 与 `/v1/docs`、鉴权中间件及三个业务子路由 |
-| `apps/api-server/src/index.ts` | Modify | 纯运行时入口：组装 `config` 与 `services` 调用 `createApp()`，启动 `@hono/node-server` 与优雅退出 |
-| `apps/api-server/scripts/generate-openapi.ts` | Create | 离线无副作用生成/校验 `apps/api-server/openapi.json` |
-| `apps/api-server/openapi.json` | Create | 自动生成的静态 OpenAPI 3.1 契约文档 |
-| `.github/workflows/ci.yml` | Modify | 在 `quality` job 中新增 `openapi:check` 步骤 |
-| `apps/api-server/AGENTS.md` | Modify | 补充 `src/app.ts`、OpenAPI/Scalar 路由与 `openapi:generate`/`openapi:check` 文档 |
-| `.changeset/<name>.md` | Create | `@acanthis-dec/api-server` 的 `minor` changeset |
+| 路径                                          | 操作   | 职责                                                                                                                           |
+| --------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------ |
+| `apps/api-server/package.json`                | Modify | 添加 `hono-openapi`、`@scalar/hono-api-reference`，移除 `@hono/zod-validator`，新增 `openapi:generate` 与 `openapi:check` 脚本 |
+| `apps/api-server/src/config.ts`               | Modify | 增加 `docs.enabled`（默认 `true`）及 `DOCS_ENABLED` 环境变量解析                                                               |
+| `apps/api-server/src/middleware.ts`           | Modify | 将 `loggerMiddleware` 改为 `createLoggerMiddleware(logger)`，解除顶层 `services.ts` 依赖                                       |
+| `apps/api-server/src/utils.ts`                | Modify | `resolveHost(c, configuredHost)` 不再默认读取顶层 `config`，消除 `utils.ts` 对 `config.ts` 的顶层副作用                        |
+| `apps/api-server/src/schemas/common.ts`       | Create | 响应信封工厂、通用错误 Schema、`OutputStyle`/LNReader Schema、通用 OpenAPI 错误响应片段与校验错误格式                          |
+| `apps/api-server/src/schemas/sources.ts`      | Create | `NovelSourceDescriptor` 与 `SourceCapability` Zod Schema                                                                       |
+| `apps/api-server/src/schemas/sync.ts`         | Create | Sync 请求参数、请求体与响应体 Zod Schema                                                                                       |
+| `apps/api-server/src/schemas/linovelib.ts`    | Create | Linovelib 全量请求参数（含完整枚举）与响应体 Zod Schema（含 `acanthis`/`lnreader` 多态）                                       |
+| `apps/api-server/src/openapi.ts`              | Create | `OPENAPI_CONTRACT_VERSION`、`openApiDocumentation` 配置与 `scalarConfig`                                                       |
+| `apps/api-server/src/sources.ts`              | Modify | 改为 `createSourcesRoutes()` 并添加 `describeRoute`                                                                            |
+| `apps/api-server/src/sync.ts`                 | Modify | 改为 `createSyncRoutes(deps)`，替换为 `hono-openapi` `validator()` 并添加 `describeRoute`                                      |
+| `apps/api-server/src/linovelib.ts`            | Modify | 改为 `createLinovelibRoutes(deps)`，替换为 `hono-openapi` `validator()` 并为 11 个路由添加 `describeRoute`                     |
+| `apps/api-server/src/app.ts`                  | Create | 导出 `createApp(deps)`，挂载中间件、`/v1/health`、条件挂载 `/v1/openapi.json` 与 `/v1/docs`、鉴权中间件及三个业务子路由        |
+| `apps/api-server/src/index.ts`                | Modify | 纯运行时入口：组装 `config` 与 `services` 调用 `createApp()`，启动 `@hono/node-server` 与优雅退出                              |
+| `apps/api-server/scripts/generate-openapi.ts` | Create | 离线无副作用生成/校验 `apps/api-server/openapi.json`                                                                           |
+| `apps/api-server/openapi.json`                | Create | 自动生成的静态 OpenAPI 3.1 契约文档                                                                                            |
+| `.github/workflows/ci.yml`                    | Modify | 在 `quality` job 中新增 `openapi:check` 步骤                                                                                   |
+| `apps/api-server/AGENTS.md`                   | Modify | 补充 `src/app.ts`、OpenAPI/Scalar 路由与 `openapi:generate`/`openapi:check` 文档                                               |
+| `.changeset/<name>.md`                        | Create | `@acanthis-dec/api-server` 的 `minor` changeset                                                                                |
 
 ---
 
 ### Task 1: 安装依赖、扩展 `docs` 配置并解耦基础模块顶层副作用
 
 **Files:**
+
 - Modify: `apps/api-server/package.json`
 - Modify: `apps/api-server/src/config.ts`
 - Modify: `apps/api-server/src/middleware.ts`
@@ -67,6 +68,7 @@
 - Modify: `apps/api-server/src/linovelib.ts`、`apps/api-server/src/sync.ts`（临时传入 `config.host` 给 `resolveHost`，Task 3/4 最终改为依赖注入）
 
 **Interfaces:**
+
 - Produces:
   - `ConfigSchema` 新增 `docs: { enabled: boolean }`（默认 `{ enabled: true }`，支持 `DOCS_ENABLED` 环境变量）
   - `createLoggerMiddleware(logger: LoggerLike): MiddlewareHandler` in `apps/api-server/src/middleware.ts`（`LoggerLike = Pick<Logger, "info">`）
@@ -80,6 +82,7 @@ Expected: `apps/api-server/package.json` 与 `pnpm-lock.yaml` 更新成功，无
 - [ ] **Step 2: 扩展 `apps/api-server/src/config.ts` 增加 `docs.enabled` 与 `DOCS_ENABLED`**
 
 在 `ConfigSchema` 中新增：
+
 ```ts
 docs: z
 	.object({
@@ -115,6 +118,7 @@ git commit -m "feat(api-server): 引入 OpenAPI/Scalar 依赖并新增文档开�
 ### Task 2: 定义共享 Zod v4 契约 Schema 与 OpenAPI 顶层文档配置
 
 **Files:**
+
 - Create: `apps/api-server/src/schemas/common.ts`
 - Create: `apps/api-server/src/schemas/sources.ts`
 - Create: `apps/api-server/src/schemas/sync.ts`
@@ -123,6 +127,7 @@ git commit -m "feat(api-server): 引入 OpenAPI/Scalar 依赖并新增文档开�
 - Modify: `apps/api-server/src/types.ts`（如需复用 `outputStyleSchema`，避免重复定义）
 
 **Interfaces:**
+
 - Produces (`src/schemas/common.ts`):
   - `apiErrorSchema`: `z.object({ code: z.number().int(), message: z.string() })`
   - `legacyErrorSchema`: `z.object({ error: z.string() })`
@@ -156,6 +161,7 @@ git commit -m "feat(api-server): 引入 OpenAPI/Scalar 依赖并新增文档开�
 - [ ] **Step 3: 验证类型检查、格式化以及复杂 Zod Schema 转 JSON Schema 无报错**
 
 Run:
+
 ```bash
 pnpm --filter=@acanthis-dec/api-server run check-types
 pnpm --filter=@acanthis-dec/api-server exec tsx -e "import { resolver } from 'hono-openapi'; import { syncQuerySchema } from './src/schemas/sync'; import { rankingsQuerySchema, catalogQuerySchema, novelDetailResponseSchema } from './src/schemas/linovelib'; for (const s of [syncQuerySchema, rankingsQuerySchema, catalogQuerySchema, novelDetailResponseSchema]) { const r = await resolver(s).builder(); console.log(Boolean(r.schema)); }"
@@ -175,10 +181,12 @@ git commit -m "feat(api-server): 定义全量 Zod v4 契约 Schema 与 OpenAPI �
 ### Task 3: 改造 `sources` 与 `sync` 路由为工厂模式并接入 `hono-openapi`
 
 **Files:**
+
 - Modify: `apps/api-server/src/sources.ts`
 - Modify: `apps/api-server/src/sync.ts`
 
 **Interfaces:**
+
 - Consumes: `src/schemas/common.ts`, `src/schemas/sources.ts`, `src/schemas/sync.ts`, `resolveHost` from `src/utils.ts`
 - Produces:
   - `createSourcesRoutes(): Hono` in `apps/api-server/src/sources.ts`
@@ -214,10 +222,12 @@ git commit -m "feat(api-server): 改造 sources 与 sync 路由并补充 OpenAPI
 ### Task 4: 改造 `linovelib` 11 个路由为工厂模式并接入 `hono-openapi`
 
 **Files:**
+
 - Modify: `apps/api-server/src/linovelib.ts`
 - Modify: `apps/api-server/package.json`（移除已不再使用的 `@hono/zod-validator`）
 
 **Interfaces:**
+
 - Consumes: `src/schemas/common.ts`, `src/schemas/linovelib.ts`, `resolveHost` from `src/utils.ts`
 - Produces:
   - `LinovelibRouteDeps`: `{ linovelibClient: LinovelibClient; storageService: StorageService; logger: Pick<Logger, "debug" | "info" | "warn" | "error">; host?: string }`
@@ -263,10 +273,12 @@ git commit -m "feat(api-server): 改造 linovelib 路由并补齐 11 个接口�
 ### Task 5: 抽取 `src/app.ts` 挂载 `/v1/openapi.json` 与 Scalar `/v1/docs` 并验证运行时行为
 
 **Files:**
+
 - Create: `apps/api-server/src/app.ts`
 - Modify: `apps/api-server/src/index.ts`
 
 **Interfaces:**
+
 - Consumes: `openApiDocumentation`, `scalarConfig` from `src/openapi.ts`; `createLoggerMiddleware`, `createAuthMiddleware` from `src/middleware.ts`; `createSourcesRoutes`, `createSyncRoutes`, `createLinovelibRoutes`
 - Produces:
   - `AppDeps`: `{ config: Pick<Config, "cors" | "auth" | "docs" | "host">; logger: LinovelibRouteDeps["logger"]; storageService: StorageService; linovelibClient: LinovelibClient }`
@@ -275,6 +287,7 @@ git commit -m "feat(api-server): 改造 linovelib 路由并补齐 11 个接口�
 - [ ] **Step 1: 创建 `apps/api-server/src/app.ts`**
 
 实现 `createApp(deps: AppDeps)`：
+
 1. 创建 `const app = new Hono().basePath("/v1")`；
 2. 挂载 `createLoggerMiddleware(deps.logger)` 与 `cors(...)`；
 3. 挂载 `GET /health` 并附加 `describeRoute(...)`（Tag: `System`, `operationId: "getHealth"`, 公开无需 `security`）；
@@ -291,6 +304,7 @@ git commit -m "feat(api-server): 改造 linovelib 路由并补齐 11 个接口�
 - [ ] **Step 3: 通过 `app.fetch` 验证文档端点、鉴权边界与 `docs.enabled=false`（覆盖 Review Focus #3 & #4）**
 
 Run:
+
 ```bash
 pnpm --filter=@acanthis-dec/api-server run check-types
 pnpm --filter=@acanthis-dec/api-server exec tsx -e '
@@ -329,6 +343,7 @@ console.log({
 pnpm format-and-lint
 ```
 Expected:
+
 - `specStatus: 200`, `openapi: "3.1.0"`, `version: "1.0.0"`, `pathCount: 15`（全部 15 个业务路径，不包含 `/v1/openapi.json` 和 `/v1/docs`）
 - `docsStatus: 200`, `hasScalar: true`
 - `healthStatus: 200`, `unauthSourcesStatus: 401`, `authSourcesStatus: 200`
@@ -346,12 +361,14 @@ git commit -m "feat(api-server): 抽取应用工厂并公开挂载 OpenAPI 契�
 ### Task 6: 实现离线导出/防漂移脚本 `generate-openapi.ts`、生成 `openapi.json` 并接入 CI
 
 **Files:**
+
 - Create: `apps/api-server/scripts/generate-openapi.ts`
 - Create: `apps/api-server/openapi.json`
 - Modify: `apps/api-server/package.json`（新增 `openapi:generate` 与 `openapi:check`）
 - Modify: `.github/workflows/ci.yml`（新增 `OpenAPI spec check` 步骤）
 
 **Interfaces:**
+
 - Consumes: `createApp` from `../src/app`, `openApiDocumentation` from `../src/openapi`, `generateSpecs` from `hono-openapi`
 - Produces:
   - `pnpm --filter=@acanthis-dec/api-server run openapi:generate` → 写入格式化 JSON（Tab 缩进 + 末尾换行，匹配 Biome JSON 风格）至 `apps/api-server/openapi.json`
@@ -360,6 +377,7 @@ git commit -m "feat(api-server): 抽取应用工厂并公开挂载 OpenAPI 契�
 - [ ] **Step 1: 创建 `apps/api-server/scripts/generate-openapi.ts` 并添加 package scripts**
 
 实现要点：
+
 1. 使用占位无副作用 `deps` 调用 `createApp(...)`（设置 `docs: { enabled: false }`，仅收集业务路由）；
 2. 调用 `await generateSpecs(app, { documentation: openApiDocumentation })` 获取 OpenAPI 3.1 对象；
 3. 序列化为 `${JSON.stringify(spec, null, "\t")}\n`；
@@ -367,18 +385,21 @@ git commit -m "feat(api-server): 抽取应用工厂并公开挂载 OpenAPI 契�
 5. 否则写入 `apps/api-server/openapi.json`。
 
 在 `apps/api-server/package.json` 添加：
+
 - `"openapi:generate": "tsx scripts/generate-openapi.ts"`
 - `"openapi:check": "tsx scripts/generate-openapi.ts --check"`
 
 - [ ] **Step 2: 生成 `apps/api-server/openapi.json` 并验证无副作用与防漂移（覆盖 Review Focus #1 & #2）**
 
 Run:
+
 ```bash
 pnpm --filter=@acanthis-dec/api-server run openapi:generate
 pnpm --filter=@acanthis-dec/api-server run openapi:check
 pnpm format-and-lint
 ```
 确认：
+
 1. 未在 `apps/api-server` 生成 `data/`、`logs/` 或数据库文件；
 2. `openapi.json` 包含全部 15 个 `/v1/*` 路径、`bearerAuth` 安全方案、`style` 枚举、`channel`/`rank`/`sort` 等完整枚举以及双风格响应 Schema；
 3. `pnpm format-and-lint` 对生成的 `openapi.json` 零报错。
@@ -386,9 +407,10 @@ pnpm format-and-lint
 - [ ] **Step 3: 接入 `.github/workflows/ci.yml`**
 
 在 `quality` job 的 `Type check` 之后、`Build` 之前添加：
+
 ```yaml
-      - name: OpenAPI spec check
-        run: pnpm --filter=@acanthis-dec/api-server run openapi:check
+- name: OpenAPI spec check
+  run: pnpm --filter=@acanthis-dec/api-server run openapi:check
 ```
 
 - [ ] **Step 4: 提交 Task 6**
@@ -403,12 +425,14 @@ git commit -m "feat(api-server): 新增 OpenAPI 静态契约导出脚本并接�
 ### Task 7: 全量构建验证、更新 `AGENTS.md` 与补充 Changeset
 
 **Files:**
+
 - Modify: `apps/api-server/AGENTS.md`
 - Create: `.changeset/api-server-openapi-scalar.md`
 
 - [ ] **Step 1: 执行全量验证（覆盖 Review Focus #5）**
 
 Run:
+
 ```bash
 pnpm --filter=@acanthis-dec/api-server run check-types
 pnpm --filter=@acanthis-dec/api-server run build
@@ -420,11 +444,13 @@ Expected: 全部退出码 0，`apps/api-server/dist/index.js` 成功生成。
 - [ ] **Step 2: 更新 `apps/api-server/AGENTS.md`**
 
 补充以下信息：
+
 - `src/app.ts` 负责 Hono 路由与中间件装配，`src/index.ts` 为纯运行时入口；
 - `/v1/openapi.json` 与 `/v1/docs`（Scalar）在 `docs.enabled`（默认 `true`，环境变量 `DOCS_ENABLED`）开启时公开挂载在鉴权中间件之前；
 - 修改任何路由或 Schema 后必须运行 `pnpm --filter=@acanthis-dec/api-server run openapi:generate` 更新 `apps/api-server/openapi.json`，CI 通过 `openapi:check` 校验防漂移。
 
 提交文档更新：
+
 ```bash
 git add apps/api-server/AGENTS.md
 git commit -m "docs(api-server): 更新 OpenAPI 契约与 Scalar 文档维护说明" -m "..."
@@ -433,6 +459,7 @@ git commit -m "docs(api-server): 更新 OpenAPI 契约与 Scalar 文档维护说
 - [ ] **Step 3: 补充 Changeset 并校验**
 
 创建 `.changeset/api-server-openapi-scalar.md`：
+
 ```markdown
 ---
 "@acanthis-dec/api-server": minor
@@ -444,6 +471,7 @@ Run: `pnpm exec changeset status && pnpm format-and-lint`
 Expected: `changeset status` 识别 `@acanthis-dec/api-server` 为 `minor`，Biome 检查通过。
 
 提交 Changeset：
+
 ```bash
 git add .changeset/api-server-openapi-scalar.md
 git commit -m "chore(changeset): 添加 api-server OpenAPI 与 Scalar 文档变更记录" -m "..."
