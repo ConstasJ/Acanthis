@@ -1,5 +1,18 @@
 # @acanthis-dec/api-server
 
+## 1.3.0
+
+### Minor Changes
+
+- 3af0894: 新增 OpenAPI 3.1 契约端点（`/v1/openapi.json`）、Scalar 交互式文档页面（`/v1/docs`）、`docs.enabled` / `DOCS_ENABLED` 文档开关，以及离线契约生成与防漂移校验脚本；同时将 `@acanthis-dec/browser-fetch` 的 `impers` 改为首次请求时延迟加载，消除顶层导入原生库与网络下载副作用。
+
+### Patch Changes
+
+- 5754b17: 为 api-server Docker 镜像添加基于 `/v1/health` 的 `HEALTHCHECK`，使用内置 Node `fetch` 探活并自动适配 `PORT` 与 `LISTEN_HOST` 环境变量。
+- 51e3cc7: 请求日志中间件跳过 `/v1/health` 路径，避免容器健康检查探针周期性刷屏日志。
+- @acanthis-dec/linovelib@1.4.2
+  - @acanthis-dec/storage@1.1.5
+
 ## 1.2.1
 
 ### Patch Changes
