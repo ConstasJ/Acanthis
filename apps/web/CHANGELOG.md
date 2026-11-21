@@ -1,5 +1,11 @@
 # @acanthis-dec/web
 
+## 0.3.2
+
+### Patch Changes
+
+- fdf5fdb: 修复 Web 端书架「最近阅读」与「最近添加」排序逻辑混淆的问题，并新增升序/降序切换支持。
+
 ## 0.3.1
 
 ### Patch Changes
