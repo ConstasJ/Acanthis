@@ -11,6 +11,7 @@ import {
 	postSyncState,
 	type SyncStatePushPayload,
 } from "@/api/client";
+import { detectDeviceKind, normalizeDeviceKind } from "@/config/runtime";
 import { type DirtySyncEntry, makeCompositeKey, webDb } from "@/db/indexedDb";
 import { useSettingsStore } from "@/stores/settings";
 
@@ -148,6 +149,7 @@ function cloneReadingProgress(item: ReadingProgress): ReadingProgress {
 		paragraphIndex: item.paragraphIndex,
 		totalParagraphs: item.totalParagraphs,
 		deviceLabel: item.deviceLabel,
+		deviceKind: normalizeDeviceKind(item.deviceKind),
 		updatedAt: item.updatedAt,
 		historyHiddenAt: normalizeNullableTimestamp(item.historyHiddenAt),
 	};
@@ -1091,6 +1093,10 @@ export const useLibraryStore = defineStore("library", () => {
 
 		const clean: ReadingProgress = {
 			...cloneReadingProgress(progress),
+			deviceKind:
+				progress.deviceKind && progress.deviceKind !== "unknown"
+					? progress.deviceKind
+					: detectDeviceKind(),
 			updatedAt: effectiveUpdatedAt,
 			historyHiddenAt: mergedHiddenAt,
 		};

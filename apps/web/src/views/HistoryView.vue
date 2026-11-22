@@ -5,6 +5,7 @@ import {
 	Clock,
 	Compass,
 	History,
+	Monitor,
 	Play,
 	Search,
 	Smartphone,
@@ -15,6 +16,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { RouterLink } from "vue-router";
 import { rebaseMediaUrl } from "@/api/client";
 import SetupBanner from "@/components/SetupBanner.vue";
+import { resolveDisplayDeviceKind } from "@/config/runtime";
 import { makeCompositeKey } from "@/db/indexedDb";
 import { useLibraryStore } from "@/stores/library";
 import { useSettingsStore } from "@/stores/settings";
@@ -356,7 +358,11 @@ onBeforeUnmount(() => {
 									{{ formatTimeHHmm(item.updatedAt) }}
 								</span>
 								<span class="inline-flex items-center gap-1 truncate">
-									<Smartphone class="h-3 w-3 shrink-0" />
+									<Monitor
+										v-if="resolveDisplayDeviceKind(item.deviceKind, item.deviceLabel) === 'desktop'"
+										class="h-3 w-3 shrink-0"
+									/>
+									<Smartphone v-else class="h-3 w-3 shrink-0" />
 									<span class="truncate">{{ item.deviceLabel }}</span>
 								</span>
 								<span

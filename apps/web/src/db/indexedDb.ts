@@ -5,6 +5,7 @@ import type {
 	NovelStatus,
 	ReadingProgress,
 } from "@acanthis-dec/core";
+import { normalizeDeviceKind } from "@/config/runtime";
 
 const DB_NAME = "acanthis-web";
 const DB_VERSION = 2;
@@ -121,6 +122,7 @@ function stripProgressRecord(record: StoredProgressRecord): ReadingProgress {
 		paragraphIndex: record.paragraphIndex,
 		totalParagraphs: record.totalParagraphs,
 		deviceLabel: record.deviceLabel,
+		deviceKind: normalizeDeviceKind(record.deviceKind),
 		updatedAt: record.updatedAt,
 		historyHiddenAt: normalizeNullableTimestamp(record.historyHiddenAt),
 	};

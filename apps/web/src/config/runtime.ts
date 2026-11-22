@@ -1,3 +1,4 @@
+import type { DeviceKind } from "@acanthis-dec/core";
 import { normalizeBaseUrl, stripTrailingV1Prefix } from "@/utils/mediaUrl";
 
 export { normalizeBaseUrl, stripTrailingV1Prefix };
@@ -60,6 +61,72 @@ export function resolveApiBaseUrl(): string {
 export function readStoredAuthToken(): string {
 	const token = readLocalStorageItem(STORAGE_KEYS.authToken);
 	return token ? token.trim() : "";
+}
+
+interface NavigatorWithUAData extends Navigator {
+	userAgentData?: {
+		mobile?: boolean;
+		platform?: string;
+	};
+}
+
+export function normalizeDeviceKind(value: unknown): DeviceKind {
+	if (value === "desktop" || value === "mobile") {
+		return value;
+	}
+	return "unknown";
+}
+
+export function detectDeviceKind(): DeviceKind {
+	if (typeof navigator === "undefined") {
+		return "unknown";
+	}
+	const nav = navigator as NavigatorWithUAData;
+	const uaDataPlatform = nav.userAgentData?.platform ?? "";
+	if (
+		nav.userAgentData?.mobile === true ||
+		/^(Android|iOS|iPadOS)$/i.test(uaDataPlatform)
+	) {
+		return "mobile";
+	}
+	if (/^(Windows|macOS|Linux|Chrome OS|CrOS)$/i.test(uaDataPlatform)) {
+		return "desktop";
+	}
+	const ua = navigator.userAgent || "";
+	if (
+		/Android|iPhone|iPad|iPod|HarmonyOS|Mobile/i.test(ua) ||
+		(/Macintosh|Mac/i.test(ua) && navigator.maxTouchPoints > 1)
+	) {
+		return "mobile";
+	}
+	if (/Windows|Macintosh|Mac OS X|Linux|X11|CrOS/i.test(ua)) {
+		return "desktop";
+	}
+	return "unknown";
+}
+
+const DESKTOP_LABEL_PATTERN =
+	/\b(desktop|windows|win32|win64|macos|mac os|macbook|imac|linux|ubuntu|fedora|arch|pc)\b/i;
+const MOBILE_LABEL_PATTERN =
+	/\b(android|ios|iphone|ipad|ipod|mobile|phone|pixel|xiaomi|redmi|huawei|honor|oppo|vivo|oneplus|samsung|galaxy|meizu|realme|xperia)\b/i;
+
+export function resolveDisplayDeviceKind(
+	deviceKind?: DeviceKind | null,
+	deviceLabel?: string | null,
+): "desktop" | "mobile" {
+	if (deviceKind === "desktop" || deviceKind === "mobile") {
+		return deviceKind;
+	}
+	const label = deviceLabel?.trim() ?? "";
+	if (label) {
+		if (DESKTOP_LABEL_PATTERN.test(label)) {
+			return "desktop";
+		}
+		if (MOBILE_LABEL_PATTERN.test(label)) {
+			return "mobile";
+		}
+	}
+	return "mobile";
 }
 
 export function detectDefaultDeviceLabel(): string {

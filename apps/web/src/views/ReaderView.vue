@@ -8,6 +8,7 @@ import {
 	Download,
 	List,
 	Lock,
+	Monitor,
 	Settings2,
 	Smartphone,
 	X,
@@ -27,6 +28,7 @@ import {
 	fetchNovelDetail,
 } from "@/api/client";
 import { useNextChapterPrefetch } from "@/composables/useNextChapterPrefetch";
+import { detectDeviceKind, resolveDisplayDeviceKind } from "@/config/runtime";
 import { makeChapterCacheKey, webDb } from "@/db/indexedDb";
 import {
 	type EpubExportProgress,
@@ -330,6 +332,7 @@ async function persistProgress(paragraphIndex: number): Promise<void> {
 		paragraphIndex: clampedIndex,
 		totalParagraphs,
 		deviceLabel: settingsStore.deviceLabel,
+		deviceKind: detectDeviceKind(),
 		updatedAt: Date.now(),
 	});
 }
@@ -1394,7 +1397,19 @@ onBeforeUnmount(() => {
 			class="fixed inset-x-4 bottom-4 z-40 mx-auto flex max-w-xl flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--accent)]/40 bg-[var(--bg-elevated)]/95 p-3.5 text-[var(--text-primary)] shadow-xl backdrop-blur"
 		>
 			<div class="flex min-w-0 flex-1 items-start gap-2">
-				<Smartphone class="mt-0.5 h-4 w-4 shrink-0 text-[var(--accent)]" />
+				<Monitor
+					v-if="
+						resolveDisplayDeviceKind(
+							remoteChapterPrompt.deviceKind,
+							remoteChapterPrompt.deviceLabel,
+						) === 'desktop'
+					"
+					class="mt-0.5 h-4 w-4 shrink-0 text-[var(--accent)]"
+				/>
+				<Smartphone
+					v-else
+					class="mt-0.5 h-4 w-4 shrink-0 text-[var(--accent)]"
+				/>
 				<p class="text-xs sm:text-sm leading-snug">
 					其他设备（{{ remoteChapterPrompt.deviceLabel }}）已读到「{{
 						remoteChapterPrompt.chapterTitle

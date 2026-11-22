@@ -4,6 +4,7 @@ import {
 	Database,
 	Eye,
 	EyeOff,
+	Monitor,
 	RefreshCw,
 	Server,
 	Smartphone,
@@ -12,6 +13,7 @@ import {
 } from "lucide-vue-next";
 import { onMounted, ref } from "vue";
 import { ApiError, fetchSources } from "@/api/client";
+import { detectDeviceKind } from "@/config/runtime";
 import { type ChapterCacheStats, webDb } from "@/db/indexedDb";
 import { useLibraryStore } from "@/stores/library";
 import {
@@ -214,7 +216,12 @@ onMounted(() => {
 						设备标识（跨设备同步时展示）
 					</label>
 					<div class="relative">
+						<Monitor
+							v-if="detectDeviceKind() === 'desktop'"
+							class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-muted)]"
+						/>
 						<Smartphone
+							v-else
 							class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-muted)]"
 						/>
 						<input

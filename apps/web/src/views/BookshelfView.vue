@@ -10,6 +10,7 @@ import {
 	BookOpen,
 	Compass,
 	FolderKanban,
+	Monitor,
 	MoreVertical,
 	Play,
 	RefreshCw,
@@ -29,6 +30,7 @@ import SearchableTagPicker, {
 import SetupBanner from "@/components/SetupBanner.vue";
 import ShelfAssignModal from "@/components/ShelfAssignModal.vue";
 import ShelfManagerModal from "@/components/ShelfManagerModal.vue";
+import { resolveDisplayDeviceKind } from "@/config/runtime";
 import { makeCompositeKey } from "@/db/indexedDb";
 import { useLibraryStore } from "@/stores/library";
 import { useSettingsStore } from "@/stores/settings";
@@ -469,7 +471,16 @@ onBeforeUnmount(() => {
 								<span
 									class="inline-flex items-center gap-1 text-[11px] text-[var(--text-muted)]"
 								>
-									<Smartphone class="h-3 w-3" />
+									<Monitor
+										v-if="
+											resolveDisplayDeviceKind(
+												continueReading.deviceKind,
+												continueReading.deviceLabel,
+											) === 'desktop'
+										"
+										class="h-3 w-3"
+									/>
+									<Smartphone v-else class="h-3 w-3" />
 									{{ continueReading.deviceLabel }} ·
 									{{ formatRelativeTime(continueReading.updatedAt) }}
 								</span>
