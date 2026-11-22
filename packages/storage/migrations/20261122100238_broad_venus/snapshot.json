@@ -1,1455 +1,1366 @@
 {
-  "version": "7",
-  "dialect": "sqlite",
-  "id": "6f58a909-72c0-4d70-add7-a58796c89611",
-  "prevIds": [
-    "87568a37-7200-44b0-930a-e34647e7ba04"
-  ],
-  "ddl": [
-    {
-      "name": "bookshelf_categories",
-      "entityType": "tables"
-    },
-    {
-      "name": "bookshelf_items",
-      "entityType": "tables"
-    },
-    {
-      "name": "chapters",
-      "entityType": "tables"
-    },
-    {
-      "name": "cookies",
-      "entityType": "tables"
-    },
-    {
-      "name": "general_cache",
-      "entityType": "tables"
-    },
-    {
-      "name": "genres",
-      "entityType": "tables"
-    },
-    {
-      "name": "illustration_metadata",
-      "entityType": "tables"
-    },
-    {
-      "name": "keyword_novels",
-      "entityType": "tables"
-    },
-    {
-      "name": "keyword_searches",
-      "entityType": "tables"
-    },
-    {
-      "name": "novel_cover_metadata",
-      "entityType": "tables"
-    },
-    {
-      "name": "novel_genres",
-      "entityType": "tables"
-    },
-    {
-      "name": "novels",
-      "entityType": "tables"
-    },
-    {
-      "name": "reading_progress",
-      "entityType": "tables"
-    },
-    {
-      "name": "volume_cover_metadata",
-      "entityType": "tables"
-    },
-    {
-      "name": "volumes",
-      "entityType": "tables"
-    },
-    {
-      "table": "bookshelf_categories",
-      "name": "id",
-      "type": "text",
-      "notNull": false,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "bookshelf_categories",
-      "name": "name",
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "bookshelf_categories",
-      "name": "sort_order",
-      "type": "integer",
-      "notNull": true,
-      "autoincrement": false,
-      "default": "0",
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "bookshelf_categories",
-      "name": "created_at",
-      "type": "integer",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "bookshelf_categories",
-      "name": "updated_at",
-      "type": "integer",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "bookshelf_categories",
-      "name": "server_updated_at",
-      "type": "integer",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "bookshelf_categories",
-      "name": "deleted_at",
-      "type": "integer",
-      "notNull": false,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "bookshelf_items",
-      "name": "id",
-      "type": "integer",
-      "notNull": false,
-      "autoincrement": true,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "bookshelf_items",
-      "name": "platform",
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "bookshelf_items",
-      "name": "novel_id",
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "bookshelf_items",
-      "name": "title",
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "bookshelf_items",
-      "name": "author",
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "bookshelf_items",
-      "name": "cover_url",
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "bookshelf_items",
-      "name": "added_at",
-      "type": "integer",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "bookshelf_items",
-      "name": "updated_at",
-      "type": "integer",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "bookshelf_items",
-      "name": "server_updated_at",
-      "type": "integer",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "bookshelf_items",
-      "name": "deleted_at",
-      "type": "integer",
-      "notNull": false,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "bookshelf_items",
-      "name": "category_ids",
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": "'[]'",
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "bookshelf_items",
-      "name": "genres_json",
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": "'[]'",
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "bookshelf_items",
-      "name": "status",
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": "'unknown'",
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "chapters",
-      "name": "id",
-      "type": "integer",
-      "notNull": false,
-      "autoincrement": true,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "chapters",
-      "name": "novel_id",
-      "type": "integer",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "chapters",
-      "name": "volume_id",
-      "type": "integer",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "chapters",
-      "name": "platform",
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "chapters",
-      "name": "platform_id",
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "chapters",
-      "name": "content_hash",
-      "type": "text",
-      "notNull": false,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "chapters",
-      "name": "name",
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "cookies",
-      "name": "id",
-      "type": "integer",
-      "notNull": false,
-      "autoincrement": true,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "cookies",
-      "name": "domain",
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "cookies",
-      "name": "path",
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "cookies",
-      "name": "name",
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "cookies",
-      "name": "value",
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "cookies",
-      "name": "expires",
-      "type": "integer",
-      "notNull": false,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "cookies",
-      "name": "max_age",
-      "type": "integer",
-      "notNull": false,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "cookies",
-      "name": "secure",
-      "type": "integer",
-      "notNull": false,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "cookies",
-      "name": "http_only",
-      "type": "integer",
-      "notNull": false,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "cookies",
-      "name": "same_site",
-      "type": "text",
-      "notNull": false,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "cookies",
-      "name": "created_at",
-      "type": "integer",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "cookies",
-      "name": "last_accessed_at",
-      "type": "integer",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "general_cache",
-      "name": "key",
-      "type": "text",
-      "notNull": false,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "general_cache",
-      "name": "value",
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "genres",
-      "name": "id",
-      "type": "integer",
-      "notNull": false,
-      "autoincrement": true,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "genres",
-      "name": "name",
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "illustration_metadata",
-      "name": "id",
-      "type": "integer",
-      "notNull": false,
-      "autoincrement": true,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "illustration_metadata",
-      "name": "platform",
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "illustration_metadata",
-      "name": "url_hash",
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "illustration_metadata",
-      "name": "original_url",
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "illustration_metadata",
-      "name": "file_hash",
-      "type": "text",
-      "notNull": false,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "illustration_metadata",
-      "name": "content_type",
-      "type": "text",
-      "notNull": false,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "illustration_metadata",
-      "name": "created_at",
-      "type": "integer",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "keyword_novels",
-      "name": "keyword",
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "keyword_novels",
-      "name": "novel_id",
-      "type": "integer",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "keyword_searches",
-      "name": "keyword",
-      "type": "text",
-      "notNull": false,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "keyword_searches",
-      "name": "platform",
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "keyword_searches",
-      "name": "query_time",
-      "type": "integer",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "keyword_searches",
-      "name": "total",
-      "type": "integer",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "novel_cover_metadata",
-      "name": "id",
-      "type": "integer",
-      "notNull": false,
-      "autoincrement": true,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "novel_cover_metadata",
-      "name": "hash",
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "novel_cover_metadata",
-      "name": "content_type",
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "novel_cover_metadata",
-      "name": "original_url",
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "novel_cover_metadata",
-      "name": "novel_id",
-      "type": "integer",
-      "notNull": false,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "novel_genres",
-      "name": "novel_id",
-      "type": "integer",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "novel_genres",
-      "name": "genre_id",
-      "type": "integer",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "novels",
-      "name": "id",
-      "type": "integer",
-      "notNull": false,
-      "autoincrement": true,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "novels",
-      "name": "platform",
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "novels",
-      "name": "platform_id",
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "novels",
-      "name": "name",
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "novels",
-      "name": "author",
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "novels",
-      "name": "summary",
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "novels",
-      "name": "cover_url",
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "novels",
-      "name": "status",
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "novels",
-      "name": "update_at",
-      "type": "integer",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "reading_progress",
-      "name": "id",
-      "type": "integer",
-      "notNull": false,
-      "autoincrement": true,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "reading_progress",
-      "name": "platform",
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "reading_progress",
-      "name": "novel_id",
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "reading_progress",
-      "name": "novel_title",
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "reading_progress",
-      "name": "cover_url",
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "reading_progress",
-      "name": "volume_id",
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "reading_progress",
-      "name": "volume_title",
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "reading_progress",
-      "name": "chapter_id",
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "reading_progress",
-      "name": "chapter_title",
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "reading_progress",
-      "name": "paragraph_index",
-      "type": "integer",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "reading_progress",
-      "name": "total_paragraphs",
-      "type": "integer",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "reading_progress",
-      "name": "device_label",
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "reading_progress",
-      "name": "device_kind",
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": "'unknown'",
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "reading_progress",
-      "name": "updated_at",
-      "type": "integer",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "reading_progress",
-      "name": "server_updated_at",
-      "type": "integer",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "reading_progress",
-      "name": "history_hidden_at",
-      "type": "integer",
-      "notNull": false,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "volume_cover_metadata",
-      "name": "id",
-      "type": "integer",
-      "notNull": false,
-      "autoincrement": true,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "volume_cover_metadata",
-      "name": "hash",
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "volume_cover_metadata",
-      "name": "content_type",
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "volume_cover_metadata",
-      "name": "original_url",
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "volume_cover_metadata",
-      "name": "volume_id",
-      "type": "integer",
-      "notNull": false,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "volumes",
-      "name": "id",
-      "type": "integer",
-      "notNull": false,
-      "autoincrement": true,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "volumes",
-      "name": "novel_id",
-      "type": "integer",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "volumes",
-      "name": "name",
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "volumes",
-      "name": "platform",
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "volumes",
-      "name": "platform_id",
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "volumes",
-      "name": "cover_url",
-      "type": "text",
-      "notNull": false,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "bookshelf_items",
-      "name": "bookshelf_platform_novel_idx",
-      "columns": [
-        {
-          "value": "platform",
-          "isExpression": false
-        },
-        {
-          "value": "novel_id",
-          "isExpression": false
-        }
-      ],
-      "isUnique": true,
-      "where": null,
-      "origin": "manual",
-      "entityType": "indexes"
-    },
-    {
-      "table": "illustration_metadata",
-      "name": "illustration_platform_url_hash_idx",
-      "columns": [
-        {
-          "value": "platform",
-          "isExpression": false
-        },
-        {
-          "value": "url_hash",
-          "isExpression": false
-        }
-      ],
-      "isUnique": true,
-      "where": null,
-      "origin": "manual",
-      "entityType": "indexes"
-    },
-    {
-      "table": "reading_progress",
-      "name": "reading_progress_platform_novel_idx",
-      "columns": [
-        {
-          "value": "platform",
-          "isExpression": false
-        },
-        {
-          "value": "novel_id",
-          "isExpression": false
-        }
-      ],
-      "isUnique": true,
-      "where": null,
-      "origin": "manual",
-      "entityType": "indexes"
-    },
-    {
-      "table": "chapters",
-      "name": "fk_chapters_novel_id_novels_id_fk",
-      "columns": [
-        "novel_id"
-      ],
-      "tableTo": "novels",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "nameExplicit": false,
-      "entityType": "fks"
-    },
-    {
-      "table": "chapters",
-      "name": "fk_chapters_volume_id_volumes_id_fk",
-      "columns": [
-        "volume_id"
-      ],
-      "tableTo": "volumes",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "nameExplicit": false,
-      "entityType": "fks"
-    },
-    {
-      "table": "keyword_novels",
-      "name": "fk_keyword_novels_keyword_keyword_searches_keyword_fk",
-      "columns": [
-        "keyword"
-      ],
-      "tableTo": "keyword_searches",
-      "columnsTo": [
-        "keyword"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "nameExplicit": false,
-      "entityType": "fks"
-    },
-    {
-      "table": "keyword_novels",
-      "name": "fk_keyword_novels_novel_id_novels_id_fk",
-      "columns": [
-        "novel_id"
-      ],
-      "tableTo": "novels",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "nameExplicit": false,
-      "entityType": "fks"
-    },
-    {
-      "table": "novel_cover_metadata",
-      "name": "fk_novel_cover_metadata_novel_id_novels_id_fk",
-      "columns": [
-        "novel_id"
-      ],
-      "tableTo": "novels",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "SET NULL",
-      "nameExplicit": false,
-      "entityType": "fks"
-    },
-    {
-      "table": "novel_genres",
-      "name": "fk_novel_genres_novel_id_novels_id_fk",
-      "columns": [
-        "novel_id"
-      ],
-      "tableTo": "novels",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "nameExplicit": false,
-      "entityType": "fks"
-    },
-    {
-      "table": "novel_genres",
-      "name": "fk_novel_genres_genre_id_genres_id_fk",
-      "columns": [
-        "genre_id"
-      ],
-      "tableTo": "genres",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "nameExplicit": false,
-      "entityType": "fks"
-    },
-    {
-      "table": "volume_cover_metadata",
-      "name": "fk_volume_cover_metadata_volume_id_volumes_id_fk",
-      "columns": [
-        "volume_id"
-      ],
-      "tableTo": "volumes",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "SET NULL",
-      "nameExplicit": false,
-      "entityType": "fks"
-    },
-    {
-      "table": "volumes",
-      "name": "fk_volumes_novel_id_novels_id_fk",
-      "columns": [
-        "novel_id"
-      ],
-      "tableTo": "novels",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "nameExplicit": false,
-      "entityType": "fks"
-    },
-    {
-      "table": "keyword_novels",
-      "name": "keyword_novels_pk",
-      "columns": [
-        "keyword",
-        "novel_id"
-      ],
-      "nameExplicit": false,
-      "entityType": "pks"
-    },
-    {
-      "table": "novel_genres",
-      "name": "novel_genres_pk",
-      "columns": [
-        "novel_id",
-        "genre_id"
-      ],
-      "nameExplicit": false,
-      "entityType": "pks"
-    },
-    {
-      "table": "bookshelf_categories",
-      "name": "bookshelf_categories_pk",
-      "columns": [
-        "id"
-      ],
-      "nameExplicit": false,
-      "entityType": "pks"
-    },
-    {
-      "table": "bookshelf_items",
-      "name": "bookshelf_items_pk",
-      "columns": [
-        "id"
-      ],
-      "nameExplicit": false,
-      "entityType": "pks"
-    },
-    {
-      "table": "chapters",
-      "name": "chapters_pk",
-      "columns": [
-        "id"
-      ],
-      "nameExplicit": false,
-      "entityType": "pks"
-    },
-    {
-      "table": "cookies",
-      "name": "cookies_pk",
-      "columns": [
-        "id"
-      ],
-      "nameExplicit": false,
-      "entityType": "pks"
-    },
-    {
-      "table": "general_cache",
-      "name": "general_cache_pk",
-      "columns": [
-        "key"
-      ],
-      "nameExplicit": false,
-      "entityType": "pks"
-    },
-    {
-      "table": "genres",
-      "name": "genres_pk",
-      "columns": [
-        "id"
-      ],
-      "nameExplicit": false,
-      "entityType": "pks"
-    },
-    {
-      "table": "illustration_metadata",
-      "name": "illustration_metadata_pk",
-      "columns": [
-        "id"
-      ],
-      "nameExplicit": false,
-      "entityType": "pks"
-    },
-    {
-      "table": "keyword_searches",
-      "name": "keyword_searches_pk",
-      "columns": [
-        "keyword"
-      ],
-      "nameExplicit": false,
-      "entityType": "pks"
-    },
-    {
-      "table": "novel_cover_metadata",
-      "name": "novel_cover_metadata_pk",
-      "columns": [
-        "id"
-      ],
-      "nameExplicit": false,
-      "entityType": "pks"
-    },
-    {
-      "table": "novels",
-      "name": "novels_pk",
-      "columns": [
-        "id"
-      ],
-      "nameExplicit": false,
-      "entityType": "pks"
-    },
-    {
-      "table": "reading_progress",
-      "name": "reading_progress_pk",
-      "columns": [
-        "id"
-      ],
-      "nameExplicit": false,
-      "entityType": "pks"
-    },
-    {
-      "table": "volume_cover_metadata",
-      "name": "volume_cover_metadata_pk",
-      "columns": [
-        "id"
-      ],
-      "nameExplicit": false,
-      "entityType": "pks"
-    },
-    {
-      "table": "volumes",
-      "name": "volumes_pk",
-      "columns": [
-        "id"
-      ],
-      "nameExplicit": false,
-      "entityType": "pks"
-    },
-    {
-      "table": "chapters",
-      "name": "novel_and_pid_idx",
-      "columns": [
-        "novel_id",
-        "platform_id"
-      ],
-      "nameExplicit": true,
-      "entityType": "uniques"
-    },
-    {
-      "table": "cookies",
-      "name": "cookie_unique_idx",
-      "columns": [
-        "domain",
-        "path",
-        "name"
-      ],
-      "nameExplicit": true,
-      "entityType": "uniques"
-    },
-    {
-      "table": "novels",
-      "name": "platform_and_pid_idx",
-      "columns": [
-        "platform",
-        "platform_id"
-      ],
-      "nameExplicit": true,
-      "entityType": "uniques"
-    },
-    {
-      "table": "volumes",
-      "name": "novel_and_pid_idx",
-      "columns": [
-        "novel_id",
-        "platform_id"
-      ],
-      "nameExplicit": true,
-      "entityType": "uniques"
-    },
-    {
-      "table": "genres",
-      "name": "genres_name_unique",
-      "columns": [
-        "name"
-      ],
-      "nameExplicit": false,
-      "entityType": "uniques"
-    },
-    {
-      "table": "novel_cover_metadata",
-      "name": "novel_cover_metadata_original_url_unique",
-      "columns": [
-        "original_url"
-      ],
-      "nameExplicit": false,
-      "entityType": "uniques"
-    },
-    {
-      "table": "volume_cover_metadata",
-      "name": "volume_cover_metadata_original_url_unique",
-      "columns": [
-        "original_url"
-      ],
-      "nameExplicit": false,
-      "entityType": "uniques"
-    }
-  ],
-  "renames": []
+	"version": "7",
+	"dialect": "sqlite",
+	"id": "6f58a909-72c0-4d70-add7-a58796c89611",
+	"prevIds": ["87568a37-7200-44b0-930a-e34647e7ba04"],
+	"ddl": [
+		{
+			"name": "bookshelf_categories",
+			"entityType": "tables"
+		},
+		{
+			"name": "bookshelf_items",
+			"entityType": "tables"
+		},
+		{
+			"name": "chapters",
+			"entityType": "tables"
+		},
+		{
+			"name": "cookies",
+			"entityType": "tables"
+		},
+		{
+			"name": "general_cache",
+			"entityType": "tables"
+		},
+		{
+			"name": "genres",
+			"entityType": "tables"
+		},
+		{
+			"name": "illustration_metadata",
+			"entityType": "tables"
+		},
+		{
+			"name": "keyword_novels",
+			"entityType": "tables"
+		},
+		{
+			"name": "keyword_searches",
+			"entityType": "tables"
+		},
+		{
+			"name": "novel_cover_metadata",
+			"entityType": "tables"
+		},
+		{
+			"name": "novel_genres",
+			"entityType": "tables"
+		},
+		{
+			"name": "novels",
+			"entityType": "tables"
+		},
+		{
+			"name": "reading_progress",
+			"entityType": "tables"
+		},
+		{
+			"name": "volume_cover_metadata",
+			"entityType": "tables"
+		},
+		{
+			"name": "volumes",
+			"entityType": "tables"
+		},
+		{
+			"table": "bookshelf_categories",
+			"name": "id",
+			"type": "text",
+			"notNull": false,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "bookshelf_categories",
+			"name": "name",
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "bookshelf_categories",
+			"name": "sort_order",
+			"type": "integer",
+			"notNull": true,
+			"autoincrement": false,
+			"default": "0",
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "bookshelf_categories",
+			"name": "created_at",
+			"type": "integer",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "bookshelf_categories",
+			"name": "updated_at",
+			"type": "integer",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "bookshelf_categories",
+			"name": "server_updated_at",
+			"type": "integer",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "bookshelf_categories",
+			"name": "deleted_at",
+			"type": "integer",
+			"notNull": false,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "bookshelf_items",
+			"name": "id",
+			"type": "integer",
+			"notNull": false,
+			"autoincrement": true,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "bookshelf_items",
+			"name": "platform",
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "bookshelf_items",
+			"name": "novel_id",
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "bookshelf_items",
+			"name": "title",
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "bookshelf_items",
+			"name": "author",
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "bookshelf_items",
+			"name": "cover_url",
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "bookshelf_items",
+			"name": "added_at",
+			"type": "integer",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "bookshelf_items",
+			"name": "updated_at",
+			"type": "integer",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "bookshelf_items",
+			"name": "server_updated_at",
+			"type": "integer",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "bookshelf_items",
+			"name": "deleted_at",
+			"type": "integer",
+			"notNull": false,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "bookshelf_items",
+			"name": "category_ids",
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": "'[]'",
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "bookshelf_items",
+			"name": "genres_json",
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": "'[]'",
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "bookshelf_items",
+			"name": "status",
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": "'unknown'",
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "chapters",
+			"name": "id",
+			"type": "integer",
+			"notNull": false,
+			"autoincrement": true,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "chapters",
+			"name": "novel_id",
+			"type": "integer",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "chapters",
+			"name": "volume_id",
+			"type": "integer",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "chapters",
+			"name": "platform",
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "chapters",
+			"name": "platform_id",
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "chapters",
+			"name": "content_hash",
+			"type": "text",
+			"notNull": false,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "chapters",
+			"name": "name",
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "cookies",
+			"name": "id",
+			"type": "integer",
+			"notNull": false,
+			"autoincrement": true,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "cookies",
+			"name": "domain",
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "cookies",
+			"name": "path",
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "cookies",
+			"name": "name",
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "cookies",
+			"name": "value",
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "cookies",
+			"name": "expires",
+			"type": "integer",
+			"notNull": false,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "cookies",
+			"name": "max_age",
+			"type": "integer",
+			"notNull": false,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "cookies",
+			"name": "secure",
+			"type": "integer",
+			"notNull": false,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "cookies",
+			"name": "http_only",
+			"type": "integer",
+			"notNull": false,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "cookies",
+			"name": "same_site",
+			"type": "text",
+			"notNull": false,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "cookies",
+			"name": "created_at",
+			"type": "integer",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "cookies",
+			"name": "last_accessed_at",
+			"type": "integer",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "general_cache",
+			"name": "key",
+			"type": "text",
+			"notNull": false,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "general_cache",
+			"name": "value",
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "genres",
+			"name": "id",
+			"type": "integer",
+			"notNull": false,
+			"autoincrement": true,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "genres",
+			"name": "name",
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "illustration_metadata",
+			"name": "id",
+			"type": "integer",
+			"notNull": false,
+			"autoincrement": true,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "illustration_metadata",
+			"name": "platform",
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "illustration_metadata",
+			"name": "url_hash",
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "illustration_metadata",
+			"name": "original_url",
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "illustration_metadata",
+			"name": "file_hash",
+			"type": "text",
+			"notNull": false,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "illustration_metadata",
+			"name": "content_type",
+			"type": "text",
+			"notNull": false,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "illustration_metadata",
+			"name": "created_at",
+			"type": "integer",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "keyword_novels",
+			"name": "keyword",
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "keyword_novels",
+			"name": "novel_id",
+			"type": "integer",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "keyword_searches",
+			"name": "keyword",
+			"type": "text",
+			"notNull": false,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "keyword_searches",
+			"name": "platform",
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "keyword_searches",
+			"name": "query_time",
+			"type": "integer",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "keyword_searches",
+			"name": "total",
+			"type": "integer",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "novel_cover_metadata",
+			"name": "id",
+			"type": "integer",
+			"notNull": false,
+			"autoincrement": true,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "novel_cover_metadata",
+			"name": "hash",
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "novel_cover_metadata",
+			"name": "content_type",
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "novel_cover_metadata",
+			"name": "original_url",
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "novel_cover_metadata",
+			"name": "novel_id",
+			"type": "integer",
+			"notNull": false,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "novel_genres",
+			"name": "novel_id",
+			"type": "integer",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "novel_genres",
+			"name": "genre_id",
+			"type": "integer",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "novels",
+			"name": "id",
+			"type": "integer",
+			"notNull": false,
+			"autoincrement": true,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "novels",
+			"name": "platform",
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "novels",
+			"name": "platform_id",
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "novels",
+			"name": "name",
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "novels",
+			"name": "author",
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "novels",
+			"name": "summary",
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "novels",
+			"name": "cover_url",
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "novels",
+			"name": "status",
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "novels",
+			"name": "update_at",
+			"type": "integer",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "reading_progress",
+			"name": "id",
+			"type": "integer",
+			"notNull": false,
+			"autoincrement": true,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "reading_progress",
+			"name": "platform",
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "reading_progress",
+			"name": "novel_id",
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "reading_progress",
+			"name": "novel_title",
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "reading_progress",
+			"name": "cover_url",
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "reading_progress",
+			"name": "volume_id",
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "reading_progress",
+			"name": "volume_title",
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "reading_progress",
+			"name": "chapter_id",
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "reading_progress",
+			"name": "chapter_title",
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "reading_progress",
+			"name": "paragraph_index",
+			"type": "integer",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "reading_progress",
+			"name": "total_paragraphs",
+			"type": "integer",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "reading_progress",
+			"name": "device_label",
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "reading_progress",
+			"name": "device_kind",
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": "'unknown'",
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "reading_progress",
+			"name": "updated_at",
+			"type": "integer",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "reading_progress",
+			"name": "server_updated_at",
+			"type": "integer",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "reading_progress",
+			"name": "history_hidden_at",
+			"type": "integer",
+			"notNull": false,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "volume_cover_metadata",
+			"name": "id",
+			"type": "integer",
+			"notNull": false,
+			"autoincrement": true,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "volume_cover_metadata",
+			"name": "hash",
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "volume_cover_metadata",
+			"name": "content_type",
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "volume_cover_metadata",
+			"name": "original_url",
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "volume_cover_metadata",
+			"name": "volume_id",
+			"type": "integer",
+			"notNull": false,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "volumes",
+			"name": "id",
+			"type": "integer",
+			"notNull": false,
+			"autoincrement": true,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "volumes",
+			"name": "novel_id",
+			"type": "integer",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "volumes",
+			"name": "name",
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "volumes",
+			"name": "platform",
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "volumes",
+			"name": "platform_id",
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "volumes",
+			"name": "cover_url",
+			"type": "text",
+			"notNull": false,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"entityType": "columns"
+		},
+		{
+			"table": "bookshelf_items",
+			"name": "bookshelf_platform_novel_idx",
+			"columns": [
+				{
+					"value": "platform",
+					"isExpression": false
+				},
+				{
+					"value": "novel_id",
+					"isExpression": false
+				}
+			],
+			"isUnique": true,
+			"where": null,
+			"origin": "manual",
+			"entityType": "indexes"
+		},
+		{
+			"table": "illustration_metadata",
+			"name": "illustration_platform_url_hash_idx",
+			"columns": [
+				{
+					"value": "platform",
+					"isExpression": false
+				},
+				{
+					"value": "url_hash",
+					"isExpression": false
+				}
+			],
+			"isUnique": true,
+			"where": null,
+			"origin": "manual",
+			"entityType": "indexes"
+		},
+		{
+			"table": "reading_progress",
+			"name": "reading_progress_platform_novel_idx",
+			"columns": [
+				{
+					"value": "platform",
+					"isExpression": false
+				},
+				{
+					"value": "novel_id",
+					"isExpression": false
+				}
+			],
+			"isUnique": true,
+			"where": null,
+			"origin": "manual",
+			"entityType": "indexes"
+		},
+		{
+			"table": "chapters",
+			"name": "fk_chapters_novel_id_novels_id_fk",
+			"columns": ["novel_id"],
+			"tableTo": "novels",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "CASCADE",
+			"nameExplicit": false,
+			"entityType": "fks"
+		},
+		{
+			"table": "chapters",
+			"name": "fk_chapters_volume_id_volumes_id_fk",
+			"columns": ["volume_id"],
+			"tableTo": "volumes",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "CASCADE",
+			"nameExplicit": false,
+			"entityType": "fks"
+		},
+		{
+			"table": "keyword_novels",
+			"name": "fk_keyword_novels_keyword_keyword_searches_keyword_fk",
+			"columns": ["keyword"],
+			"tableTo": "keyword_searches",
+			"columnsTo": ["keyword"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "CASCADE",
+			"nameExplicit": false,
+			"entityType": "fks"
+		},
+		{
+			"table": "keyword_novels",
+			"name": "fk_keyword_novels_novel_id_novels_id_fk",
+			"columns": ["novel_id"],
+			"tableTo": "novels",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "CASCADE",
+			"nameExplicit": false,
+			"entityType": "fks"
+		},
+		{
+			"table": "novel_cover_metadata",
+			"name": "fk_novel_cover_metadata_novel_id_novels_id_fk",
+			"columns": ["novel_id"],
+			"tableTo": "novels",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "SET NULL",
+			"nameExplicit": false,
+			"entityType": "fks"
+		},
+		{
+			"table": "novel_genres",
+			"name": "fk_novel_genres_novel_id_novels_id_fk",
+			"columns": ["novel_id"],
+			"tableTo": "novels",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "CASCADE",
+			"nameExplicit": false,
+			"entityType": "fks"
+		},
+		{
+			"table": "novel_genres",
+			"name": "fk_novel_genres_genre_id_genres_id_fk",
+			"columns": ["genre_id"],
+			"tableTo": "genres",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "CASCADE",
+			"nameExplicit": false,
+			"entityType": "fks"
+		},
+		{
+			"table": "volume_cover_metadata",
+			"name": "fk_volume_cover_metadata_volume_id_volumes_id_fk",
+			"columns": ["volume_id"],
+			"tableTo": "volumes",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "SET NULL",
+			"nameExplicit": false,
+			"entityType": "fks"
+		},
+		{
+			"table": "volumes",
+			"name": "fk_volumes_novel_id_novels_id_fk",
+			"columns": ["novel_id"],
+			"tableTo": "novels",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "CASCADE",
+			"nameExplicit": false,
+			"entityType": "fks"
+		},
+		{
+			"table": "keyword_novels",
+			"name": "keyword_novels_pk",
+			"columns": ["keyword", "novel_id"],
+			"nameExplicit": false,
+			"entityType": "pks"
+		},
+		{
+			"table": "novel_genres",
+			"name": "novel_genres_pk",
+			"columns": ["novel_id", "genre_id"],
+			"nameExplicit": false,
+			"entityType": "pks"
+		},
+		{
+			"table": "bookshelf_categories",
+			"name": "bookshelf_categories_pk",
+			"columns": ["id"],
+			"nameExplicit": false,
+			"entityType": "pks"
+		},
+		{
+			"table": "bookshelf_items",
+			"name": "bookshelf_items_pk",
+			"columns": ["id"],
+			"nameExplicit": false,
+			"entityType": "pks"
+		},
+		{
+			"table": "chapters",
+			"name": "chapters_pk",
+			"columns": ["id"],
+			"nameExplicit": false,
+			"entityType": "pks"
+		},
+		{
+			"table": "cookies",
+			"name": "cookies_pk",
+			"columns": ["id"],
+			"nameExplicit": false,
+			"entityType": "pks"
+		},
+		{
+			"table": "general_cache",
+			"name": "general_cache_pk",
+			"columns": ["key"],
+			"nameExplicit": false,
+			"entityType": "pks"
+		},
+		{
+			"table": "genres",
+			"name": "genres_pk",
+			"columns": ["id"],
+			"nameExplicit": false,
+			"entityType": "pks"
+		},
+		{
+			"table": "illustration_metadata",
+			"name": "illustration_metadata_pk",
+			"columns": ["id"],
+			"nameExplicit": false,
+			"entityType": "pks"
+		},
+		{
+			"table": "keyword_searches",
+			"name": "keyword_searches_pk",
+			"columns": ["keyword"],
+			"nameExplicit": false,
+			"entityType": "pks"
+		},
+		{
+			"table": "novel_cover_metadata",
+			"name": "novel_cover_metadata_pk",
+			"columns": ["id"],
+			"nameExplicit": false,
+			"entityType": "pks"
+		},
+		{
+			"table": "novels",
+			"name": "novels_pk",
+			"columns": ["id"],
+			"nameExplicit": false,
+			"entityType": "pks"
+		},
+		{
+			"table": "reading_progress",
+			"name": "reading_progress_pk",
+			"columns": ["id"],
+			"nameExplicit": false,
+			"entityType": "pks"
+		},
+		{
+			"table": "volume_cover_metadata",
+			"name": "volume_cover_metadata_pk",
+			"columns": ["id"],
+			"nameExplicit": false,
+			"entityType": "pks"
+		},
+		{
+			"table": "volumes",
+			"name": "volumes_pk",
+			"columns": ["id"],
+			"nameExplicit": false,
+			"entityType": "pks"
+		},
+		{
+			"table": "chapters",
+			"name": "novel_and_pid_idx",
+			"columns": ["novel_id", "platform_id"],
+			"nameExplicit": true,
+			"entityType": "uniques"
+		},
+		{
+			"table": "cookies",
+			"name": "cookie_unique_idx",
+			"columns": ["domain", "path", "name"],
+			"nameExplicit": true,
+			"entityType": "uniques"
+		},
+		{
+			"table": "novels",
+			"name": "platform_and_pid_idx",
+			"columns": ["platform", "platform_id"],
+			"nameExplicit": true,
+			"entityType": "uniques"
+		},
+		{
+			"table": "volumes",
+			"name": "novel_and_pid_idx",
+			"columns": ["novel_id", "platform_id"],
+			"nameExplicit": true,
+			"entityType": "uniques"
+		},
+		{
+			"table": "genres",
+			"name": "genres_name_unique",
+			"columns": ["name"],
+			"nameExplicit": false,
+			"entityType": "uniques"
+		},
+		{
+			"table": "novel_cover_metadata",
+			"name": "novel_cover_metadata_original_url_unique",
+			"columns": ["original_url"],
+			"nameExplicit": false,
+			"entityType": "uniques"
+		},
+		{
+			"table": "volume_cover_metadata",
+			"name": "volume_cover_metadata_original_url_unique",
+			"columns": ["original_url"],
+			"nameExplicit": false,
+			"entityType": "uniques"
+		}
+	],
+	"renames": []
 }
