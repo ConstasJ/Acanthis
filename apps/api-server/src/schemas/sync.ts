@@ -1,6 +1,7 @@
 import type {
 	BookshelfCategory,
 	BookshelfItem,
+	DeviceKind,
 	ReadingProgress,
 } from "@acanthis-dec/core";
 import z from "zod";
@@ -58,6 +59,10 @@ export const bookshelfItemSchema = z
 	})
 	.meta({ id: "BookshelfItem" }) satisfies z.ZodType<BookshelfItem>;
 
+export const deviceKindSchema = z
+	.enum(["desktop", "mobile", "unknown"])
+	.meta({ id: "DeviceKind" }) satisfies z.ZodType<DeviceKind>;
+
 export const readingProgressSchema = z
 	.object({
 		platform: z.string().min(1).describe("小说源平台 ID，如 linovelib"),
@@ -77,6 +82,9 @@ export const readingProgressSchema = z
 			.describe("当前阅读段落索引（从 0 开始）"),
 		totalParagraphs: z.number().int().min(0).describe("章节总段落数"),
 		deviceLabel: z.string().describe("产生该进度的客户端设备标识"),
+		deviceKind: deviceKindSchema
+			.optional()
+			.describe("产生该进度的客户端设备种类（desktop / mobile / unknown）"),
 		updatedAt: z.number().finite().describe("进度更新时间戳（毫秒）"),
 		historyHiddenAt: z
 			.number()

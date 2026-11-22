@@ -932,6 +932,10 @@
 						"type": "string",
 						"description": "产生该进度的客户端设备标识"
 					},
+					"deviceKind": {
+						"description": "产生该进度的客户端设备种类（desktop / mobile / unknown）",
+						"$ref": "#/components/schemas/DeviceKind"
+					},
 					"updatedAt": {
 						"type": "number",
 						"description": "进度更新时间戳（毫秒）"
@@ -1137,6 +1141,10 @@
 					"deletedAt"
 				]
 			},
+			"DeviceKind": {
+				"type": "string",
+				"enum": ["desktop", "mobile", "unknown"]
+			},
 			"ReadingProgress": {
 				"type": "object",
 				"properties": {
@@ -1191,6 +1199,10 @@
 					"deviceLabel": {
 						"type": "string",
 						"description": "产生该进度的客户端设备标识"
+					},
+					"deviceKind": {
+						"description": "产生该进度的客户端设备种类（desktop / mobile / unknown）",
+						"$ref": "#/components/schemas/DeviceKind"
 					},
 					"updatedAt": {
 						"type": "number",

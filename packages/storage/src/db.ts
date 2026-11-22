@@ -5,6 +5,7 @@ import type {
 	BookshelfItem,
 	CachedGenreItem,
 	Chapter,
+	DeviceKind,
 	Novel,
 	NovelInfo,
 	NovelSearchResult,
@@ -154,6 +155,13 @@ function toBookshelfItem(
 	};
 }
 
+function normalizeDeviceKind(value: unknown): DeviceKind {
+	if (value === "desktop" || value === "mobile") {
+		return value;
+	}
+	return "unknown";
+}
+
 function toReadingProgress(
 	row: typeof readingProgress.$inferSelect,
 ): ReadingProgress {
@@ -169,6 +177,7 @@ function toReadingProgress(
 		paragraphIndex: row.paragraphIndex,
 		totalParagraphs: row.totalParagraphs,
 		deviceLabel: row.deviceLabel,
+		deviceKind: normalizeDeviceKind(row.deviceKind),
 		updatedAt: row.updatedAt,
 		historyHiddenAt: row.historyHiddenAt ?? null,
 	};
@@ -1466,6 +1475,7 @@ export class DatabaseService {
 							paragraphIndex: item.paragraphIndex,
 							totalParagraphs: item.totalParagraphs,
 							deviceLabel: item.deviceLabel,
+							deviceKind: normalizeDeviceKind(item.deviceKind),
 							updatedAt: effectiveUpdatedAt,
 							serverUpdatedAt,
 							historyHiddenAt: incomingHiddenAt,
@@ -1500,6 +1510,7 @@ export class DatabaseService {
 											paragraphIndex: item.paragraphIndex,
 											totalParagraphs: item.totalParagraphs,
 											deviceLabel: item.deviceLabel,
+											deviceKind: normalizeDeviceKind(item.deviceKind),
 											updatedAt: effectiveUpdatedAt,
 											serverUpdatedAt,
 											historyHiddenAt: mergedHiddenAt,

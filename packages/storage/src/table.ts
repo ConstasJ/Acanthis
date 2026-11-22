@@ -220,6 +220,11 @@ export const readingProgress = sqliteTable(
 		paragraphIndex: integer("paragraph_index").notNull(),
 		totalParagraphs: integer("total_paragraphs").notNull(),
 		deviceLabel: text("device_label").notNull(),
+		deviceKind: text("device_kind", {
+			enum: ["desktop", "mobile", "unknown"],
+		})
+			.notNull()
+			.default("unknown"),
 		updatedAt: integer("updated_at").notNull(),
 		serverUpdatedAt: integer("server_updated_at").notNull(),
 		historyHiddenAt: integer("history_hidden_at"),

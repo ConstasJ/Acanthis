@@ -11,6 +11,7 @@ export type {
 	CachedGenreItem,
 	Chapter,
 	ChapterContent,
+	DeviceKind,
 	ExploreChannelOption,
 	ExploreFilterGroup,
 	ExploreFilterOption,

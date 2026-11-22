@@ -75,6 +75,8 @@ export interface BookshelfItem {
 	status?: NovelStatus | undefined;
 }
 
+export type DeviceKind = "desktop" | "mobile" | "unknown";
+
 export interface ReadingProgress {
 	platform: string;
 	novelId: string;
@@ -87,6 +89,7 @@ export interface ReadingProgress {
 	paragraphIndex: number;
 	totalParagraphs: number;
 	deviceLabel: string;
+	deviceKind?: DeviceKind | undefined;
 	updatedAt: number;
 	historyHiddenAt?: number | null | undefined;
 }

@@ -1,0 +1,1 @@
+ALTER TABLE `reading_progress` ADD `device_kind` text DEFAULT 'unknown' NOT NULL;
