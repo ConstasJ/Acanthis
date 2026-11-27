@@ -43,7 +43,8 @@ acanthis
 | `--server <url>`         | `-s`   | 配置值 / `http://localhost:5301` | Acanthis API 服务端基础地址                                                                                       |
 | `--source <platform>`    | —      | 配置值 / `linovelib`             | 书源标识                                                                                                          |
 | `--token <token>`        | `-t`   | 配置值 / 未设置                  | 可选 Bearer 访问令牌                                                                                              |
-| `--output <dir>`         | `-o`   | 配置值 / `.`                     | 导出文件输出目录                                                                                                  |
+| `--output <dir>`         | `-o`   | 配置值 / `.`                     | 输出基目录（支持相对路径与 `~`；默认在其下以 `<书名>` 创建子目录）                                                |
+| `--no-subdir`            | —      | `subdir = true`                  | 直接将 EPUB 文件写入输出基目录，不创建 `<书名>` 子目录                                                            |
 | `--mode <split\|merged>` | `-m`   | `split`                          | `split` 按分卷输出 `[作者] 书名 - 分卷名.epub`；`merged` 合并输出 `[作者] 书名.epub`（选定部分分卷时为 `(选集)`） |
 | `--merged`               | —      | `false`                          | 快捷开关，等价于 `--mode merged`                                                                                  |
 | `--volumes <spec>`       | `-v`   | 全部分卷                         | 逗号分隔的 1 基卷序号、闭区间（如 `1,3-5`）或分卷 ID                                                              |

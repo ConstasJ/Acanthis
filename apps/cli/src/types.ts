@@ -26,6 +26,7 @@ export interface ExportOptions {
 	source: string;
 	token?: string | undefined;
 	outputDir: string;
+	subdir?: boolean | undefined;
 	mode: ExportMode;
 	volumes?: string | undefined;
 	illustrations: boolean;
@@ -47,6 +48,7 @@ export interface ExportSummary {
 	novelTitle: string;
 	source: string;
 	mode: ExportMode;
+	outputDir: string;
 	files: ExportFileResult[];
 	warnings: string[];
 }

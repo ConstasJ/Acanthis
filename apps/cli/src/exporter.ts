@@ -15,6 +15,7 @@ import {
 	isUnresolvedChapterId,
 	parseNovelIdOrUrl,
 	parseVolumeSelection,
+	resolveExportTargetDir,
 	sanitizeFilename,
 	withConcurrencyLimit,
 } from "./utils";
@@ -446,7 +447,12 @@ export async function runExport(
 	const summaryText = novel.summary.trim() ? novel.summary : undefined;
 	const genresList = novel.genres.length > 0 ? novel.genres : undefined;
 
-	await fs.mkdir(options.outputDir, { recursive: true });
+	const targetDir = resolveExportTargetDir(
+		options.outputDir,
+		novel.title,
+		options.subdir !== false,
+	);
+	await fs.mkdir(targetDir, { recursive: true });
 	const files: ExportFileResult[] = [];
 
 	if (options.mode === "split") {
@@ -462,7 +468,7 @@ export async function runExport(
 			const baseName = sanitizeFilename(
 				`[${novel.author}] ${novel.title} - ${volume.title}`,
 			);
-			const targetPath = path.join(options.outputDir, `${baseName}.epub`);
+			const targetPath = path.join(targetDir, `${baseName}.epub`);
 			const displayTitle = `${novel.title} - ${volume.title}`;
 
 			if (!options.overwrite && (await fileExists(targetPath))) {
@@ -550,10 +556,7 @@ export async function runExport(
 	} else {
 		const baseName = sanitizeFilename(`[${novel.author}] ${novel.title}`);
 		const suffix = selectedAllVolumes ? "" : " (选集)";
-		const targetPath = path.join(
-			options.outputDir,
-			`${baseName}${suffix}.epub`,
-		);
+		const targetPath = path.join(targetDir, `${baseName}${suffix}.epub`);
 		const totalChapterCount = fetchedChaptersPerVolume.reduce(
 			(sum, list) => sum + list.length,
 			0,
@@ -632,7 +635,7 @@ export async function runExport(
 				phase: "write",
 				current: 1,
 				total: 1,
-				message: `Writing ${targetPath}`,
+				message: `Writing ${path.basename(targetPath)}`,
 			});
 			await fs.writeFile(targetPath, epubBytes);
 
@@ -650,6 +653,7 @@ export async function runExport(
 		novelTitle: novel.title,
 		source: options.source,
 		mode: options.mode,
+		outputDir: targetDir,
 		files,
 		warnings,
 	};

@@ -33,8 +33,17 @@ export const exportCommand = defineCommand({
 		output: {
 			type: "string",
 			alias: "o",
-			description: "Output directory for EPUB files",
+			description:
+				"Base output directory (supports relative paths and ~; defaults to current directory)",
 			valueHint: "dir",
+		},
+		subdir: {
+			type: "boolean",
+			default: true,
+			description:
+				"Create a subdirectory named after the novel title inside the base output directory",
+			negativeDescription:
+				"Write EPUB file(s) directly into the base output directory without a novel subdirectory",
 		},
 		mode: {
 			type: "string",
@@ -140,6 +149,7 @@ export const exportCommand = defineCommand({
 					source: config.defaultSource,
 					token: config.token,
 					outputDir: config.outputDir,
+					subdir: args.subdir !== false,
 					mode: effectiveMode,
 					volumes: volumesSpec,
 					illustrations: args.illustrations !== false,

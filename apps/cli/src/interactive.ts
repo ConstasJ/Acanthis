@@ -28,7 +28,11 @@ import { loadCliConfig, saveCliConfigValue } from "./config";
 import { runExport } from "./exporter";
 import { createExportProgressRenderer } from "./progress";
 import type { ExportMode, ResolvedCliConfig } from "./types";
-import { isUnresolvedChapterId, parseNovelIdOrUrl } from "./utils";
+import {
+	isUnresolvedChapterId,
+	parseNovelIdOrUrl,
+	sanitizeFilename,
+} from "./utils";
 
 class WizardCancelledError extends Error {
 	constructor() {
@@ -499,11 +503,13 @@ export async function runInteractiveWizard(): Promise<void> {
 			}),
 		);
 
+		const novelSubdirName = sanitizeFilename(novel.title);
 		const outputDir = unwrapPrompt(
 			await text({
-				message: "Output directory:",
+				message: `Base output directory (files will be saved in "<dir>/${novelSubdirName}"):`,
 				initialValue: config.outputDir,
 				defaultValue: config.outputDir,
+				placeholder: ".",
 				validate: (value) =>
 					value?.trim() ? undefined : "Output directory cannot be empty",
 			}),
@@ -540,6 +546,7 @@ export async function runInteractiveWizard(): Promise<void> {
 						source,
 						token,
 						outputDir,
+						subdir: true,
 						mode,
 						volumes: selectedVolumeIndices.join(","),
 						illustrations,

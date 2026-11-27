@@ -1,3 +1,5 @@
+import os from "node:os";
+import path from "node:path";
 import type { Volume } from "@acanthis-dec/core";
 
 const INVALID_FILENAME_CHARS = new Set([
@@ -394,4 +396,37 @@ export async function withConcurrencyLimit<T, R>(
 	const workerCount = Math.min(limit, items.length);
 	await Promise.all(Array.from({ length: workerCount }, () => runWorker()));
 	return results;
+}
+
+/**
+ * Resolves a base output directory path, expanding `~` / `~/` / `~\` to the user's home directory
+ * and resolving relative paths against the current working directory.
+ */
+export function resolveOutputBaseDir(rawDir: string): string {
+	const trimmed = rawDir.trim();
+	if (!trimmed) {
+		return path.resolve(".");
+	}
+	if (trimmed === "~") {
+		return os.homedir();
+	}
+	if (trimmed.startsWith("~/") || trimmed.startsWith("~\\")) {
+		return path.resolve(os.homedir(), trimmed.slice(2));
+	}
+	return path.resolve(trimmed);
+}
+
+/**
+ * Resolves the final export directory, appending a sanitized novel title subdirectory by default.
+ */
+export function resolveExportTargetDir(
+	baseDir: string,
+	novelTitle: string,
+	subdir = true,
+): string {
+	const resolvedBase = resolveOutputBaseDir(baseDir);
+	if (!subdir) {
+		return resolvedBase;
+	}
+	return path.join(resolvedBase, sanitizeFilename(novelTitle));
 }
