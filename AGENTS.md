@@ -14,7 +14,7 @@
 ## Commands and checks
 
 - Install with `pnpm install --frozen-lockfile` when reproducing CI or Docker builds.
-- Node version is pinned to Node 24 in root `package.json` (`volta.node`) for `webcrack` compatibility; with Volta installed, `node` and workspace binaries (`biome`, `tsc`, `tsx`, `changeset`) are available directly on `PATH` even in Windows non-interactive shells.
+- Node version is pinned to Node 24 in root `mise.toml` for `webcrack` compatibility; in Windows non-interactive shells where `mise` is not activated on `PATH`, prefix commands with `mise exec --` (e.g. `mise exec -- pnpm exec biome check ...`) so Node 24 is resolved cleanly.
 - Root scripts:
   - `pnpm build` -> `turbo run build`
   - `pnpm check-types` -> `turbo run check-types` (covers 9 packages, including `vue-tsc --noEmit && tsc -p tsconfig.worker.json --noEmit` in `apps/web`; must pass with 0 errors)

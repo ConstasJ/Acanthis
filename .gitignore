@@ -152,3 +152,7 @@ data
 
 config.yaml
 *.tar.gz
+
+# mise local overrides
+mise.local.toml
+.mise.local.toml
