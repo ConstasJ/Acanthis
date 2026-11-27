@@ -16,17 +16,17 @@ const PATTERN_WEIGHTS = {
 const PATTERNS = {
 	// String array pattern: var _0x[a-f0-9]+ = ['...', '...', ...]
 	stringArray:
-		/var\s+_0x[a-f0-9]+\s*=\s*\[[^\]]*(['"][^'"]+['"]\s*,?)+[^\]]*\]/g,
+		/var\s+_0x[a-f0-9]+\s*=\s*\[[^\]]*(['"][^'"]+['"]\s*,?)+[^\]]*\]/,
 
 	// Hex-prefixed identifiers: high density of _0x[a-f0-9]{4,6}
 	hexIdentifiers: /_0x[a-f0-9]{4,6}/g,
 
 	// Rotate IIFE pattern: (function(_0x..., _0x...){...while(!![]){try{...parseInt...)
 	rotateIIFE:
-		/\(function\s*\(\s*_0x[a-f0-9]+\s*,\s*_0x[a-f0-9]+\s*\)\s*\{[^}]*while\s*\(!!\[\]\)/g,
+		/\(function\s*\(\s*_0x[a-f0-9]+\s*,\s*_0x[a-f0-9]+\s*\)\s*\{[^}]*while\s*\(!!\[\]\)/,
 
 	// String fetching pattern: function _0x...(... , ...){...getStringArray...}
-	stringFetcher: /function\s+_0x[a-f0-9]+\s*\([^)]*\)\s*\{[^}]*getStringArray/g,
+	stringFetcher: /function\s+_0x[a-f0-9]+\s*\([^)]*\)\s*\{[^}]*getStringArray/,
 };
 
 export function detectObfuscation(code: string): DetectionResult {
