@@ -25,12 +25,14 @@ import {
 	type PaginatedNovelsResponse,
 } from "./client";
 import { loadCliConfig, saveCliConfigValue } from "./config";
+import { isDirectoryPromptCancel, promptDirectory } from "./dir-prompt";
 import { runExport } from "./exporter";
 import { createExportProgressRenderer } from "./progress";
 import type { ExportMode, ResolvedCliConfig } from "./types";
 import {
 	isUnresolvedChapterId,
 	parseNovelIdOrUrl,
+	resolveExportTargetDir,
 	sanitizeFilename,
 } from "./utils";
 
@@ -42,7 +44,7 @@ class WizardCancelledError extends Error {
 }
 
 function unwrapPrompt<T>(value: T | symbol): T {
-	if (isCancel(value)) {
+	if (isCancel(value) || isDirectoryPromptCancel(value)) {
 		cancel("Operation cancelled.");
 		throw new WizardCancelledError();
 	}
@@ -505,13 +507,19 @@ export async function runInteractiveWizard(): Promise<void> {
 
 		const novelSubdirName = sanitizeFilename(novel.title);
 		const outputDir = unwrapPrompt(
-			await text({
-				message: `Base output directory (files will be saved in "<dir>/${novelSubdirName}"):`,
+			await promptDirectory({
+				message: `Base output directory (subdir: ${novelSubdirName}):`,
 				initialValue: config.outputDir,
-				defaultValue: config.outputDir,
 				placeholder: ".",
+				preview: (value) => {
+					const trimmed = value.trim();
+					if (!trimmed) {
+						return undefined;
+					}
+					return resolveExportTargetDir(trimmed, novel.title, true);
+				},
 				validate: (value) =>
-					value?.trim() ? undefined : "Output directory cannot be empty",
+					value.trim() ? undefined : "Output directory cannot be empty",
 			}),
 		).trim();
 

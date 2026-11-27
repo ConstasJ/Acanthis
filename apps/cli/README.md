@@ -28,7 +28,7 @@ Running `acanthis` with no arguments in an interactive terminal launches the gui
 acanthis
 ```
 
-The wizard probes server connectivity (prompting for a new `serverUrl` or token if unreachable), lets you select a novel source, browse the cached library, search by keyword, or enter a novel ID/URL directly, multiselect target volumes, pick `split` or `merged` mode, and track export progress.
+The wizard probes server connectivity (prompting for a new `serverUrl` or token if unreachable), lets you select a novel source, browse the cached library, search by keyword, or enter a novel ID/URL directly, multiselect target volumes, pick `split` or `merged` mode, choose the base output directory with inline ghost-text / Tab directory autocompletion, and track export progress.
 
 > Running `acanthis` with no subcommand in a **non-TTY** environment (such as CI or piped stdin/stdout) prints help and exits immediately with exit code `1` without blocking.
 
