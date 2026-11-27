@@ -1,5 +1,12 @@
 # @acanthis-dec/cli
 
+## 0.3.0
+
+### Minor Changes
+
+- d130f7f: 为 CLI 交互向导的输出基目录输入新增类似 zsh-autosuggestions / PSReadLine 的目录自动补全：支持行内幽灵建议预览、`Tab` / `Shift+Tab` 最长公共前缀与候选循环、`→` / `End` 接受补全、`↑` / `↓` 浏览候选目录列表、`~` 与双分隔符适配以及最终导出目录路径实时预览
+- 992bb67: 优化 CLI 导出目录行为：`outputDir`（默认 `.`）作为输出基目录，支持相对路径与 `~` 主目录展开，并在 `split` 与 `merged` 模式下默认在基目录下以清洗后的纯书名自动创建子目录；新增 `--no-subdir` 选项支持平铺输出至基目录，同时在 `ExportSummary` 中返回实际解析后的 `outputDir`
+
 ## 0.2.3
 
 ### Patch Changes
