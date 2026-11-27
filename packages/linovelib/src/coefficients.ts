@@ -22,13 +22,44 @@ export const descrambleCoefficientsSchema = z.object({
 	seedMultiplier: z.number().int(),
 });
 
+const JIEQI_RULES_BLOCK_REGEX =
+	/\/\*\s*JIEQI_READER_RULES_BEGIN\s*\*\/([\s\S]*?)\/\*\s*JIEQI_READER_RULES_END\s*\*\//;
+const OBFUSCATED_IDENTIFIER_REGEX = /_0x[a-f0-9]{4,6}/;
+
 function getObfuscatedPart(fullCode: string): string {
-	return fullCode
-		.split(/\r?\n/)
-		.map((line) => line.trim())
-		.filter((line) => line !== "")
-		.slice(-2)
-		.join("\n");
+	const markerMatch = fullCode.match(JIEQI_RULES_BLOCK_REGEX);
+	const markedBlock = markerMatch?.[1]?.trim();
+	if (markedBlock) {
+		return markedBlock;
+	}
+
+	try {
+		const ast = parse(fullCode, {
+			sourceType: "unambiguous",
+			errorRecovery: true,
+		});
+		const obfuscatedStatements = ast.program.body.filter((stmt) => {
+			if (stmt.start == null || stmt.end == null) {
+				return false;
+			}
+			return OBFUSCATED_IDENTIFIER_REGEX.test(
+				fullCode.slice(stmt.start, stmt.end),
+			);
+		});
+		const firstStmt = obfuscatedStatements[0];
+		const lastStmt = obfuscatedStatements.at(-1);
+		if (
+			firstStmt?.start != null &&
+			lastStmt?.end != null &&
+			lastStmt.end > firstStmt.start
+		) {
+			return fullCode.slice(firstStmt.start, lastStmt.end).trim();
+		}
+	} catch {
+		// Fall through to full-script parsing when AST extraction fails.
+	}
+
+	return fullCode;
 }
 
 export async function extractCoefficients(
@@ -36,7 +67,7 @@ export async function extractCoefficients(
 ): Promise<DescrambleCoefficients> {
 	const obfuscatedPart = getObfuscatedPart(script);
 	const deObfCode = await deobfuscate(obfuscatedPart);
-	const ast = parse(deObfCode, { sourceType: "module", plugins: ["jsx"] });
+	const ast = parse(deObfCode, { sourceType: "unambiguous", plugins: ["jsx"] });
 	const coefficients: Partial<DescrambleCoefficients> = {};
 	traverse(ast, {
 		BinaryExpression(path) {
