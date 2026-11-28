@@ -75,7 +75,7 @@ export interface BookshelfItem {
 	status?: NovelStatus | undefined;
 }
 
-export type DeviceKind = "desktop" | "mobile" | "unknown";
+export type DeviceKind = "desktop" | "mobile" | "ereader" | "unknown";
 
 export interface ReadingProgress {
 	platform: string;

@@ -156,7 +156,7 @@ function toBookshelfItem(
 }
 
 function normalizeDeviceKind(value: unknown): DeviceKind {
-	if (value === "desktop" || value === "mobile") {
+	if (value === "desktop" || value === "mobile" || value === "ereader") {
 		return value;
 	}
 	return "unknown";

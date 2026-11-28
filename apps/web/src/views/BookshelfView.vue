@@ -17,6 +17,7 @@ import {
 	Search,
 	SlidersHorizontal,
 	Smartphone,
+	Tablet,
 	Tag,
 	Trash2,
 	X,
@@ -470,6 +471,14 @@ onBeforeUnmount(() => {
 								</span>
 								<span
 									class="inline-flex items-center gap-1 text-[11px] text-[var(--text-muted)]"
+									:title="
+										resolveDisplayDeviceKind(
+											continueReading.deviceKind,
+											continueReading.deviceLabel,
+										) === 'ereader'
+											? '电纸书'
+											: undefined
+									"
 								>
 									<Monitor
 										v-if="
@@ -480,8 +489,39 @@ onBeforeUnmount(() => {
 										"
 										class="h-3 w-3"
 									/>
+									<Tablet
+										v-else-if="
+											resolveDisplayDeviceKind(
+												continueReading.deviceKind,
+												continueReading.deviceLabel,
+											) === 'ereader'
+										"
+										class="h-3 w-3"
+									/>
 									<Smartphone v-else class="h-3 w-3" />
-									{{ continueReading.deviceLabel }} ·
+									<span
+										v-if="
+											resolveDisplayDeviceKind(
+												continueReading.deviceKind,
+												continueReading.deviceLabel,
+											) === 'ereader' &&
+											continueReading.deviceLabel &&
+											continueReading.deviceLabel !== '电纸书'
+										"
+										class="rounded bg-[var(--bg-secondary)] px-1 py-0.5 text-[10px] text-[var(--text-secondary)]"
+									>
+										电纸书
+									</span>
+									{{
+										continueReading.deviceLabel ||
+										(resolveDisplayDeviceKind(
+											continueReading.deviceKind,
+											continueReading.deviceLabel,
+										) === "ereader"
+											? "电纸书"
+											: "")
+									}}
+									·
 									{{ formatRelativeTime(continueReading.updatedAt) }}
 								</span>
 							</div>

@@ -11,6 +11,7 @@ import {
 	Monitor,
 	Settings2,
 	Smartphone,
+	Tablet,
 	X,
 } from "lucide-vue-next";
 import {
@@ -1406,12 +1407,28 @@ onBeforeUnmount(() => {
 					"
 					class="mt-0.5 h-4 w-4 shrink-0 text-[var(--accent)]"
 				/>
+				<Tablet
+					v-else-if="
+						resolveDisplayDeviceKind(
+							remoteChapterPrompt.deviceKind,
+							remoteChapterPrompt.deviceLabel,
+						) === 'ereader'
+					"
+					class="mt-0.5 h-4 w-4 shrink-0 text-[var(--accent)]"
+				/>
 				<Smartphone
 					v-else
 					class="mt-0.5 h-4 w-4 shrink-0 text-[var(--accent)]"
 				/>
 				<p class="text-xs sm:text-sm leading-snug">
-					其他设备（{{ remoteChapterPrompt.deviceLabel }}）已读到「{{
+					{{
+						resolveDisplayDeviceKind(
+							remoteChapterPrompt.deviceKind,
+							remoteChapterPrompt.deviceLabel,
+						) === "ereader"
+							? "电纸书"
+							: "其他设备"
+					}}（{{ remoteChapterPrompt.deviceLabel }}）已读到「{{
 						remoteChapterPrompt.chapterTitle
 					}}」，是否跳转？
 				</p>

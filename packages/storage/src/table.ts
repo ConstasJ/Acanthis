@@ -221,7 +221,7 @@ export const readingProgress = sqliteTable(
 		totalParagraphs: integer("total_paragraphs").notNull(),
 		deviceLabel: text("device_label").notNull(),
 		deviceKind: text("device_kind", {
-			enum: ["desktop", "mobile", "unknown"],
+			enum: ["desktop", "mobile", "ereader", "unknown"],
 		})
 			.notNull()
 			.default("unknown"),

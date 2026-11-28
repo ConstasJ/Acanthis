@@ -71,7 +71,7 @@ interface NavigatorWithUAData extends Navigator {
 }
 
 export function normalizeDeviceKind(value: unknown): DeviceKind {
-	if (value === "desktop" || value === "mobile") {
+	if (value === "desktop" || value === "mobile" || value === "ereader") {
 		return value;
 	}
 	return "unknown";
@@ -105,6 +105,8 @@ export function detectDeviceKind(): DeviceKind {
 	return "unknown";
 }
 
+const EREADER_LABEL_PATTERN =
+	/\b(kindle|kobo|koreader|boox|ereader|e-reader|oasis|paperwhite)\b|电纸书/i;
 const DESKTOP_LABEL_PATTERN =
 	/\b(desktop|windows|win32|win64|macos|mac os|macbook|imac|linux|ubuntu|fedora|arch|pc)\b/i;
 const MOBILE_LABEL_PATTERN =
@@ -113,12 +115,19 @@ const MOBILE_LABEL_PATTERN =
 export function resolveDisplayDeviceKind(
 	deviceKind?: DeviceKind | null,
 	deviceLabel?: string | null,
-): "desktop" | "mobile" {
-	if (deviceKind === "desktop" || deviceKind === "mobile") {
+): "desktop" | "mobile" | "ereader" {
+	if (
+		deviceKind === "desktop" ||
+		deviceKind === "mobile" ||
+		deviceKind === "ereader"
+	) {
 		return deviceKind;
 	}
 	const label = deviceLabel?.trim() ?? "";
 	if (label) {
+		if (EREADER_LABEL_PATTERN.test(label)) {
+			return "ereader";
+		}
 		if (DESKTOP_LABEL_PATTERN.test(label)) {
 			return "desktop";
 		}

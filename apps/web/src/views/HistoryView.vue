@@ -9,6 +9,7 @@ import {
 	Play,
 	Search,
 	Smartphone,
+	Tablet,
 	Trash2,
 	X,
 } from "lucide-vue-next";
@@ -357,13 +358,35 @@ onBeforeUnmount(() => {
 									<Clock class="h-3 w-3" />
 									{{ formatTimeHHmm(item.updatedAt) }}
 								</span>
-								<span class="inline-flex items-center gap-1 truncate">
+								<span
+									class="inline-flex items-center gap-1 truncate"
+									:title="resolveDisplayDeviceKind(item.deviceKind, item.deviceLabel) === 'ereader' ? '电纸书' : undefined"
+								>
 									<Monitor
 										v-if="resolveDisplayDeviceKind(item.deviceKind, item.deviceLabel) === 'desktop'"
 										class="h-3 w-3 shrink-0"
 									/>
+									<Tablet
+										v-else-if="resolveDisplayDeviceKind(item.deviceKind, item.deviceLabel) === 'ereader'"
+										class="h-3 w-3 shrink-0"
+									/>
 									<Smartphone v-else class="h-3 w-3 shrink-0" />
-									<span class="truncate">{{ item.deviceLabel }}</span>
+									<span class="truncate">{{
+										item.deviceLabel ||
+										(resolveDisplayDeviceKind(item.deviceKind, item.deviceLabel) === "ereader"
+											? "电纸书"
+											: "")
+									}}</span>
+									<span
+										v-if="
+											resolveDisplayDeviceKind(item.deviceKind, item.deviceLabel) === 'ereader' &&
+											item.deviceLabel &&
+											item.deviceLabel !== '电纸书'
+										"
+										class="shrink-0 rounded bg-[var(--bg-secondary)] px-1 py-0.5 text-[10px] text-[var(--text-secondary)]"
+									>
+										电纸书
+									</span>
 								</span>
 								<span
 									class="rounded bg-[var(--bg-secondary)] px-1.5 py-0.5 text-[10px] text-[var(--text-secondary)]"
