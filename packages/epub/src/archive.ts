@@ -9,6 +9,8 @@ import {
 } from "./opf";
 import { DEFAULT_EPUB_CSS } from "./styles";
 import type {
+	AcanthisEpubManifest,
+	AcanthisEpubManifestChapter,
 	EpubChapterData,
 	EpubImageAsset,
 	NovelEpubInput,
@@ -18,7 +20,7 @@ import {
 	buildCoverPageXhtml,
 	buildVolumeTitlePageXhtml,
 	resolveImageExtension,
-	sanitizeChapterHtmlToXhtml,
+	sanitizeChapterHtmlToXhtmlWithStats,
 } from "./xhtml";
 
 const DEFAULT_LANGUAGE = "zh-CN";
@@ -260,16 +262,18 @@ function appendChapterEntry(options: {
 	manifest: OpfManifestItem[];
 	spine: OpfSpineItem[];
 	textEntries: ArchiveTextEntry[];
-}): NavEntry {
+	enableBlockAnchors?: boolean | undefined;
+}): { navEntry: NavEntry; totalParagraphs: number } {
 	const paddedIndex = String(options.chapterIndex).padStart(4, "0");
 	const manifestId = `ch-${paddedIndex}`;
 	const manifestHref = `text/ch-${paddedIndex}.xhtml`;
 	const zipPath = `OEBPS/${manifestHref}`;
 
-	const xhtml = sanitizeChapterHtmlToXhtml({
+	const { xhtml, totalParagraphs } = sanitizeChapterHtmlToXhtmlWithStats({
 		chapter: options.chapter,
 		imageHrefBySourceUrl: options.imageHrefBySourceUrl,
 		language: options.language,
+		enableBlockAnchors: options.enableBlockAnchors,
 	});
 
 	options.manifest.push({
@@ -284,8 +288,11 @@ function appendChapterEntry(options: {
 	});
 
 	return {
-		title: options.chapter.title,
-		href: manifestHref,
+		navEntry: {
+			title: options.chapter.title,
+			href: manifestHref,
+		},
+		totalParagraphs,
 	};
 }
 
@@ -318,10 +325,13 @@ export function buildVolumeEpub(input: VolumeEpubInput): Uint8Array {
 		input.illustrations,
 	);
 
+	const enableBlockAnchors = input.syncMetadata !== undefined;
+	const manifestChapters: AcanthisEpubManifestChapter[] = [];
+
 	let chapterCounter = 0;
 	for (const chapter of input.chapters) {
 		chapterCounter += 1;
-		const navEntry = appendChapterEntry({
+		const { navEntry, totalParagraphs } = appendChapterEntry({
 			chapter,
 			chapterIndex: chapterCounter,
 			language,
@@ -329,8 +339,36 @@ export function buildVolumeEpub(input: VolumeEpubInput): Uint8Array {
 			manifest,
 			spine,
 			textEntries,
+			enableBlockAnchors,
 		});
 		navEntries.push(navEntry);
+		if (enableBlockAnchors) {
+			manifestChapters.push({
+				index: chapterCounter,
+				href: navEntry.href,
+				chapterId: chapter.id,
+				title: chapter.title,
+				totalParagraphs,
+			});
+		}
+	}
+
+	if (input.syncMetadata) {
+		const acanthisManifest: AcanthisEpubManifest = {
+			schemaVersion: 1,
+			platform: input.syncMetadata.platform,
+			novelId: input.syncMetadata.novelId,
+			volumeId: input.syncMetadata.volumeId,
+			volumeTitle: input.volumeTitle,
+			profile: input.syncMetadata.profile,
+			contentFingerprint: input.syncMetadata.contentFingerprint,
+			generatedAt: modifiedAt.toISOString(),
+			chapters: manifestChapters,
+		};
+		textEntries.push({
+			zipPath: "OEBPS/acanthis-manifest.json",
+			content: `${JSON.stringify(acanthisManifest, null, 2)}\n`,
+		});
 	}
 
 	for (const image of registeredImages) {
@@ -455,7 +493,7 @@ export function buildNovelEpub(input: NovelEpubInput): Uint8Array {
 		const volumeNavChildren: NavEntry[] = [];
 		for (const chapter of volume.chapters) {
 			chapterCounter += 1;
-			const chapterNavEntry = appendChapterEntry({
+			const { navEntry: chapterNavEntry } = appendChapterEntry({
 				chapter,
 				chapterIndex: chapterCounter,
 				language,

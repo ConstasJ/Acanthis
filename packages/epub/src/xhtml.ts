@@ -43,6 +43,7 @@ const REMOVED_TAG_NAMES = new Set([
 ]);
 
 const HEADING_TAG_NAMES = new Set(["h1", "h2", "h3"]);
+const ALL_HEADING_TAG_NAMES = new Set(["h1", "h2", "h3", "h4", "h5", "h6"]);
 
 const URI_ATTRIBUTE_NAMES = new Set([
 	"href",
@@ -416,11 +417,135 @@ function escapeNodesForXmlSerialization(nodes: ChildNode[]): void {
 	}
 }
 
-export function sanitizeChapterHtmlToXhtml(options: {
+function hasSingleImageChild(element: Element): boolean {
+	let foundImg = false;
+	for (const child of element.children) {
+		if (isText(child)) {
+			if (child.data.trim().length > 0) {
+				return false;
+			}
+			continue;
+		}
+		if (isTag(child)) {
+			if (child.name.toLowerCase() === "img" && !foundImg) {
+				foundImg = true;
+				continue;
+			}
+			return false;
+		}
+		if (!isComment(child)) {
+			return false;
+		}
+	}
+	return foundImg;
+}
+
+function annotateChapterBlocks(nodes: ChildNode[]): {
+	nodes: ChildNode[];
+	totalParagraphs: number;
+} {
+	const result: ChildNode[] = [];
+	let blockIndex = 0;
+
+	for (const node of nodes) {
+		if (isText(node)) {
+			const trimmed = node.data.trim();
+			if (!trimmed) {
+				result.push(node);
+				continue;
+			}
+			const wrapped = new Element("p", { id: `b${blockIndex}` }, [
+				new Text(trimmed),
+			]);
+			wrapped.parent = node.parent;
+			result.push(wrapped);
+			blockIndex += 1;
+			continue;
+		}
+
+		if (!isTag(node)) {
+			result.push(node);
+			continue;
+		}
+
+		const tag = node.name.toLowerCase();
+
+		if (tag === "img") {
+			node.attribs = {
+				...node.attribs,
+				id: `b${blockIndex}`,
+			};
+			result.push(node);
+			blockIndex += 1;
+			continue;
+		}
+
+		if (tag === "p") {
+			if (hasSingleImageChild(node)) {
+				node.attribs = {
+					...node.attribs,
+					id: `b${blockIndex}`,
+				};
+				result.push(node);
+				blockIndex += 1;
+				continue;
+			}
+
+			const hasText = collectTextContent(node).trim().length > 0;
+			const hasElementChild = node.children.some((child) => isTag(child));
+			if (!hasText && !hasElementChild) {
+				result.push(node);
+				continue;
+			}
+
+			node.attribs = {
+				...node.attribs,
+				id: `b${blockIndex}`,
+			};
+			result.push(node);
+			blockIndex += 1;
+			continue;
+		}
+
+		if (ALL_HEADING_TAG_NAMES.has(tag)) {
+			node.attribs = {
+				...node.attribs,
+				id: `b${blockIndex}`,
+			};
+			result.push(node);
+			blockIndex += 1;
+			continue;
+		}
+
+		node.attribs = {
+			...node.attribs,
+			id: `b${blockIndex}`,
+		};
+		result.push(node);
+		blockIndex += 1;
+	}
+
+	return {
+		nodes: result,
+		totalParagraphs: blockIndex,
+	};
+}
+
+export interface SanitizeChapterHtmlOptions {
 	chapter: EpubChapterData;
 	imageHrefBySourceUrl: ReadonlyMap<string, string>;
 	language?: string | undefined;
-}): string {
+	enableBlockAnchors?: boolean | undefined;
+}
+
+export interface SanitizedChapterXhtmlResult {
+	xhtml: string;
+	totalParagraphs: number;
+}
+
+export function sanitizeChapterHtmlToXhtmlWithStats(
+	options: SanitizeChapterHtmlOptions,
+): SanitizedChapterXhtmlResult {
 	const document = parseDocument(options.chapter.html, {
 		decodeEntities: true,
 	});
@@ -428,8 +553,17 @@ export function sanitizeChapterHtmlToXhtml(options: {
 		document.children,
 		options.imageHrefBySourceUrl,
 	);
+	let childrenForHeading = sanitizedChildren;
+	let totalParagraphs = 0;
+
+	if (options.enableBlockAnchors) {
+		const annotated = annotateChapterBlocks(sanitizedChildren);
+		childrenForHeading = annotated.nodes;
+		totalParagraphs = annotated.totalParagraphs;
+	}
+
 	const normalizedChildren = normalizeLeadingHeading(
-		sanitizedChildren,
+		childrenForHeading,
 		options.chapter.title,
 	);
 	escapeNodesForXmlSerialization(normalizedChildren);
@@ -438,9 +572,18 @@ export function sanitizeChapterHtmlToXhtml(options: {
 		encodeEntities: false,
 	});
 
-	return wrapXhtmlDocument({
-		title: options.chapter.title,
-		language: options.language,
-		bodyHtml,
-	});
+	return {
+		xhtml: wrapXhtmlDocument({
+			title: options.chapter.title,
+			language: options.language,
+			bodyHtml,
+		}),
+		totalParagraphs,
+	};
+}
+
+export function sanitizeChapterHtmlToXhtml(
+	options: SanitizeChapterHtmlOptions,
+): string {
+	return sanitizeChapterHtmlToXhtmlWithStats(options).xhtml;
 }
