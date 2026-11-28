@@ -97,7 +97,8 @@ ONNXRUNTIME_NODE_INSTALL=skip npm install \
 	@libsql/client@0.18.0 \
 	koffi@3.3.8 \
 	isolated-vm@7.0.2 \
-	onnxruntime-node@1.31.1
+	onnxruntime-node@1.31.1 \
+	sharp@0.35.5
 
 find node_modules/onnxruntime-node/bin/napi-v6 -mindepth 1 -maxdepth 1 -type d ! -name linux -exec rm -rf {} +
 find node_modules/onnxruntime-node/bin/napi-v6/linux -mindepth 1 -maxdepth 1 -type d ! -name "${ORT_ARCH}" -exec rm -rf {} +
@@ -105,6 +106,16 @@ find node_modules/onnxruntime-node/bin/napi-v6/linux -mindepth 1 -maxdepth 1 -ty
 if [ -d node_modules/isolated-vm/prebuilds ]; then
 	find node_modules/isolated-vm/prebuilds -mindepth 1 -maxdepth 1 -type d ! -name "linux-${ORT_ARCH}" -exec rm -rf {} +
 	rm -f "node_modules/isolated-vm/prebuilds/linux-${ORT_ARCH}"/*.musl.node
+fi
+
+if [ -d node_modules/@img ]; then
+	find node_modules/@img -mindepth 1 -maxdepth 1 -type d \
+		\( -name 'sharp-*' -o -name 'sharp-libvips-*' \) \
+		! -name "sharp-linux-${ORT_ARCH}" \
+		! -name "sharp-libvips-linux-${ORT_ARCH}" \
+		-exec rm -rf {} +
+	test -d "node_modules/@img/sharp-linux-${ORT_ARCH}"
+	test -d "node_modules/@img/sharp-libvips-linux-${ORT_ARCH}"
 fi
 
 rm -rf /tmp/*
