@@ -34,6 +34,7 @@
 ## 文件结构总览
 
 ### Phase 1（`Acanthis` 主仓 + `acanthis-mobile` 枚举适配）
+
 - Modify: `packages/core/src/types.ts` — `DeviceKind` 增加 `"ereader"`
 - Modify: `packages/storage/src/table.ts` — `readingProgress.deviceKind` 枚举增加 `"ereader"`
 - Modify: `apps/api-server/src/schemas/sync.ts` — `deviceKindSchema` 增加 `"ereader"`
@@ -52,6 +53,7 @@
 - Modify: `apps/api-server/openapi.json` — 重新生成 OpenAPI 契约
 
 ### Phase 2（`C:\Users\ConstasJ\Coding\acanthis-koplugin` 独立仓）
+
 - Create: `acanthis.koplugin/_meta.lua` — 插件元信息
 - Create: `acanthis.koplugin/settings.lua` — `LuaSettings` 封装（配置、书架/目录离线快照、待同步队列存储）
 - Create: `acanthis.koplugin/api_client.lua` — HTTP(S) 客户端（Bearer、JSON、流式下载、`NetworkMgr` 封装）
@@ -61,6 +63,7 @@
 - Create: `README.md`, `scripts/package.ps1`（或 `scripts/package.sh`）— 安装说明与 `.zip` 打包脚本
 
 ### Phase 3（三端进度双向同步 + `sharp` 墨水屏瘦身）
+
 - Modify: `apps/api-server/package.json`, `apps/api-server/build.ts`, `apps/api-server/Dockerfile.runtime`, `apps/api-server/src/epub/imageProcessor.ts` — 集成 `sharp` 实现 `profile=eink` 灰度压缩与回退容错
 - Create: `acanthis.koplugin/epub_manifest.lua` — 读取并缓存本地 EPUB 内 `OEBPS/acanthis-manifest.json`
 - Create: `acanthis.koplugin/sync_bridge.lua` — XPointer ↔ `(volumeId, chapterId, paragraphIndex)` 双向映射、离线静默队列与跨卷提示
@@ -73,6 +76,7 @@
 ### Task 1: 跨端 `DeviceKind` 枚举扩展（新增 `"ereader"`）
 
 **Files:**
+
 - Modify: `packages/core/src/types.ts:78`
 - Modify: `packages/storage/src/table.ts:223-227`
 - Modify: `apps/api-server/src/schemas/sync.ts:62-65`
@@ -85,6 +89,7 @@
 - Test: `../acanthis-mobile/composeApp/src/commonTest/kotlin/io/acanthis/app/feature/history/HistoryViewModelTest.kt`
 
 **Interfaces:**
+
 - Produces:
   - `DeviceKind = "desktop" | "mobile" | "ereader" | "unknown"` (`@acanthis-dec/core`)
   - `deviceKindSchema` (`apps/api-server/src/schemas/sync.ts`)
@@ -112,12 +117,14 @@
 ### Task 2: `packages/epub` 段落锚点标注与 `OEBPS/acanthis-manifest.json` 写入
 
 **Files:**
+
 - Modify: `packages/epub/src/types.ts`
 - Modify: `packages/epub/src/xhtml.ts`
 - Modify: `packages/epub/src/archive.ts`
 - Modify: `packages/epub/src/index.ts`
 
 **Interfaces:**
+
 - Consumes: 现有 `sanitizeChapterHtmlToXhtml`、`buildVolumeEpub`
 - Produces:
   - `VolumeEpubSyncMetadata`: `{ platform: string; novelId: string; volumeId: string; profile: "original" | "eink"; contentFingerprint: string }`
@@ -149,6 +156,7 @@
 ### Task 3: `apps/api-server` EPUB 任务抽象（`EpubJobStore`）与磁盘指纹 LRU 缓存
 
 **Files:**
+
 - Modify: `apps/api-server/package.json`（添加 `"@acanthis-dec/epub": "workspace:*"`）
 - Modify: `apps/api-server/src/config.ts`（添加 `epub` 配置段与环境变量映射）
 - Create: `apps/api-server/src/epub/types.ts`
@@ -157,6 +165,7 @@
 - Create: `apps/api-server/src/epub/imageProcessor.ts`
 
 **Interfaces:**
+
 - Produces:
   - `EpubJobStore`: `get(jobId)`, `findActiveByDedupeKey(dedupeKey)`, `create(record)`, `update(jobId, patch)`, `pruneExpired(nowMs)`
   - `InMemoryEpubJobStore implements EpubJobStore`
@@ -185,6 +194,7 @@
 ### Task 4: `apps/api-server` 按卷 EPUB 构建服务、路由、批量状态接口与 `novel/:novelId?cachedOnly=true`
 
 **Files:**
+
 - Create: `apps/api-server/src/epub/service.ts`
 - Create: `apps/api-server/src/schemas/epub.ts`
 - Create: `apps/api-server/src/epub.ts`
@@ -194,6 +204,7 @@
 - Modify: `apps/api-server/openapi.json`
 
 **Interfaces:**
+
 - Consumes: `EpubJobStore`, `EpubDiskCache`, `EpubImageProcessor`, `buildVolumeEpub`, `StorageService`, `LinovelibClient`
 - Produces:
   - `POST /v1/linovelib/epub/volumes/:novelId/:volumeId/jobs`
@@ -234,6 +245,7 @@
 ### Task 5: 初始化 `C:\Users\ConstasJ\Coding\acanthis-koplugin` 仓库与基础配置/网络模块
 
 **Files:**
+
 - Create: `C:\Users\ConstasJ\Coding\acanthis-koplugin\acanthis.koplugin\_meta.lua`
 - Create: `C:\Users\ConstasJ\Coding\acanthis-koplugin\acanthis.koplugin\settings.lua`
 - Create: `C:\Users\ConstasJ\Coding\acanthis-koplugin\acanthis.koplugin\api_client.lua`
@@ -241,6 +253,7 @@
 - Create: `C:\Users\ConstasJ\Coding\acanthis-koplugin\.gitignore`
 
 **Interfaces:**
+
 - Produces:
   - `Settings`: `getConfig()`, `setConfig(k, v)`, `getBookshelfSnapshot()`, `saveBookshelfSnapshot(data)`, `getNovelVolumesSnapshot(novelId)`, `saveNovelVolumesSnapshot(novelId, volumes)`, `getPendingProgress()`, `upsertPendingProgress(item)`, `clearPendingProgress(keys)`
   - `ApiClient`: `getSyncState(since)`, `pushSyncState(payload)`, `getNovel(novelId, cachedOnly)`, `getNovelEpubStatus(novelId, profile)`, `createVolumeEpubJob(novelId, volumeId, opts)`, `getEpubJob(jobId)`, `downloadVolumeEpub(novelId, volumeId, profile, targetPartPath, onProgress)`
@@ -263,12 +276,14 @@
 ### Task 6: 本地存储管理（`storage_mgr.lua`）与极简列表 UI（`ui_bookshelf.lua` / `main.lua`）
 
 **Files:**
+
 - Create: `C:\Users\ConstasJ\Coding\acanthis-koplugin\acanthis.koplugin\storage_mgr.lua`
 - Create: `C:\Users\ConstasJ\Coding\acanthis-koplugin\acanthis.koplugin\ui_bookshelf.lua`
 - Create: `C:\Users\ConstasJ\Coding\acanthis-koplugin\acanthis.koplugin\main.lua`
 - Create: `C:\Users\ConstasJ\Coding\acanthis-koplugin\scripts\package.ps1`
 
 **Interfaces:**
+
 - Consumes: `Settings`, `ApiClient`
 - Produces:
   - `StorageMgr`: `resolveVolumePaths(novelTitle, volumeTitle)`, `readLocalSidecar(sidecarPath)`, `writeLocalSidecar(sidecarPath, meta)`, `commitPartFile(partPath, finalPath)`, `deleteVolume(novelTitle, volumeTitle)`
@@ -301,6 +316,7 @@
 ### Task 7: `apps/api-server` 集成 `sharp` 实现 `profile=eink` 墨水屏图片瘦身与 Docker Runtime 更新
 
 **Files:**
+
 - Modify: `apps/api-server/package.json`（添加 `sharp`）
 - Modify: `apps/api-server/build.ts`（`external` 新增 `"sharp"`）
 - Modify: `apps/api-server/Dockerfile.runtime`（安装锁版本 `sharp` 并按 `TARGETARCH` 裁剪 `@img/sharp-*` / `@img/sharp-libvips-*`）
@@ -308,6 +324,7 @@
 - Modify: `apps/api-server/src/services.ts`（注入 `SharpEpubImageProcessor`）
 
 **Interfaces:**
+
 - Consumes: `EpubImageProcessor`, `EpubImageAsset`
 - Produces: `SharpEpubImageProcessor`（`profile === "eink"` 时执行 `rotate().resize({ width: 1072, withoutEnlargement: true, fit: "inside" }).grayscale().jpeg({ quality: 78, mozjpeg: true })`，输出 `mimeType: "image/jpeg"`；失败记录 warn 并回退原图）
 
@@ -333,12 +350,14 @@
 ### Task 8: `acanthis-koplugin` 进度双向同步（`epub_manifest.lua` + `sync_bridge.lua`）
 
 **Files:**
+
 - Create: `C:\Users\ConstasJ\Coding\acanthis-koplugin\acanthis.koplugin\epub_manifest.lua`
 - Create: `C:\Users\ConstasJ\Coding\acanthis-koplugin\acanthis.koplugin\sync_bridge.lua`
 - Modify: `C:\Users\ConstasJ\Coding\acanthis-koplugin\acanthis.koplugin\main.lua`
 - Modify: `C:\Users\ConstasJ\Coding\acanthis-koplugin\acanthis.koplugin\ui_bookshelf.lua`
 
 **Interfaces:**
+
 - Consumes: `Settings`, `ApiClient`, `OEBPS/acanthis-manifest.json`
 - Produces:
   - `EpubManifest`: `loadFromEpub(epubPath)`（无清单返回 `nil` 并缓存判定结果）

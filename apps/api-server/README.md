@@ -59,18 +59,18 @@ curl "http://localhost:5301/v1/linovelib/chapter/example-chapter-id"
 
 All routes are mounted under `/v1/linovelib`.
 
-| Method | Path                      | Description                                                        |
-| ------ | ------------------------- | ------------------------------------------------------------------ |
-| `GET`  | `/chapter/:chapterId`     | Returns chapter content from cache or the configured adapter.      |
-| `GET`  | `/novel/:novelId`                                 | Returns normalized novel metadata; accepts optional `style` and `cachedOnly` queries. |
-| `GET`  | `/cover/novel/:novelId`                           | Returns novel cover binary data.                                                      |
-| `GET`  | `/cover/volume/:volumeId`                         | Returns volume cover binary data.                                                     |
-| `GET`  | `/search?keyword=<text>`                          | Searches normalized metadata and caches results.                                      |
-| `POST` | `/epub/volumes/:novelId/:volumeId/jobs`           | Creates or reuses an async per-volume EPUB build job (`original` / `eink`).           |
-| `GET`  | `/epub/jobs/:jobId`                               | Returns progress and artifact metadata for an EPUB build job.                         |
-| `GET`  | `/epub/novels/:novelId/status`                    | Returns batch EPUB cache and build status for all volumes of a novel.                 |
-| `GET`  | `/epub/volumes/:novelId/:volumeId/status`         | Returns EPUB cache and build status for a single volume.                              |
-| `GET`  | `/epub/volumes/:novelId/:volumeId/download`       | Streams a cached volume EPUB with `ETag` / `If-None-Match` (`304`) support.           |
+| Method | Path                                        | Description                                                                           |
+| ------ | ------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `GET`  | `/chapter/:chapterId`                       | Returns chapter content from cache or the configured adapter.                         |
+| `GET`  | `/novel/:novelId`                           | Returns normalized novel metadata; accepts optional `style` and `cachedOnly` queries. |
+| `GET`  | `/cover/novel/:novelId`                     | Returns novel cover binary data.                                                      |
+| `GET`  | `/cover/volume/:volumeId`                   | Returns volume cover binary data.                                                     |
+| `GET`  | `/search?keyword=<text>`                    | Searches normalized metadata and caches results.                                      |
+| `POST` | `/epub/volumes/:novelId/:volumeId/jobs`     | Creates or reuses an async per-volume EPUB build job (`original` / `eink`).           |
+| `GET`  | `/epub/jobs/:jobId`                         | Returns progress and artifact metadata for an EPUB build job.                         |
+| `GET`  | `/epub/novels/:novelId/status`              | Returns batch EPUB cache and build status for all volumes of a novel.                 |
+| `GET`  | `/epub/volumes/:novelId/:volumeId/status`   | Returns EPUB cache and build status for a single volume.                              |
+| `GET`  | `/epub/volumes/:novelId/:volumeId/download` | Streams a cached volume EPUB with `ETag` / `If-None-Match` (`304`) support.           |
 
 Successful JSON routes use:
 

@@ -22,6 +22,7 @@
 ## 2. 目标、非目标与反目标
 
 ### Goals
+
 - **Phase 1（服务端底座）**：
   - 在 `apps/api-server` 接入 `@acanthis-dec/epub`，提供按卷异步构建、进度查询、缓存状态查询与流式下载接口。
   - 抽象 `EpubJobStore` 与磁盘缓存索引，**为后续 Web/Mobile 触发后台预打包预留扩展点**。
@@ -34,11 +35,13 @@
   - 在 `apps/api-server` 引入 `sharp`（同步更新 `Dockerfile.runtime` 与 `build.ts` externals），提供 `profile=eink` 灰度压缩预设。
 
 ### Non-Goals
+
 - 本次不实现 OPDS 1.2 / 2.0 路由（但 Phase 1 的按卷 EPUB 磁盘缓存底座天然可被未来 OPDS 复用）。
 - 不在 KOReader 插件中实现排行榜、全站搜索、封面墙或复杂书源筛选（找书/加书架仍由 Web 与移动端承担）。
 - Phase 1 不在 `packages/storage` 中新增 SQLite 任务表与数据库迁移（先以内存 `InMemoryEpubJobStore` 实现，保留平滑切换至 SQLite 的接口）。
 
 ### Anti-Goals
+
 - **禁止在单个 HTTP GET 下载请求中同步爬取整卷章节**，避免 KO1 超时重连引发并发雪崩。
 - **禁止将高分辨率彩图原样灌入 KO1 的默认下载流**，避免 512MB 内存翻图卡顿或 4GB 存储迅速耗尽。
 - **禁止插件在后台静默高频轮询网络**，破坏墨水屏飞行模式续航习惯。
@@ -61,11 +64,11 @@
 
 ## 4. 架构方案对比与选型
 
-| 方案 | 核心思路 | 权衡 | 结论 |
-| :--- | :--- | :--- | :--- |
+| 方案               | 核心思路                                                                                       | 权衡                                                                                                                                    | 结论                                                |
+| :----------------- | :--------------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------- | :-------------------------------------------------- |
 | **方案一（选定）** | **内存任务队列（抽象 `EpubJobStore`）+ 磁盘指纹缓存 + EPUB 内嵌锚点客户端映射 + `sharp` 瘦身** | 零 DB 迁移成本，完全贴合单人自部署；重启仅丢失内存中临时进度，已抓章节全在 `storage` 可秒级续抓；通过 `EpubJobStore` 预留未来预打包扩展 | **采用**（附加预打包扩展点与 `DeviceKind.ereader`） |
-| 方案二 | SQLite 持久化任务表 + 跨端预打包 Worker + 专用 KOReader 同步端点 | 支持重启恢复队列与手机端提前预构建，但改动面过大（DB 迁移、Web/Mobile 联动、额外同步端点） | 暂不采用（预留演进路径） |
-| 方案三 | 同步长超时 GET 直出 EPUB + 仅章节级粗同步 | 代码量最小，但未缓存整卷时极易超时断连，无进度反馈，且牺牲三端段落级续读体验 | 淘汰 |
+| 方案二             | SQLite 持久化任务表 + 跨端预打包 Worker + 专用 KOReader 同步端点                               | 支持重启恢复队列与手机端提前预构建，但改动面过大（DB 迁移、Web/Mobile 联动、额外同步端点）                                              | 暂不采用（预留演进路径）                            |
+| 方案三             | 同步长超时 GET 直出 EPUB + 仅章节级粗同步                                                      | 代码量最小，但未缓存整卷时极易超时断连，无进度反馈，且牺牲三端段落级续读体验                                                            | 淘汰                                                |
 
 ---
 
@@ -80,6 +83,7 @@ export type DeviceKind = "desktop" | "mobile" | "ereader" | "unknown";
 ```
 
 影响面与兼容策略：
+
 1. **`packages/core/src/types.ts`**：更新 `DeviceKind` 类型定义。
 2. **`packages/storage/src/table.ts`**：更新 `readingProgress.deviceKind` 列枚举定义（SQLite 列类型为 `TEXT`，无需新增 DDL 迁移脚本，兼容存量数据）。
 3. **`apps/api-server/src/schemas/sync.ts`**：更新 `deviceKindSchema` 并重新生成 `openapi.json`。
@@ -118,23 +122,23 @@ export interface VolumeEpubSyncMetadata {
 
 ```json
 {
-  "schemaVersion": 1,
-  "platform": "linovelib",
-  "novelId": "2930",
-  "volumeId": "114514",
-  "volumeTitle": "第一卷",
-  "profile": "eink",
-  "contentFingerprint": "sha256:...",
-  "generatedAt": "2026-11-28T14:30:00.000Z",
-  "chapters": [
-    {
-      "index": 1,
-      "href": "text/ch-0001.xhtml",
-      "chapterId": "123456",
-      "title": "序章",
-      "totalParagraphs": 42
-    }
-  ]
+	"schemaVersion": 1,
+	"platform": "linovelib",
+	"novelId": "2930",
+	"volumeId": "114514",
+	"volumeTitle": "第一卷",
+	"profile": "eink",
+	"contentFingerprint": "sha256:...",
+	"generatedAt": "2026-11-28T14:30:00.000Z",
+	"chapters": [
+		{
+			"index": 1,
+			"href": "text/ch-0001.xhtml",
+			"chapterId": "123456",
+			"title": "序章",
+			"totalParagraphs": 42
+		}
+	]
 }
 ```
 
@@ -146,12 +150,12 @@ export interface VolumeEpubSyncMetadata {
 
 在 `ConfigSchema` 中新增 `epub` 配置段（同步支持 `config.yaml` 与环境变量）：
 
-| 配置键 | 环境变量 | 默认值 | 说明 |
-| :--- | :--- | :--- | :--- |
-| `epub.cacheDir` | `EPUB_CACHE_DIR` | `${data.filePath}/epub-cache` | EPUB 产物磁盘缓存目录 |
-| `epub.maxCacheBytes` | `EPUB_MAX_CACHE_BYTES` | `536870912`（512MB） | 磁盘缓存上限，超出按 LRU 淘汰 |
-| `epub.jobTtlMs` | `EPUB_JOB_TTL_MS` | `1800000`（30 分钟） | 已完成/失败任务记录在内存中的保留时长 |
-| `epub.maxConcurrentJobs` | `EPUB_MAX_CONCURRENT_JOBS` | `1` | 最大并发构建任务数（保护上游限速与风控） |
+| 配置键                   | 环境变量                   | 默认值                        | 说明                                     |
+| :----------------------- | :------------------------- | :---------------------------- | :--------------------------------------- |
+| `epub.cacheDir`          | `EPUB_CACHE_DIR`           | `${data.filePath}/epub-cache` | EPUB 产物磁盘缓存目录                    |
+| `epub.maxCacheBytes`     | `EPUB_MAX_CACHE_BYTES`     | `536870912`（512MB）          | 磁盘缓存上限，超出按 LRU 淘汰            |
+| `epub.jobTtlMs`          | `EPUB_JOB_TTL_MS`          | `1800000`（30 分钟）          | 已完成/失败任务记录在内存中的保留时长    |
+| `epub.maxConcurrentJobs` | `EPUB_MAX_CONCURRENT_JOBS` | `1`                           | 最大并发构建任务数（保护上游限速与风控） |
 
 #### 5.3.2 缓存键与内容指纹（Content Fingerprint）
 
@@ -194,13 +198,15 @@ export interface EpubJobRecord {
 	total: number;
 	warnings: string[];
 	error?: string | undefined;
-	artifact?: {
-		contentFingerprint: string;
-		sizeBytes: number;
-		chapterCount: number;
-		generatedAt: string;
-		downloadPath: string;
-	} | undefined;
+	artifact?:
+		| {
+				contentFingerprint: string;
+				sizeBytes: number;
+				chapterCount: number;
+				generatedAt: string;
+				downloadPath: string;
+		  }
+		| undefined;
 	createdAt: number;
 	updatedAt: number;
 }
@@ -341,6 +347,7 @@ KOReader 主菜单 → Acanthis
 ## 7. 留给实现阶段自主决定的细节（Left to the Builder）
 
 以下实现细节无需在设计阶段锁死，由后续计划与实现阶段按工程最佳实践敲定：
+
 - `apps/api-server` 磁盘缓存 LRU 扫描与清理的具体触发时机（写入后异步清理 vs 定时清理）；
 - `InMemoryEpubJobStore` 内部过期任务的清理间隔与并发队列调度实现；
 - `acanthis-koplugin` 流式写文件的分块大小、HTTP 超时参数（连接超时 vs 读取超时）以及轮询退避间隔（建议 1~2 秒）；
