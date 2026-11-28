@@ -1,5 +1,13 @@
 # @acanthis-dec/cli
 
+## 0.3.1
+
+### Patch Changes
+
+- Updated dependencies [d93ed34]
+  - @acanthis-dec/core@1.5.0
+  - @acanthis-dec/epub@0.2.0
+
 ## 0.3.0
 
 ### Minor Changes
