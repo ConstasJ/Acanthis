@@ -43,6 +43,7 @@ await build({
 		"isolated-vm",
 		"koffi",
 		"onnxruntime-node",
+		"sharp",
 		// hono-openapi / @standard-community/* 的可选多校验库动态导入（服务端仅使用 Zod v4）
 		"@valibot/to-json-schema",
 		"effect",

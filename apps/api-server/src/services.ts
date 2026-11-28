@@ -5,6 +5,10 @@ import {
 import { StorageService } from "@acanthis-dec/storage";
 import { createLogger, format, transports } from "winston";
 import { config } from "./config";
+import { EpubDiskCache } from "./epub/cache";
+import { SharpEpubImageProcessor } from "./epub/imageProcessor";
+import { InMemoryEpubJobStore } from "./epub/jobStore";
+import { VolumeEpubService } from "./epub/service";
 
 export const storageService = new StorageService({
 	db: {
@@ -103,3 +107,26 @@ export const linovelibClient = new LinovelibClient(
 	storageService,
 	logger,
 );
+
+export const epubJobStore = new InMemoryEpubJobStore({
+	jobTtlMs: config.epub.jobTtlMs,
+});
+
+export const epubDiskCache = new EpubDiskCache({
+	cacheDir: config.epub.cacheDir,
+	maxCacheBytes: config.epub.maxCacheBytes,
+	logger,
+});
+
+export const epubImageProcessor = new SharpEpubImageProcessor(logger);
+
+export const volumeEpubService = new VolumeEpubService({
+	platform: "linovelib",
+	linovelibClient,
+	storageService,
+	jobStore: epubJobStore,
+	diskCache: epubDiskCache,
+	imageProcessor: epubImageProcessor,
+	logger,
+	maxConcurrentJobs: config.epub.maxConcurrentJobs,
+});

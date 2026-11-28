@@ -47,6 +47,7 @@ async function buildFormattedSpec(): Promise<string> {
 		},
 		storageService: {} as never,
 		linovelibClient: {} as never,
+		volumeEpubService: {} as never,
 	});
 
 	const spec = await generateSpecs(app, {

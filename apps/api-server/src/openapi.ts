@@ -41,6 +41,11 @@ export const openApiDocumentation: GenerateSpecOptions["documentation"] = {
 			description: "哔哩轻小说发现、检索、目录详情、章节正文与封面/插图代理",
 		},
 		{
+			name: "EPUB",
+			description:
+				"按卷 EPUB 异步构建、进度查询、批量状态检测与磁盘缓存流式下载",
+		},
+		{
 			name: "Sync",
 			description: "跨端书架与阅读进度增量同步（LWW 合并）",
 		},

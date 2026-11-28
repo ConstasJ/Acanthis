@@ -5,6 +5,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { describeRoute, generateSpecs } from "hono-openapi";
 import type { Config } from "./config";
+import type { VolumeEpubService } from "./epub/service";
 import { createLinovelibRoutes, type LinovelibRouteDeps } from "./linovelib";
 import { createAuthMiddleware, createLoggerMiddleware } from "./middleware";
 import { openApiDocumentation, scalarConfig } from "./openapi";
@@ -18,6 +19,7 @@ export interface AppDeps {
 	logger: LinovelibRouteDeps["logger"];
 	storageService: StorageService;
 	linovelibClient: LinovelibClient;
+	volumeEpubService: VolumeEpubService;
 }
 
 export function createApp(deps: AppDeps) {
@@ -87,6 +89,7 @@ export function createApp(deps: AppDeps) {
 		createLinovelibRoutes({
 			linovelibClient: deps.linovelibClient,
 			storageService: deps.storageService,
+			volumeEpubService: deps.volumeEpubService,
 			logger: deps.logger,
 			host: deps.config.host,
 		}),

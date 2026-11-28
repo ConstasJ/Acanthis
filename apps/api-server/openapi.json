@@ -25,6 +25,10 @@
 			"description": "哔哩轻小说发现、检索、目录详情、章节正文与封面/插图代理"
 		},
 		{
+			"name": "EPUB",
+			"description": "按卷 EPUB 异步构建、进度查询、批量状态检测与磁盘缓存流式下载"
+		},
+		{
 			"name": "Sync",
 			"description": "跨端书架与阅读进度增量同步（LWW 合并）"
 		}
@@ -807,6 +811,248 @@
 				"required": ["id", "platform", "title"],
 				"additionalProperties": false
 			},
+			"EpubJobStatus": {
+				"type": "string",
+				"enum": [
+					"queued",
+					"fetching_chapters",
+					"fetching_images",
+					"processing_images",
+					"packing",
+					"ready",
+					"failed"
+				],
+				"description": "EPUB 构建任务状态"
+			},
+			"EpubJobArtifact": {
+				"type": "object",
+				"properties": {
+					"contentFingerprint": {
+						"type": "string",
+						"description": "EPUB 内容指纹（16 位十六进制 SHA-256 截断）"
+					},
+					"sizeBytes": {
+						"type": "integer",
+						"minimum": 0,
+						"maximum": 9007199254740991,
+						"description": "EPUB 文件字节大小"
+					},
+					"chapterCount": {
+						"type": "integer",
+						"minimum": 0,
+						"maximum": 9007199254740991,
+						"description": "成功打包的有效章节数量"
+					},
+					"generatedAt": {
+						"type": "string",
+						"format": "date-time",
+						"pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$",
+						"description": "EPUB 生成时间（ISO 8601）"
+					},
+					"downloadPath": {
+						"type": "string",
+						"description": "服务端流式下载相对路径"
+					}
+				},
+				"required": [
+					"contentFingerprint",
+					"sizeBytes",
+					"chapterCount",
+					"generatedAt",
+					"downloadPath"
+				],
+				"additionalProperties": false
+			},
+			"EpubJobRecord": {
+				"type": "object",
+				"properties": {
+					"jobId": {
+						"type": "string",
+						"description": "任务唯一 ID"
+					},
+					"dedupeKey": {
+						"type": "string",
+						"description": "Singleflight 去重键（platform:novelId:volumeId:profile）"
+					},
+					"platform": {
+						"type": "string",
+						"description": "小说源平台 ID"
+					},
+					"novelId": {
+						"type": "string",
+						"description": "小说 ID"
+					},
+					"volumeId": {
+						"type": "string",
+						"description": "分卷 ID"
+					},
+					"profile": {
+						"$ref": "#/components/schemas/EpubProfile"
+					},
+					"triggerSource": {
+						"$ref": "#/components/schemas/EpubTriggerSource"
+					},
+					"status": {
+						"$ref": "#/components/schemas/EpubJobStatus"
+					},
+					"phaseMessage": {
+						"type": "string",
+						"description": "当前阶段的可读进度提示"
+					},
+					"current": {
+						"type": "integer",
+						"minimum": 0,
+						"maximum": 9007199254740991,
+						"description": "当前阶段已完成步数"
+					},
+					"total": {
+						"type": "integer",
+						"minimum": 0,
+						"maximum": 9007199254740991,
+						"description": "当前阶段总步数"
+					},
+					"warnings": {
+						"type": "array",
+						"items": {
+							"type": "string"
+						},
+						"description": "构建过程中产生的非致命告警列表"
+					},
+					"error": {
+						"description": "失败原因（仅 status=failed 时存在）",
+						"type": "string"
+					},
+					"artifact": {
+						"description": "成品元信息（仅 status=ready 时存在）",
+						"$ref": "#/components/schemas/EpubJobArtifact"
+					},
+					"createdAt": {
+						"type": "integer",
+						"minimum": -9007199254740991,
+						"maximum": 9007199254740991,
+						"description": "任务创建时间戳（毫秒）"
+					},
+					"updatedAt": {
+						"type": "integer",
+						"minimum": -9007199254740991,
+						"maximum": 9007199254740991,
+						"description": "任务最后更新时间戳（毫秒）"
+					}
+				},
+				"required": [
+					"jobId",
+					"dedupeKey",
+					"platform",
+					"novelId",
+					"volumeId",
+					"profile",
+					"triggerSource",
+					"status",
+					"phaseMessage",
+					"current",
+					"total",
+					"warnings",
+					"createdAt",
+					"updatedAt"
+				],
+				"additionalProperties": false
+			},
+			"EpubProfile": {
+				"type": "string",
+				"enum": ["original", "eink"],
+				"description": "EPUB 图片处理预设：original 保持原图，eink 启用墨水屏灰度缩放与 mozjpeg 瘦身"
+			},
+			"EpubTriggerSource": {
+				"type": "string",
+				"enum": ["reader", "prefetch"],
+				"description": "任务触发来源：reader 为阅读器实时触发，prefetch 为后台预打包"
+			},
+			"CreateEpubJobBody": {
+				"type": "object",
+				"properties": {
+					"profile": {
+						"default": "original",
+						"$ref": "#/components/schemas/EpubProfile"
+					},
+					"refresh": {
+						"default": false,
+						"description": "是否强制回源刷新小说目录并重新校验内容指纹，默认 false",
+						"type": "boolean"
+					},
+					"triggerSource": {
+						"default": "reader",
+						"$ref": "#/components/schemas/EpubTriggerSource"
+					}
+				}
+			},
+			"VolumeEpubStatusItem": {
+				"type": "object",
+				"properties": {
+					"volumeId": {
+						"type": "string",
+						"description": "分卷 ID"
+					},
+					"cached": {
+						"type": "boolean",
+						"description": "磁盘是否存在可用 .epub 缓存"
+					},
+					"contentFingerprint": {
+						"description": "磁盘缓存内容指纹，未缓存时为 null",
+						"type": ["string", "null"]
+					},
+					"stale": {
+						"type": "boolean",
+						"description": "磁盘缓存与当前 SQLite 章节列表/哈希是否已失配；未缓存时固定为 false"
+					},
+					"chapterCount": {
+						"type": "integer",
+						"minimum": 0,
+						"maximum": 9007199254740991,
+						"description": "SQLite 当前已知的有效章节数"
+					},
+					"sizeBytes": {
+						"anyOf": [
+							{
+								"type": "integer",
+								"minimum": 0,
+								"maximum": 9007199254740991
+							},
+							{
+								"type": "null"
+							}
+						],
+						"description": "缓存文件字节数，未缓存时为 null"
+					},
+					"generatedAt": {
+						"anyOf": [
+							{
+								"type": "string",
+								"format": "date-time",
+								"pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+							},
+							{
+								"type": "null"
+							}
+						],
+						"description": "缓存生成时间（ISO 8601），未缓存时为 null"
+					},
+					"activeJobId": {
+						"description": "当前进行中的构建任务 ID，无活跃任务时为 null",
+						"type": ["string", "null"]
+					}
+				},
+				"required": [
+					"volumeId",
+					"cached",
+					"contentFingerprint",
+					"stale",
+					"chapterCount",
+					"sizeBytes",
+					"generatedAt",
+					"activeJobId"
+				],
+				"additionalProperties": false
+			},
 			"BookshelfItemOutput": {
 				"type": "object",
 				"properties": {
@@ -933,7 +1179,7 @@
 						"description": "产生该进度的客户端设备标识"
 					},
 					"deviceKind": {
-						"description": "产生该进度的客户端设备种类（desktop / mobile / unknown）",
+						"description": "产生该进度的客户端设备种类（desktop / mobile / ereader / unknown）",
 						"$ref": "#/components/schemas/DeviceKind"
 					},
 					"updatedAt": {
@@ -1143,7 +1389,7 @@
 			},
 			"DeviceKind": {
 				"type": "string",
-				"enum": ["desktop", "mobile", "unknown"]
+				"enum": ["desktop", "mobile", "ereader", "unknown"]
 			},
 			"ReadingProgress": {
 				"type": "object",
@@ -1201,7 +1447,7 @@
 						"description": "产生该进度的客户端设备标识"
 					},
 					"deviceKind": {
-						"description": "产生该进度的客户端设备种类（desktop / mobile / unknown）",
+						"description": "产生该进度的客户端设备种类（desktop / mobile / ereader / unknown）",
 						"$ref": "#/components/schemas/DeviceKind"
 					},
 					"updatedAt": {
@@ -2706,7 +2952,7 @@
 				"operationId": "getLinovelibNovel",
 				"tags": ["Linovelib"],
 				"summary": "获取小说详情与分卷章节目录",
-				"description": "获取小说元数据与完整分卷章节目录；已缓存书籍会自动对比上游章节数决定是否刷新（更新失败时优雅降级返回缓存）；支持 style=acanthis|lnreader",
+				"description": "获取小说元数据与完整分卷章节目录；已缓存书籍默认会自动对比上游章节数决定是否刷新（更新失败时优雅降级返回缓存）；传入 cachedOnly=true 时若本地已有完整缓存将跳过上游检查直接返回；支持 style=acanthis|lnreader",
 				"security": [
 					{
 						"bearerAuth": []
@@ -2885,6 +3131,23 @@
 							"enum": ["acanthis", "lnreader"]
 						},
 						"description": "输出数据结构风格：acanthis 为默认完整格式，lnreader 为兼容 LNReader 插件的精简格式"
+					},
+					{
+						"in": "query",
+						"name": "cachedOnly",
+						"schema": {
+							"anyOf": [
+								{
+									"type": "boolean"
+								},
+								{
+									"type": "string",
+									"enum": ["0", "1", "true", "false"]
+								}
+							],
+							"default": false
+						},
+						"description": "是否仅在本地已有完整缓存时跳过上游更新检查直接返回（true/1 时优先直出缓存，本地无缓存仍会回源；默认 false）"
 					}
 				]
 			}
@@ -3389,6 +3652,584 @@
 							"enum": ["acanthis", "lnreader"]
 						},
 						"description": "输出数据结构风格：acanthis 为默认完整格式，lnreader 为兼容 LNReader 插件的精简格式"
+					}
+				]
+			}
+		},
+		"/v1/linovelib/epub/volumes/{novelId}/{volumeId}/jobs": {
+			"post": {
+				"operationId": "createLinovelibVolumeEpubJob",
+				"tags": ["EPUB"],
+				"summary": "创建或复用按卷 EPUB 异步构建任务",
+				"description": "触发指定小说分卷的 EPUB 构建；命中有效磁盘缓存（且未开启 refresh）时直接返回 200 与 status=ready，否则创建或复用同键活跃任务并返回 202",
+				"security": [
+					{
+						"bearerAuth": []
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "命中有效磁盘缓存，直接返回 ready 状态任务记录",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"code": {
+											"type": "number",
+											"const": 0,
+											"description": "状态码，0 表示请求成功"
+										},
+										"message": {
+											"type": "string",
+											"description": "状态消息，成功时为 Success"
+										},
+										"data": {
+											"$ref": "#/components/schemas/EpubJobRecord"
+										}
+									},
+									"required": ["code", "message", "data"],
+									"additionalProperties": false
+								}
+							}
+						}
+					},
+					"202": {
+						"description": "已创建新异步任务或复用在途 Singleflight 任务",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"code": {
+											"type": "number",
+											"const": 0,
+											"description": "状态码，0 表示请求成功"
+										},
+										"message": {
+											"type": "string",
+											"description": "状态消息，成功时为 Success"
+										},
+										"data": {
+											"$ref": "#/components/schemas/EpubJobRecord"
+										}
+									},
+									"required": ["code", "message", "data"],
+									"additionalProperties": false
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "请求参数、路径参数或 JSON 请求体校验失败",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ValidationError"
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "未提供有效的 Bearer Token（当服务端启用 AUTH_TOKEN 时返回，code: 40100）",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ApiError"
+								}
+							}
+						}
+					},
+					"500": {
+						"description": "服务端内部错误（code: 20000）",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ApiError"
+								}
+							}
+						}
+					}
+				},
+				"parameters": [
+					{
+						"in": "path",
+						"name": "novelId",
+						"schema": {
+							"type": "string",
+							"minLength": 1
+						},
+						"required": true,
+						"description": "小说 ID"
+					},
+					{
+						"in": "path",
+						"name": "volumeId",
+						"schema": {
+							"type": "string",
+							"minLength": 1
+						},
+						"required": true,
+						"description": "分卷 ID"
+					}
+				],
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/CreateEpubJobBody"
+							}
+						}
+					}
+				}
+			}
+		},
+		"/v1/linovelib/epub/jobs/{jobId}": {
+			"get": {
+				"operationId": "getLinovelibEpubJob",
+				"tags": ["EPUB"],
+				"summary": "查询 EPUB 构建任务进度与结果",
+				"description": "根据 jobId 查询按卷 EPUB 构建任务的最新阶段、进度计数、警告与成品信息；任务不存在或已过期时返回 404",
+				"security": [
+					{
+						"bearerAuth": []
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "成功返回最新任务状态",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"code": {
+											"type": "number",
+											"const": 0,
+											"description": "状态码，0 表示请求成功"
+										},
+										"message": {
+											"type": "string",
+											"description": "状态消息，成功时为 Success"
+										},
+										"data": {
+											"$ref": "#/components/schemas/EpubJobRecord"
+										}
+									},
+									"required": ["code", "message", "data"],
+									"additionalProperties": false
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "请求参数、路径参数或 JSON 请求体校验失败",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ValidationError"
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "未提供有效的 Bearer Token（当服务端启用 AUTH_TOKEN 时返回，code: 40100）",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ApiError"
+								}
+							}
+						}
+					},
+					"404": {
+						"description": "任务不存在或已过期（code: 10005）",
+						"headers": {
+							"Cache-Control": {
+								"description": "禁止缓存失败响应",
+								"schema": {
+									"type": "string",
+									"examples": ["no-store"]
+								}
+							}
+						},
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ApiError"
+								}
+							}
+						}
+					},
+					"500": {
+						"description": "服务端内部错误（code: 20000）",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ApiError"
+								}
+							}
+						}
+					}
+				},
+				"parameters": [
+					{
+						"in": "path",
+						"name": "jobId",
+						"schema": {
+							"type": "string",
+							"minLength": 1
+						},
+						"required": true,
+						"description": "构建任务 ID"
+					}
+				]
+			}
+		},
+		"/v1/linovelib/epub/novels/{novelId}/status": {
+			"get": {
+				"operationId": "getLinovelibNovelEpubStatus",
+				"tags": ["EPUB"],
+				"summary": "批量查询小说全部分卷的 EPUB 缓存与构建状态",
+				"description": "一次返回该小说所有分卷在指定 profile 下的磁盘缓存命中、内容指纹、是否过期失配（stale）、已知章节数与活跃任务 ID",
+				"security": [
+					{
+						"bearerAuth": []
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "成功返回小说全部分卷 EPUB 状态数组",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"code": {
+											"type": "number",
+											"const": 0,
+											"description": "状态码，0 表示请求成功"
+										},
+										"message": {
+											"type": "string",
+											"description": "状态消息，成功时为 Success"
+										},
+										"data": {
+											"type": "array",
+											"items": {
+												"$ref": "#/components/schemas/VolumeEpubStatusItem"
+											}
+										}
+									},
+									"required": ["code", "message", "data"],
+									"additionalProperties": false
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "请求参数、路径参数或 JSON 请求体校验失败",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ValidationError"
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "未提供有效的 Bearer Token（当服务端启用 AUTH_TOKEN 时返回，code: 40100）",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ApiError"
+								}
+							}
+						}
+					},
+					"500": {
+						"description": "服务端内部错误（code: 20000）",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ApiError"
+								}
+							}
+						}
+					}
+				},
+				"parameters": [
+					{
+						"in": "path",
+						"name": "novelId",
+						"schema": {
+							"type": "string",
+							"minLength": 1
+						},
+						"required": true,
+						"description": "小说 ID"
+					},
+					{
+						"in": "query",
+						"name": "profile",
+						"schema": {
+							"default": "original",
+							"$ref": "#/components/schemas/EpubProfile"
+						},
+						"description": "EPUB 图片处理预设：original 保持原图，eink 启用墨水屏灰度缩放与 mozjpeg 瘦身"
+					}
+				]
+			}
+		},
+		"/v1/linovelib/epub/volumes/{novelId}/{volumeId}/status": {
+			"get": {
+				"operationId": "getLinovelibVolumeEpubStatus",
+				"tags": ["EPUB"],
+				"summary": "查询单卷 EPUB 缓存与构建状态",
+				"description": "查询指定分卷在指定 profile 下的磁盘缓存命中、内容指纹、stale 标记、章节数与活跃任务 ID",
+				"security": [
+					{
+						"bearerAuth": []
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "成功返回单卷 EPUB 状态",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"code": {
+											"type": "number",
+											"const": 0,
+											"description": "状态码，0 表示请求成功"
+										},
+										"message": {
+											"type": "string",
+											"description": "状态消息，成功时为 Success"
+										},
+										"data": {
+											"$ref": "#/components/schemas/VolumeEpubStatusItem"
+										}
+									},
+									"required": ["code", "message", "data"],
+									"additionalProperties": false
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "请求参数、路径参数或 JSON 请求体校验失败",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ValidationError"
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "未提供有效的 Bearer Token（当服务端启用 AUTH_TOKEN 时返回，code: 40100）",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ApiError"
+								}
+							}
+						}
+					},
+					"500": {
+						"description": "服务端内部错误（code: 20000）",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ApiError"
+								}
+							}
+						}
+					}
+				},
+				"parameters": [
+					{
+						"in": "path",
+						"name": "novelId",
+						"schema": {
+							"type": "string",
+							"minLength": 1
+						},
+						"required": true,
+						"description": "小说 ID"
+					},
+					{
+						"in": "path",
+						"name": "volumeId",
+						"schema": {
+							"type": "string",
+							"minLength": 1
+						},
+						"required": true,
+						"description": "分卷 ID"
+					},
+					{
+						"in": "query",
+						"name": "profile",
+						"schema": {
+							"default": "original",
+							"$ref": "#/components/schemas/EpubProfile"
+						},
+						"description": "EPUB 图片处理预设：original 保持原图，eink 启用墨水屏灰度缩放与 mozjpeg 瘦身"
+					}
+				]
+			}
+		},
+		"/v1/linovelib/epub/volumes/{novelId}/{volumeId}/download": {
+			"get": {
+				"operationId": "downloadLinovelibVolumeEpub",
+				"tags": ["EPUB"],
+				"summary": "流式下载已缓存的分卷 EPUB 文件",
+				"description": "校验磁盘缓存存在后流式返回 application/epub+zip，附带 ETag（支持 If-None-Match 返回 304）、Content-Length 与安全转义的 Content-Disposition；缓存不存在返回 404",
+				"security": [
+					{
+						"bearerAuth": []
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "成功返回分卷 EPUB 二进制流",
+						"headers": {
+							"ETag": {
+								"description": "基于内容指纹生成的强实体标签，可用于 If-None-Match 协商缓存",
+								"schema": {
+									"type": "string",
+									"examples": ["\"a1b2c3d4e5f60708\""]
+								}
+							},
+							"Content-Length": {
+								"description": "EPUB 文件字节长度",
+								"schema": {
+									"type": "string",
+									"examples": ["1548290"]
+								}
+							},
+							"Content-Disposition": {
+								"description": "下载文件名提示（含安全转义的 UTF-8 filename*）",
+								"schema": {
+									"type": "string",
+									"examples": [
+										"attachment; filename=\"acanthis-2930-114514-eink.epub\"; filename*=UTF-8''..."
+									]
+								}
+							},
+							"Cache-Control": {
+								"description": "客户端缓存控制策略",
+								"schema": {
+									"type": "string",
+									"examples": ["private, max-age=0, must-revalidate"]
+								}
+							}
+						},
+						"content": {
+							"application/epub+zip": {
+								"schema": {
+									"type": "string",
+									"format": "binary",
+									"description": "按卷打包的 EPUB 二进制文件流"
+								}
+							}
+						}
+					},
+					"304": {
+						"description": "客户端 ETag 未变化，无需重新传输",
+						"headers": {
+							"ETag": {
+								"description": "匹配的强实体标签",
+								"schema": {
+									"type": "string",
+									"examples": ["\"a1b2c3d4e5f60708\""]
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "请求参数、路径参数或 JSON 请求体校验失败",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ValidationError"
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "未提供有效的 Bearer Token（当服务端启用 AUTH_TOKEN 时返回，code: 40100）",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ApiError"
+								}
+							}
+						}
+					},
+					"404": {
+						"description": "分卷 EPUB 磁盘缓存不存在，请先调用 POST .../jobs 构建（code: 10004）",
+						"headers": {
+							"Cache-Control": {
+								"description": "禁止缓存失败响应",
+								"schema": {
+									"type": "string",
+									"examples": ["no-store"]
+								}
+							}
+						},
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ApiError"
+								}
+							}
+						}
+					},
+					"500": {
+						"description": "服务端内部错误（code: 20000）",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ApiError"
+								}
+							}
+						}
+					}
+				},
+				"parameters": [
+					{
+						"in": "path",
+						"name": "novelId",
+						"schema": {
+							"type": "string",
+							"minLength": 1
+						},
+						"required": true,
+						"description": "小说 ID"
+					},
+					{
+						"in": "path",
+						"name": "volumeId",
+						"schema": {
+							"type": "string",
+							"minLength": 1
+						},
+						"required": true,
+						"description": "分卷 ID"
+					},
+					{
+						"in": "query",
+						"name": "profile",
+						"schema": {
+							"default": "original",
+							"$ref": "#/components/schemas/EpubProfile"
+						},
+						"description": "EPUB 图片处理预设：original 保持原图，eink 启用墨水屏灰度缩放与 mozjpeg 瘦身"
 					}
 				]
 			}

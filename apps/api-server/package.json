@@ -24,6 +24,7 @@
 	},
 	"dependencies": {
 		"@acanthis-dec/core": "workspace:*",
+		"@acanthis-dec/epub": "workspace:*",
 		"@acanthis-dec/linovelib": "workspace:*",
 		"@acanthis-dec/storage": "workspace:*",
 		"@constasj/impers": "0.0.8",
@@ -37,6 +38,7 @@
 		"isolated-vm": "^7.0.2",
 		"js-yaml": "^5.5.0",
 		"koffi": "3.3.8",
+		"sharp": "^0.35.5",
 		"winston": "^3.19.0",
 		"zod": "^4.6.7"
 	},

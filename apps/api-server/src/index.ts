@@ -1,13 +1,19 @@
 import { serve } from "@hono/node-server";
 import { createApp } from "./app";
 import { config } from "./config";
-import { linovelibClient, logger, storageService } from "./services";
+import {
+	linovelibClient,
+	logger,
+	storageService,
+	volumeEpubService,
+} from "./services";
 
 const app = createApp({
 	config,
 	logger,
 	storageService,
 	linovelibClient,
+	volumeEpubService,
 });
 
 const server = serve(

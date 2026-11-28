@@ -60,7 +60,7 @@ export const bookshelfItemSchema = z
 	.meta({ id: "BookshelfItem" }) satisfies z.ZodType<BookshelfItem>;
 
 export const deviceKindSchema = z
-	.enum(["desktop", "mobile", "unknown"])
+	.enum(["desktop", "mobile", "ereader", "unknown"])
 	.meta({ id: "DeviceKind" }) satisfies z.ZodType<DeviceKind>;
 
 export const readingProgressSchema = z
@@ -84,7 +84,9 @@ export const readingProgressSchema = z
 		deviceLabel: z.string().describe("产生该进度的客户端设备标识"),
 		deviceKind: deviceKindSchema
 			.optional()
-			.describe("产生该进度的客户端设备种类（desktop / mobile / unknown）"),
+			.describe(
+				"产生该进度的客户端设备种类（desktop / mobile / ereader / unknown）",
+			),
 		updatedAt: z.number().finite().describe("进度更新时间戳（毫秒）"),
 		historyHiddenAt: z
 			.number()

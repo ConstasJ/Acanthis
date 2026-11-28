@@ -84,6 +84,9 @@ export const novelParamSchema = z.object({
 
 export const novelStyleQuerySchema = z.object({
 	style: outputStyleSchema.optional(),
+	cachedOnly: queryBooleanSchema.describe(
+		"是否仅在本地已有完整缓存时跳过上游更新检查直接返回（true/1 时优先直出缓存，本地无缓存仍会回源；默认 false）",
+	),
 });
 
 export const volumeParamSchema = z.object({

@@ -27,6 +27,8 @@ import { type Context, Hono } from "hono";
 import { describeRoute, validator } from "hono-openapi";
 import z from "zod";
 import { MemoryTtlCache } from "./cache";
+import { createEpubRoutes } from "./epub";
+import type { VolumeEpubService } from "./epub/service";
 import {
 	apiErrorSchema,
 	bearerSecurity,
@@ -71,6 +73,7 @@ import {
 export interface LinovelibRouteDeps {
 	linovelibClient: LinovelibClient;
 	storageService: StorageService;
+	volumeEpubService: VolumeEpubService;
 	logger: {
 		debug: (message: string) => unknown;
 		info: (message: string) => unknown;
@@ -823,7 +826,7 @@ export function createLinovelibRoutes(deps: LinovelibRouteDeps) {
 			operationId: "getLinovelibNovel",
 			summary: "获取小说详情与分卷章节目录",
 			description:
-				"获取小说元数据与完整分卷章节目录；已缓存书籍会自动对比上游章节数决定是否刷新（更新失败时优雅降级返回缓存）；支持 style=acanthis|lnreader",
+				"获取小说元数据与完整分卷章节目录；已缓存书籍默认会自动对比上游章节数决定是否刷新（更新失败时优雅降级返回缓存）；传入 cachedOnly=true 时若本地已有完整缓存将跳过上游检查直接返回；支持 style=acanthis|lnreader",
 			security: bearerSecurity,
 			responses: {
 				200: jsonResponse(novelDetailResponseSchema, "成功返回小说详情与目录"),
@@ -844,7 +847,7 @@ export function createLinovelibRoutes(deps: LinovelibRouteDeps) {
 				const startAt = Date.now();
 				const host = resolveHost(c, deps.host);
 				const { novelId } = c.req.valid("param");
-				const { style } = c.req.valid("query");
+				const { style, cachedOnly } = c.req.valid("query");
 				const cachedNovel = await storageService.getNovelCache(
 					"linovelib",
 					novelId,
@@ -868,6 +871,12 @@ export function createLinovelibRoutes(deps: LinovelibRouteDeps) {
 					});
 				};
 				if (validCachedNovel) {
+					if (cachedOnly) {
+						logger.debug(
+							`[Novel] cachedOnly=true 命中本地小说缓存，跳过上游更新检查: novelId=${novelId} duration=${Date.now() - startAt}ms`,
+						);
+						return respondWithNovel(validCachedNovel);
+					}
 					let updateNeeded = false;
 					try {
 						updateNeeded = await isUpdateNeeded(
@@ -1222,6 +1231,14 @@ export function createLinovelibRoutes(deps: LinovelibRouteDeps) {
 				return handleLinovelibError(c, logger, error);
 			}
 		},
+	);
+
+	app.route(
+		"/epub",
+		createEpubRoutes({
+			volumeEpubService: deps.volumeEpubService,
+			logger,
+		}),
 	);
 
 	return app;
