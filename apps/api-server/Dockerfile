@@ -34,6 +34,7 @@ COPY tools/config-tsdown ./tools/config-tsdown
 COPY packages/core ./packages/core
 COPY packages/deobfuscator ./packages/deobfuscator
 COPY packages/browser-fetch ./packages/browser-fetch
+COPY packages/epub ./packages/epub
 COPY packages/storage ./packages/storage
 COPY packages/linovelib ./packages/linovelib
 COPY apps/api-server ./apps/api-server

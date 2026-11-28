@@ -13,7 +13,6 @@ const ROOT_MANIFESTS = [
 const EXTRA_WORKSPACE_MANIFESTS = [
 	"apps/cli/package.json",
 	"apps/web/package.json",
-	"packages/epub/package.json",
 ];
 
 const SOURCE_DIRS = [
@@ -22,6 +21,7 @@ const SOURCE_DIRS = [
 	"packages/core",
 	"packages/deobfuscator",
 	"packages/browser-fetch",
+	"packages/epub",
 	"packages/storage",
 	"packages/linovelib",
 	"apps/api-server",

@@ -65,6 +65,8 @@ jobs:
               - '!packages/browser-fetch/**/*.md'
               - 'packages/deobfuscator/**'
               - '!packages/deobfuscator/**/*.md'
+              - 'packages/epub/**'
+              - '!packages/epub/**/*.md'
               - 'tools/config-typescript/**'
               - 'package.json'
               - 'pnpm-lock.yaml'
