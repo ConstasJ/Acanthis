@@ -1,5 +1,13 @@
 # @acanthis-dec/linovelib
 
+## 1.4.7
+
+### Patch Changes
+
+- Updated dependencies [d93ed34]
+  - @acanthis-dec/core@1.5.0
+  - @acanthis-dec/storage@1.3.0
+
 ## 1.4.6
 
 ### Patch Changes
