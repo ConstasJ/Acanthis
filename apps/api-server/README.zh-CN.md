@@ -62,10 +62,15 @@ curl "http://localhost:5301/v1/linovelib/chapter/example-chapter-id"
 | 方法  | 路径                      | 说明                                                |
 | ----- | ------------------------- | --------------------------------------------------- |
 | `GET` | `/chapter/:chapterId`     | 从缓存或配置适配器返回章节正文。                    |
-| `GET` | `/novel/:novelId`         | 返回统一后的作品元数据；支持可选 `style` 查询参数。 |
-| `GET` | `/cover/novel/:novelId`   | 返回作品封面二进制数据。                            |
-| `GET` | `/cover/volume/:volumeId` | 返回分卷封面二进制数据。                            |
-| `GET` | `/search?keyword=<text>`  | 搜索统一元数据并缓存结果。                          |
+| `GET`  | `/novel/:novelId`                           | 返回统一后的作品元数据；支持可选 `style` 与 `cachedOnly` 查询参数。          |
+| `GET`  | `/cover/novel/:novelId`                     | 返回作品封面二进制数据。                                                     |
+| `GET`  | `/cover/volume/:volumeId`                   | 返回分卷封面二进制数据。                                                     |
+| `GET`  | `/search?keyword=<text>`                    | 搜索统一元数据并缓存结果。                                                   |
+| `POST` | `/epub/volumes/:novelId/:volumeId/jobs`     | 创建或复用按卷 EPUB 异步构建任务（支持 `original` / `eink` 图片预设）。      |
+| `GET`  | `/epub/jobs/:jobId`                         | 查询按卷 EPUB 构建任务的实时进度与成品信息。                                 |
+| `GET`  | `/epub/novels/:novelId/status`              | 批量查询整本小说各分卷的 EPUB 缓存、指纹、过期与活跃任务状态。               |
+| `GET`  | `/epub/volumes/:novelId/:volumeId/status`   | 查询单卷 EPUB 缓存与任务状态。                                               |
+| `GET`  | `/epub/volumes/:novelId/:volumeId/download` | 流式下载已缓存的分卷 EPUB，支持 `ETag` / `If-None-Match`（`304`）协商缓存。  |
 
 成功的 JSON 路由返回：
 
@@ -77,4 +82,4 @@ curl "http://localhost:5301/v1/linovelib/chapter/example-chapter-id"
 }
 ```
 
-配置由 `src/config.ts` 中的 `ConfigSchema` 定义。常用环境变量包括 `HOST`、`LISTEN_HOST`、`PORT`、`DATA_FILE_PATH`、`DATA_DB_PATH`、`DATA_MIGRATIONS_PATH`、`IMPERSONATE_ENABLED`、`IMPERSONATE_PROFILE`、`FLARESOLVERR_ENABLED`、`FLARESOLVERR_HOST`、`FLARESOLVERR_TIMEOUT_MS`、`COOKIE_TYPE`、`COOKIE_PATH`、`PROXY_URL`、`LINOVELIB_USERNAME` 和 `LINOVELIB_PASSWORD`。
+配置由 `src/config.ts` 中的 `ConfigSchema` 定义。常用环境变量包括 `HOST`、`LISTEN_HOST`、`PORT`、`DATA_FILE_PATH`、`DATA_DB_PATH`、`DATA_MIGRATIONS_PATH`、`IMPERSONATE_ENABLED`、`IMPERSONATE_PROFILE`、`FLARESOLVERR_ENABLED`、`FLARESOLVERR_HOST`、`FLARESOLVERR_TIMEOUT_MS`、`COOKIE_TYPE`、`COOKIE_PATH`、`PROXY_URL`、`LINOVELIB_USERNAME`、`LINOVELIB_PASSWORD`、`EPUB_CACHE_DIR`、`EPUB_MAX_CACHE_BYTES`、`EPUB_JOB_TTL_MS` 和 `EPUB_MAX_CONCURRENT_JOBS`。

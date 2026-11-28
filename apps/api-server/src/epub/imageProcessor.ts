@@ -44,6 +44,7 @@ export class SharpEpubImageProcessor implements EpubImageProcessor {
 					fit: "inside",
 				})
 				.grayscale()
+				.toColourspace("b-w")
 				.jpeg({
 					quality: EINK_JPEG_QUALITY,
 					mozjpeg: true,

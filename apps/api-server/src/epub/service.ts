@@ -656,7 +656,11 @@ export class VolumeEpubService {
 				total: totalChapterEntries,
 			});
 
+			const validChapters = volume.chapters.filter(
+				(chapter) => !isUnresolvedChapterId(chapter.id),
+			);
 			const resolvedChapters: ResolvedChapter[] = [];
+			const resolvedContentHashById = new Map<string, string>();
 			const illustrationUrlSet = new Set<string>();
 			let processedChapters = 0;
 
@@ -716,11 +720,13 @@ export class VolumeEpubService {
 							rawHtml,
 							(url) => url,
 						);
+						const resolvedHash = contentHash ?? sha256Hex16(rawHtml);
+						resolvedContentHashById.set(chapter.id, resolvedHash);
 						resolvedChapters.push({
 							id: chapter.id,
 							title: chapter.title,
 							html: normalizedHtml,
-							contentHash: contentHash ?? sha256Hex16(rawHtml),
+							contentHash: resolvedHash,
 						});
 					}
 				} catch (error) {
@@ -835,9 +841,9 @@ export class VolumeEpubService {
 				}
 			}
 
-			const chapterEntries = resolvedChapters.map((chapter) => ({
+			const chapterEntries = validChapters.map((chapter) => ({
 				id: chapter.id,
-				contentHash: chapter.contentHash,
+				contentHash: resolvedContentHashById.get(chapter.id) ?? "",
 			}));
 			const coverHash = rawCover ? sha256Hex16(rawCover.data) : "none";
 			const chapterSignature = computeVolumeChapterSignature({
@@ -959,7 +965,7 @@ export class VolumeEpubService {
 
 			const savedMeta = await this.diskCache.writeArtifact(key, epubBytes, {
 				contentFingerprint,
-				chapterCount: resolvedChapters.length,
+				chapterCount: validChapters.length,
 				generatedAt,
 				warnings,
 				novelTitle: novel.title,

@@ -62,10 +62,15 @@ All routes are mounted under `/v1/linovelib`.
 | Method | Path                      | Description                                                        |
 | ------ | ------------------------- | ------------------------------------------------------------------ |
 | `GET`  | `/chapter/:chapterId`     | Returns chapter content from cache or the configured adapter.      |
-| `GET`  | `/novel/:novelId`         | Returns normalized novel metadata; accepts optional `style` query. |
-| `GET`  | `/cover/novel/:novelId`   | Returns novel cover binary data.                                   |
-| `GET`  | `/cover/volume/:volumeId` | Returns volume cover binary data.                                  |
-| `GET`  | `/search?keyword=<text>`  | Searches normalized metadata and caches results.                   |
+| `GET`  | `/novel/:novelId`                                 | Returns normalized novel metadata; accepts optional `style` and `cachedOnly` queries. |
+| `GET`  | `/cover/novel/:novelId`                           | Returns novel cover binary data.                                                      |
+| `GET`  | `/cover/volume/:volumeId`                         | Returns volume cover binary data.                                                     |
+| `GET`  | `/search?keyword=<text>`                          | Searches normalized metadata and caches results.                                      |
+| `POST` | `/epub/volumes/:novelId/:volumeId/jobs`           | Creates or reuses an async per-volume EPUB build job (`original` / `eink`).           |
+| `GET`  | `/epub/jobs/:jobId`                               | Returns progress and artifact metadata for an EPUB build job.                         |
+| `GET`  | `/epub/novels/:novelId/status`                    | Returns batch EPUB cache and build status for all volumes of a novel.                 |
+| `GET`  | `/epub/volumes/:novelId/:volumeId/status`         | Returns EPUB cache and build status for a single volume.                              |
+| `GET`  | `/epub/volumes/:novelId/:volumeId/download`       | Streams a cached volume EPUB with `ETag` / `If-None-Match` (`304`) support.           |
 
 Successful JSON routes use:
 
@@ -77,4 +82,4 @@ Successful JSON routes use:
 }
 ```
 
-Configuration is defined by `ConfigSchema` in `src/config.ts`. Important environment variables include `HOST`, `LISTEN_HOST`, `PORT`, `DATA_FILE_PATH`, `DATA_DB_PATH`, `DATA_MIGRATIONS_PATH`, `IMPERSONATE_ENABLED`, `IMPERSONATE_PROFILE`, `FLARESOLVERR_ENABLED`, `FLARESOLVERR_HOST`, `FLARESOLVERR_TIMEOUT_MS`, `COOKIE_TYPE`, `COOKIE_PATH`, `PROXY_URL`, `LINOVELIB_USERNAME`, and `LINOVELIB_PASSWORD`.
+Configuration is defined by `ConfigSchema` in `src/config.ts`. Important environment variables include `HOST`, `LISTEN_HOST`, `PORT`, `DATA_FILE_PATH`, `DATA_DB_PATH`, `DATA_MIGRATIONS_PATH`, `IMPERSONATE_ENABLED`, `IMPERSONATE_PROFILE`, `FLARESOLVERR_ENABLED`, `FLARESOLVERR_HOST`, `FLARESOLVERR_TIMEOUT_MS`, `COOKIE_TYPE`, `COOKIE_PATH`, `PROXY_URL`, `LINOVELIB_USERNAME`, `LINOVELIB_PASSWORD`, `EPUB_CACHE_DIR`, `EPUB_MAX_CACHE_BYTES`, `EPUB_JOB_TTL_MS`, and `EPUB_MAX_CONCURRENT_JOBS`.

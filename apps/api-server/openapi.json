@@ -841,7 +841,7 @@
 						"type": "integer",
 						"minimum": 0,
 						"maximum": 9007199254740991,
-						"description": "成功打包的有效章节数量"
+						"description": "分卷内已解析的有效章节数（与状态接口 chapterCount 口径一致）"
 					},
 					"generatedAt": {
 						"type": "string",

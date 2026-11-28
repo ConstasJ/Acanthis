@@ -68,7 +68,11 @@ export const epubJobArtifactSchema = z
 			.string()
 			.describe("EPUB 内容指纹（16 位十六进制 SHA-256 截断）"),
 		sizeBytes: z.number().int().min(0).describe("EPUB 文件字节大小"),
-		chapterCount: z.number().int().min(0).describe("成功打包的有效章节数量"),
+		chapterCount: z
+			.number()
+			.int()
+			.min(0)
+			.describe("分卷内已解析的有效章节数（与状态接口 chapterCount 口径一致）"),
 		generatedAt: z.iso.datetime().describe("EPUB 生成时间（ISO 8601）"),
 		downloadPath: z.string().describe("服务端流式下载相对路径"),
 	})
